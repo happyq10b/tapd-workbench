@@ -45,25 +45,26 @@ echo ""
 # 关键提示：本脚本是"本地 -> 服务器"单向覆盖。若你直接在服务器上改过代码，
 # 必须先跑 ./sync.sh --pull 把改动拉回本地，否则会被本地版本静默覆盖。
 #
-# 判定策略：按行数差异分级
-#   - 差异 <= DIFF_TOLERANCE 行（默认 5）：视为本地微调，提示后自动继续
-#   - 差异 >  DIFF_TOLERANCE 行：视为服务器上有实质改动，强制确认
+# 判定策略：按行数差的方向判断
+#   - 服务器 <= 本地：服务器没有"本地没有的内容"，是本地更新 → 正常同步（可提示）
+#   - 服务器 >  本地：服务器有额外内容，可能是直接在服务器上改的 → 强制确认
+# 这样既不会漏报"服务器直改"，又不会在正常开发时频繁拦截。
 if [ "$MODE" != "--pull" ]; then
   REMOTE_LINES=$(ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" \
       "wc -l < $REMOTE_DIR/app/app.py 2>/dev/null | tr -d ' '" 2>/dev/null || echo "")
   LOCAL_LINES=$(wc -l < "$LOCAL_DIR/app/app.py" 2>/dev/null | tr -d ' ' || echo "")
   if [ -n "$REMOTE_LINES" ] && [ -n "$LOCAL_LINES" ]; then
-    DIFF=$(( REMOTE_LINES > LOCAL_LINES ? REMOTE_LINES - LOCAL_LINES : LOCAL_LINES - REMOTE_LINES ))
-    if [ "$DIFF" -gt 0 ] && [ "$DIFF" -le "$DIFF_TOLERANCE" ]; then
-      echo "${c_y}ℹ 服务器与本地有微小差异（${DIFF} 行），按本地版本同步${c_0}"
-      echo ""
-    elif [ "$DIFF" -gt "$DIFF_TOLERANCE" ]; then
-      echo "${c_y}⚠ 警告：服务器代码与本地差异较大（${DIFF} 行）${c_0}"
+    EXTRA=$(( REMOTE_LINES - LOCAL_LINES ))
+    if [ "$EXTRA" -gt "$DIFF_TOLERANCE" ]; then
+      echo "${c_y}⚠ 警告：服务器代码比本地多 ${EXTRA} 行${c_0}"
       echo "${c_y}  如果你在服务器上改过，请先执行 ./sync.sh --pull 拉回本地${c_0}"
       echo "${c_y}  否则本次同步会用本地版本覆盖服务器改动${c_0}"
       echo ""
       read -p "  仍要继续覆盖？(yes/no) " ans || ans=""
       [ "$ans" = "yes" ] || { echo "已取消"; exit 1; }
+      echo ""
+    elif [ "$EXTRA" -gt 0 ]; then
+      echo "${c_y}ℹ 服务器比本地多 ${EXTRA} 行（微小差异），按本地版本同步${c_0}"
       echo ""
     fi
   fi
