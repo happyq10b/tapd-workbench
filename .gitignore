@@ -1,0 +1,32 @@
+# ── 密钥与凭据（绝对不能进 git）────────────────────────
+ops/secrets/
+*.pem
+*.key
+!ops/*.key
+id_rsa*
+id_ed25519*
+
+# ── Python ────────────────────────────────────────────
+ops/.localvenv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ── 数据库（真实数据在服务器上，本地仅副本）──────────
+*.db
+*.db-wal
+*.db-shm
+
+# ── 归档（体积大，用文件路径引用，不进版本库）────────
+archive/packages/
+archive/backup/
+
+# ── 系统与编辑器 ─────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
