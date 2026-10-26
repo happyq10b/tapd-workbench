@@ -141,8 +141,9 @@ fi
 case "$MODE" in
   --dev)
     echo "${c_g}[3/3]${c_0} 切到开发模式（热重载）"
-    ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "systemctl enable --now tapd-dev; sleep 4; systemctl is-active tapd-dev; tail -5 /var/log/tapd-dev.log"
+    ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "systemctl enable --now tapd-dev; sleep 1; systemctl restart tapd-dev; sleep 4; systemctl is-active tapd-dev; tail -5 /var/log/tapd-dev.log"
     echo "    跟踪日志: ssh -i $KEY $SSH_USER@$SERVER_IP 'tail -f /var/log/tapd-dev.log'"
+    echo "    改代码后重跑 ./sync.sh --dev 即可生效（dev 模式不用 --reload，改为显式重启）"
     ;;
   --prod)
     echo "${c_g}[3/3]${c_0} 切回生产模式"

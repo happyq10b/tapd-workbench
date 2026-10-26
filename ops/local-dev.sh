@@ -46,7 +46,12 @@ fi
 cd "$SRC_DIR"
 export APP_SECRET="local-dev-secret-not-for-production"
 export PYTHONUTF8=1
-echo "${c_g}==> 启动（热重载，Ctrl+C 停止）${c_0}"
+export PORT
+echo "${c_g}==> 启动（自动重启模式，Ctrl+C 停止）${c_0}"
 echo "    访问: http://127.0.0.1:${PORT}/"
+echo "    改代码会自动重启服务"
 echo ""
-exec "$VENV_DIR/Scripts/python.exe" -m uvicorn app.app:app --host 127.0.0.1 --port "$PORT" --reload
+# 注意：这里不用 uvicorn --reload —— 它的 reloader 在 Windows 上第一次触发后
+# 会卡死（日志停在 Reloading...，服务还在响但代码永不更新）。
+# 改用 dev-watchdog.py 轮询文件指纹 + 优雅重启，行为可控。
+exec "$VENV_DIR/Scripts/python.exe" "$SCRIPT_DIR/dev-watchdog.py"

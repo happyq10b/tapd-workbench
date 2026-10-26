@@ -23,7 +23,9 @@ ${c_b}TAPD Workbench 运维工具${c_0}
   ${c_g}backup${c_0}            立即备份数据库
   ${c_g}backups${c_0}           列出历史备份
   ${c_g}restore${c_0} <文件>    从备份恢复（会停服）
-  ${c_g}dev${c_0}               前台开发模式（热重载，日志直接看）
+  ${c_g}dev${c_0}               切到开发模式（服务重启式）
+  ${c_g}devrestart${c_0}        重启开发服务（代码改动后执行）
+  ${c_g}devlog${c_0}            看开发模式日志
   ${c_g}stopdev${c_0}           停掉开发模式，让生产服务接管 8000
   ${c_g}shell${c_0}             进项目目录开交互 shell
   ${c_g}version${c_0}           看当前部署版本信息
@@ -87,12 +89,22 @@ PYEOF
     ;;
 
   dev)
-    echo "${c_y}切到开发模式（热重载）${c_0}"
+    echo "${c_y}切到开发模式${c_0}"
     systemctl enable --now tapd-dev
+    sleep 1
+    systemctl restart tapd-dev
     sleep 3
     systemctl is-active tapd-dev
     echo "日志: tail -f /var/log/tapd-dev.log"
-    echo "${c_y}改完代码自动重载，无需手动重启${c_0}"
+    echo "${c_y}改完代码后执行 tapd devrestart 生效${c_0}"
+    ;;
+
+  devrestart)
+    echo "${c_y}重启开发服务（应用代码改动）${c_0}"
+    systemctl restart tapd-dev
+    sleep 3
+    systemctl is-active tapd-dev
+    tail -3 /var/log/tapd-dev.log
     ;;
 
   stopdev)
