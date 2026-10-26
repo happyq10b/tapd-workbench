@@ -6,6 +6,9 @@ ops/secrets/
 id_rsa*
 id_ed25519*
 
+# ── 验证凭证（本地生成，不入库）──
+ops/.verify-stamp
+
 # ── Python ────────────────────────────────────────────
 ops/.localvenv/
 __pycache__/
