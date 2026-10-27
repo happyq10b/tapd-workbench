@@ -9,6 +9,7 @@
 ```
 .
 ├── 同步开关.bat            ← 双击触发「验证 + 同步」的开关
+├── 服务开关.bat            ← 双击切换两个环境的服务启停（本地 / 服务器）
 ├── src/                  ← 唯一的代码编辑区（git 仓库）
 │   ├── app/                app.py（1569行主程序）+ init_db.py
 │   ├── static/             index.html（2744行单页）+ login.html
@@ -72,7 +73,7 @@ python verify.py        # 阶段一：本地验证（必做）
 
 ```bash
 # 1. 本地起服务改代码（端口 8100，自动重启，不碰服务器）
-cd ops && ./local-dev.sh
+cd ops && ./local-dev.sh start     # 后台启动；stop / restart / status 同理
 
 # 2. 验证后同步到服务器
 cd ops && python verify.py && ./sync.sh --dev
@@ -80,6 +81,13 @@ cd ops && python verify.py && ./sync.sh --dev
 # 3. 登录服务器
 ssh -F ops/secrets/sshcfg tapd
 ```
+
+**两个根目录开关**（双击即用）：
+
+| 文件 | 作用 |
+|---|---|
+| `同步开关.bat` | 本地验证 → 手动同步到服务器 |
+| `服务开关.bat` | 本地 / 服务器 两个环境的启停、状态、模式切换 |
 
 更多说明见 **[docs/调试指南.md](docs/调试指南.md)**。
 
