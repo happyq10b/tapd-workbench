@@ -33,3 +33,7 @@ Thumbs.db
 .idea/
 *.swp
 *~
+
+# ── 本地服务运行时产物（不入库）──
+ops/.localdev.pid
+ops/.localdev.log

@@ -3,6 +3,13 @@
 #  本地起一个 TAPD 工作台（完全脱离服务器）
 #  用途: 改前端/后端逻辑时，本地调完再推服务器
 #  数据库: 用本地 app.db（从服务器拉一份），不碰生产数据
+#
+#  用法:
+#     ./local-dev.sh            前台运行（Ctrl+C 停止）
+#     ./local-dev.sh start      后台启动（脱离终端，推荐）
+#     ./local-dev.sh stop       停止
+#     ./local-dev.sh restart    重启
+#     ./local-dev.sh status     查看状态
 # ============================================================
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,6 +23,17 @@ c_g=$'\033[32m'; c_y=$'\033[33m'; c_b=$'\033[36m'; c_0=$'\033[0m'
 if [ ! -d "$SRC_DIR" ]; then
   echo "源码目录不存在: $SRC_DIR"; exit 1
 fi
+
+# ============================================================
+#  子命令分支：交给 local-ctl.py 管理（Windows 进程管理更可靠）
+# ============================================================
+case "${1:-run}" in
+  start|stop|restart|status)
+    exec "$VENV_DIR/Scripts/python.exe" "$SCRIPT_DIR/local-ctl.py" "$1"
+    ;;
+  run) ;;   # 继续走下面的前台流程
+  *) echo "用法: ./local-dev.sh [start|stop|restart|status|run]"; exit 2 ;;
+esac
 
 echo "${c_b}==> 本地开发环境${c_0}"
 echo "    源码: $SRC_DIR"
