@@ -141,13 +141,23 @@ def check_dependencies():
                     pkgs.append(name)
     if not pkgs:
         return step(3, "依赖完整性", False, "requirements.txt 为空")
+    # 包名 != 模块名的映射（pip 名 → import 名）
+    MOD_ALIAS = {
+        "python-multipart": "multipart",   # FastAPI 解析 multipart 表单需要
+        "pyyaml": "yaml",
+        "pillow": "PIL",
+        "beautifulsoup4": "bs4",
+        "python-dateutil": "dateutil",
+        "protobuf": "google.protobuf",
+    }
+    mods = [MOD_ALIAS.get(p, p.replace("-", "_")) for p in pkgs]
     code = "import importlib,sys\n" \
            "mods=%r\n" \
            "bad=[]\n" \
            "for m in mods:\n" \
            "    try: importlib.import_module(m)\n" \
            "    except Exception as e: bad.append(m+':'+str(e)[:60])\n" \
-           "print('\\n'.join(bad) if bad else 'ALL_OK')\n" % (pkgs,)
+           "print('\\n'.join(bad) if bad else 'ALL_OK')\n" % (mods,)
     rc, out = run([PY, "-c", code])
     ok = rc == 0 and "ALL_OK" in out
     return step(3, "依赖完整性", ok, f"{len(pkgs)} 个包" if ok else out.strip()[:200])
