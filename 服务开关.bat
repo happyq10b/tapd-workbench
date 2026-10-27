@@ -85,20 +85,26 @@ echo.
 echo   --- SERVER (https://123.207.252.195) ---
 echo   [6] Status     查看服务器服务状态
 echo   [7] Restart    重启生产服务
-echo   [8] To Dev     切到开发模式（占用 8000）
-echo   [9] To Prod    切回生产模式
-echo   [10] Logs      查看服务器日志
+rem   [8] To Dev     切到开发模式（占用 8000）  <- 已隐藏，日常用同步开关
+rem   [9] To Prod    切回生产模式                 <- 已隐藏，日常用同步开关
+echo   [8] Logs      查看服务器日志
 echo.
-echo   [0] Quit
+echo   备注: [8] 切开发 / [9] 切生产 已从菜单隐藏（保留代码与备查注释）。
+echo         日常切环境请用根目录「同步开关.bat」：选项 1 = 开发，选项 2 = 生产。
+echo         如需手动切：cd ops ^&^& python srv-ctl.py dev   （切回用 stopdev）
+echo.
+echo   [Q] Quit
 echo ================================================================
 echo.
-choice /c 1234567890 /n /m "   Select: "
+rem 选项里刻意不含 8/9：这两个功能已从菜单隐藏，仅保留代码供直接调用
+rem 退出用 Q 而不是 0 —— 数字 0 在 choice 里会与最后一个数字键的 errorlevel 撞车
+choice /c 12345678Q /n /m "   Select: "
 set "PICK=%ERRORLEVEL%"
 
 rem 'choice' returns 1..10 for a valid pick; 0 for key 0.
 rem On EOF / aborted input it returns 1 as well, so validate the value
 rem explicitly instead of relying on 'if errorlevel N' ranges.
-if "%PICK%"=="0" goto :QUIT
+if "%PICK%"=="9" goto :QUIT
 if "%PICK%"=="1" goto :LOC_START
 if "%PICK%"=="2" goto :LOC_STOP
 if "%PICK%"=="3" goto :LOC_RESTART
@@ -106,9 +112,7 @@ if "%PICK%"=="4" goto :LOC_STATUS
 if "%PICK%"=="5" goto :OPEN_BROWSER
 if "%PICK%"=="6" goto :SRV_STATUS
 if "%PICK%"=="7" goto :SRV_RESTART
-if "%PICK%"=="8" goto :SRV_DEV
-if "%PICK%"=="9" goto :SRV_PROD
-if "%PICK%"=="10" goto :SRV_LOGS
+if "%PICK%"=="8" goto :SRV_LOGS
 echo   Invalid selection.
 goto :MENU
 
@@ -156,6 +160,10 @@ echo   Restarting production service on server ...
 call :SRV restart
 goto :AFTER
 
+rem ---- 以下两个分支已从菜单隐藏（编号 8/9 不在 choice 选项里，无法从菜单触发）----
+rem 保留是为了代码完整与备查；日常切环境用「同步开关.bat」，或直接：
+rem   cd ops && python srv-ctl.py dev      切开发模式
+rem   cd ops && python srv-ctl.py stopdev  切回生产模式
 :SRV_DEV
 echo.
 echo   Switching server to DEV mode ...
@@ -170,7 +178,7 @@ goto :AFTER
 
 :SRV_LOGS
 echo.
-call :SRV logs 60
+call :SRV logs 60   ← 用带行数的 logs（不带行数是 tail -f，会一直挂着不返回）
 goto :AFTER
 
 rem ---------- run a command on the server via SSH ----------
@@ -180,12 +188,15 @@ rem The actual call is delegated to ops/srv-ctl.py: doing the path building
 rem and quote nesting inside a .bat is fragile (backslash-escaped quotes,
 rem spaces inside variables), so Python handles it instead.
 rem Usage: call :SRV <sub-command> [args...]
+rem NOTE: use %1 %2 ... explicitly instead of %* - 'call' re-parses %* and
+rem can split a multi-word argument (e.g. "logs 60") into separate tokens.
 :SRV
+set "SRV_ARGS=%*"
 if defined ICONV (
-  "%VENV_PY%" "%SRV_CTL%" %* > "%LOGDIR%\srv.out" 2>&1
+  "%VENV_PY%" "%SRV_CTL%" %SRV_ARGS% > "%LOGDIR%\srv.out" 2>&1
   call :Drain "%LOGDIR%\srv.out"
 ) else (
-  "%VENV_PY%" "%SRV_CTL%" %*
+  "%VENV_PY%" "%SRV_CTL%" %SRV_ARGS%
 )
 goto :eof
 

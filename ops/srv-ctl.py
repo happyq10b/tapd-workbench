@@ -18,6 +18,9 @@ OPS = HERE
 SSH_CFG = os.path.join(OPS, "secrets", "sshcfg")
 # Windows 路径转成 POSIX 风格，ssh -F 更稳
 SSH_CFG_POSIX = SSH_CFG.replace("\\", "/")
+# 'tapd logs' 用的是 journalctl -f（跟随模式），永远不会自己返回。
+# 菜单里需要「看一眼就回来」，所以给它一个硬超时。
+LOGS_TIMEOUT = 15
 
 
 def find_bash():
@@ -53,7 +56,15 @@ def main():
         bash, "-c",
         "ssh -n -F '%s' tapd \"%s\"" % (SSH_CFG_POSIX, remote),
     ]
+    is_logs = bool(args) and args[0] == "logs"
     try:
+        if is_logs:
+            # journalctl -f 不会结束，限时输出后主动断开
+            try:
+                subprocess.call(cmd, timeout=LOGS_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                print("\n(日志跟随已到时限 %ds，自动停止)" % LOGS_TIMEOUT)
+            return 0
         return subprocess.call(cmd)
     except Exception as ex:
         print("[ERROR] 调用失败: %s" % ex)
