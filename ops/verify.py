@@ -34,6 +34,22 @@ import shutil
 import urllib.request
 import urllib.error
 
+# 输出编码自适应：
+#   - 被 Windows cmd 调用时（码页 936/GBK），按 GBK 输出，避免中文乱码
+#   - 在 Git Bash / 终端里时，按 UTF-8 输出
+def _setup_output_encoding():
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            enc = (os.environ.get("PYTHONIOENCODING") or "").lower()
+            if "gbk" in enc or "gb2312" in enc or "gb18030" in enc:
+                stream.reconfigure(encoding="gbk", errors="replace")
+            else:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+_setup_output_encoding()
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 OPS = HERE
 ROOT = os.path.dirname(HERE)
