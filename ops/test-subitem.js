@@ -576,6 +576,30 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   ok(/\.fcols\{[^}]*width:\d+px/.test(htmlSrc), '字段列 grid 容器显式定宽（防止窄屏塌缩换行）');
   ok(/\.fcols\{[^}]*flex:0 0/.test(htmlSrc), '字段列 flex 不压缩（flex:0 0 <width>）');
 
+  // 6) 父子行字段列对齐：行尾槽位宽度必须与父行完全一致，
+  //    且子树右边距需把子行右边界推回父行位置 → 三列起点才能相同
+  const slotWidths = (cls) => {
+    const m = htmlSrc.match(new RegExp('\\.' + cls + '\\{[^}]*width:(\\d+)px'));
+    return m ? m[1] : null;
+  };
+  for (const cls of ['slot-overdue', 'slot-subtask', 'slot-status', 'slot-pin', 'slot-sub']) {
+    const parent = slotWidths(cls);
+    const sub = (htmlSrc.match(new RegExp('\\.sub-node \\.' + cls + '\\{[^}]*width:(\\d+)px')) || [])[1];
+    ok(parent && sub && parent === sub, `${cls} 父子行宽度一致（${parent} / ${sub}）`);
+  }
+  // 子事项行也要渲染全部 5 个槽位（「＋子事项」那格留空）
+  const subSlotRow = sandbox.subNodeHtml({
+    card_id: 'S9', card_name: '槽位检查', owner: '吴婷婷', status: 'open',
+    created: '2026-10-27 16:25:13', due: '', children: [],
+  }, 0);
+  ok(subSlotRow.includes('slot-subtask') && subSlotRow.includes('slot-sub'),
+    '子事项行补齐全部固定槽位（＋子事项那格留空）');
+  // 子树右边距：把缩进造成的右侧偏移推回来，使父子右边界一致
+  ok(/\.sub-tree\{[^}]*margin:0 8px/.test(htmlSrc),
+    '子树右边距已标定为 8px（使父子行右边界一致 → 字段列对齐）');
+  ok(!/\.sub-tree\{[^}]*margin:0 -/.test(htmlSrc),
+    '子树不再使用负右边距（会导致字段列整体右移）');
+
   // 3) 子事项字段集合与顺序与父事项一致
   const parentFields = (html) => (html.match(/fcol-(owner|created|due)/g) || []);
   const parentOrder = parentFields(datedRow);
