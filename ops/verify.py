@@ -73,7 +73,7 @@ def log(msg, color=C_B):
 def step(no, name, ok, detail=""):
     _results.append((no, name, ok, detail))
     global _failed
-    mark = f"{C_G}✓{C_0}" if ok else f"{C_R}✗{C_0}"
+    mark = f"{C_G}√{C_0}" if ok else f"{C_R}×{C_0}"
     print(f"  {mark} [{no}] {name}" + (f"  {C_D}{detail}{C_0}" if detail else ""), flush=True)
     if not ok:
         _failed = True
@@ -407,14 +407,14 @@ def main():
     total = len(_results)
     passed = sum(1 for r in _results if r[2])
     if _failed:
-        log(f"{C_R}✗ 验证未通过：{passed}/{total} 项通过{C_0}")
+        log(f"{C_R}× 验证未通过：{passed}/{total} 项通过{C_0}")
         log(f"{C_R}  禁止执行 sync.sh —— 请先修复上述失败项{C_0}")
         log(f"{C_R}  失败项: " + ", ".join(r[1] for r in _results if not r[2]) + f"{C_0}")
         return 1
 
     fp = code_fingerprint()
     d = write_stamp(fp)
-    log(f"{C_G}✓ 验证通过：{passed}/{total} 项全部通过{C_0}")
+    log(f"{C_G}√ 验证通过：{passed}/{total} 项全部通过{C_0}")
     log(f"{C_G}  验证凭证已签发{C_0}  {d['verified_at']}")
     log(f"{C_D}  fingerprint={fp[:32]}{C_0}")
     print()

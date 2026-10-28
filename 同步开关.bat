@@ -1,5 +1,18 @@
 @echo off
 setlocal enabledelayedexpansion
+
+
+rem ---------- unify console code page ----------
+set "ORIG_CP="
+for /f "tokens=2 delims=:" %%C in ('chcp') do set "ORIG_CP=%%C"
+set "ORIG_CP=%ORIG_CP: =%"
+if not "%ORIG_CP%"=="936" chcp 936 >nul
+
+rem 统一控制台代码页到 CP936（编码约定见 .gitattributes）：
+rem   .bat 源文件 = GBK + CRLF；Python 输出 = GBK；bash 输出 = UTF-8 经 iconv 转 GBK。
+rem 三者必须与控制台代码页一致，否则 cmd 读 GBK 源文件或 Python 写 GBK 字节都会乱码。
+rem 终端若是 UTF-8(65001)，cmd 会按 65001 解读 GBK 源文件、Python 的 GBK 字节也会被
+rem 当作 UTF-8 解释——菜单正常但验证输出乱码。退出前用 :restore_cp 还原原代码页。
 title TAPD Workbench - Sync Switch
 
 rem ================================================================
@@ -45,6 +58,7 @@ if not defined BASH (
   echo     D:\Git\bin\bash.exe
   echo.
   pause
+  call :restore_cp
   exit /b 1
 )
 
@@ -124,6 +138,7 @@ if not "%VRC%"=="0" (
   echo   Nothing was pushed to the server.
   echo.
   pause
+  call :restore_cp
   exit /b 1
 )
 
@@ -151,6 +166,7 @@ if not "%SYNC_RC%"=="0" (
   echo ================================================================
   echo.
   pause
+  call :restore_cp
   exit /b %SYNC_RC%
 )
 
@@ -162,6 +178,7 @@ echo   Public URL : https://123.207.252.195
 echo   Server log : ssh -F ops\secrets\sshcfg tapd "tail -f /var/log/tapd-dev.log"
 echo.
 pause
+call :restore_cp
 exit /b 0
 
 rem ---------- drain a UTF-8 file to the console as GBK ----------
@@ -195,6 +212,7 @@ if not "%VRC%"=="0" (
   echo   VERIFICATION FAILED - fix the issues and retry
   echo.
   pause
+  call :restore_cp
   exit /b %VRC%
 )
 echo   Verification passed. Credential issued.
@@ -202,12 +220,14 @@ echo.
 echo   Run this switch again and pick 1 or 2 to sync.
 echo.
 pause
+call :restore_cp
 exit /b 0
 
 :VERIFY_OK
 echo   Verification passed. Credential issued.
 echo.
 pause
+call :restore_cp
 exit /b 0
 
 :CANCEL
@@ -215,4 +235,10 @@ echo.
 echo   Cancelled.
 echo.
 pause
+call :restore_cp
 exit /b 0
+
+rem ---------- restore console code page ----------
+:restore_cp
+if not "%ORIG_CP%"=="" if not "%ORIG_CP%"=="936" chcp %ORIG_CP% >nul
+goto :eof

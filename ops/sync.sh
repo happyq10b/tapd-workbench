@@ -72,7 +72,7 @@ enforce_gate() {
 
   echo "${c_b}==> 门禁校验：本地验证凭证${c_0}"
   if [ ! -f "$STAMP" ]; then
-    echo "${c_r}✗ 没有验证凭证，拒绝同步${c_0}"
+    echo "${c_r}× 没有验证凭证，拒绝同步${c_0}"
     echo "${c_r}  阶段一（本地执行与验证）尚未完成。请先运行：${c_0}"
     echo "${c_r}    cd ops && python verify.py${c_0}"
     exit 1
@@ -84,23 +84,23 @@ enforce_gate() {
 
   case "$out" in
     OK*)
-      echo "${c_g}  ✓ 验证凭证有效${c_0}  ${c_d}${out#OK }${c_0}"
+      echo "${c_g}  √ 验证凭证有效${c_0}  ${c_d}${out#OK }${c_0}"
       echo ""
       ;;
     STALE*)
-      echo "${c_r}✗ 代码已变更，验证凭证失效，拒绝同步${c_0}"
+      echo "${c_r}× 代码已变更，验证凭证失效，拒绝同步${c_0}"
       echo "${c_r}  指纹 ${out#STALE }${c_0}"
       echo "${c_r}  阶段一需重跑： cd ops && python verify.py${c_0}"
       exit 1
       ;;
     EXPIRED*)
-      echo "${c_r}✗ 验证凭证已过期（超过 ${VERIFY_MAX_AGE} 秒），拒绝同步${c_0}"
+      echo "${c_r}× 验证凭证已过期（超过 ${VERIFY_MAX_AGE} 秒），拒绝同步${c_0}"
       echo "${c_r}  凭证时间 ${out#EXPIRED }${c_0}"
       echo "${c_r}  请重跑： cd ops && python verify.py${c_0}"
       exit 1
       ;;
     *)
-      echo "${c_r}✗ 验证凭证无效（${out}），拒绝同步${c_0}"
+      echo "${c_r}× 验证凭证无效（${out}），拒绝同步${c_0}"
       echo "${c_r}  请重跑： cd ops && python verify.py${c_0}"
       exit 1
       ;;
