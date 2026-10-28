@@ -555,8 +555,26 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   }, 1);
   ok(emptyOwnerRow.includes('负责人：—'), '负责人为空时占位为「负责人：—」');
   ok(emptyOwnerRow.includes('截止日期：—'), '截止日期为空时占位为「截止日期：—」');
-  ok(emptyOwnerRow.includes('fcol-owner empty') && emptyOwnerRow.includes('fcol-due empty'),
-    '负责人与截止日期的空值用同一套 empty 占位样式');
+  ok(emptyOwnerRow.includes('fcol-owner fcol-empty') && emptyOwnerRow.includes('fcol-due fcol-empty'),
+    '负责人与截止日期的空值用同一套 fcol-empty 占位样式');
+  // 「empty」是全局占位类（.empty{padding:48px}），子元素类名必须避开，否则行高被撑爆
+  ok(!/class="fcol[^"]*[^"]\bempty\b/.test(emptyOwnerRow.replace(/fcol-empty/g, '')),
+    '字段列的空值类名避开全局 .empty（防止误加 padding 撑高行）');
+  ok(/\.fcol-empty\{/.test(htmlSrc), '空值占位样式用 .fcol-empty 前缀');
+  // 回归防护：子元素类名不得与全局单类选择器同名（如 .empty{padding:48px} 会把行高撑爆）
+  // 用渲染结果里的精确类名 token 匹配（\b 边界，避免 fcol-empty 被误判）
+  const fcolClassTokens = new Set();
+  for (const htmlStr of [datedRow, emptyOwnerRow, subHtml]) {
+    const re = /class="([^"]*)"/g; let m;
+    while ((m = re.exec(htmlStr)) !== null) {
+      m[1].split(/\s+/).forEach(c => { if (c.startsWith('fcol')) fcolClassTokens.add(c); });
+    }
+  }
+  ok(![...fcolClassTokens].includes('empty'), '字段列不使用裸 .empty 类（避免误加全局 padding 撑高行）');
+  ok(fcolClassTokens.has('fcol-empty'), '空值类名为 fcol-empty');
+  // grid 容器必须显式给宽度，否则宽度由内容反推、窄屏下塌缩换行
+  ok(/\.fcols\{[^}]*width:\d+px/.test(htmlSrc), '字段列 grid 容器显式定宽（防止窄屏塌缩换行）');
+  ok(/\.fcols\{[^}]*flex:0 0/.test(htmlSrc), '字段列 flex 不压缩（flex:0 0 <width>）');
 
   // 3) 子事项字段集合与顺序与父事项一致
   const parentFields = (html) => (html.match(/fcol-(owner|created|due)/g) || []);
