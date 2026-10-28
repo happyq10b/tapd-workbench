@@ -202,14 +202,17 @@ function setVar(name, value) { vm.runInContext(`${name}=${JSON.stringify(value)}
   // 用例 4：目录行与抽屉行只保留唯一的状态切换入口（状态标签）
   // ============================================================
   console.log('\n【用例4】子事项行的置顶与状态切换入口');
-  const treeHtml = sandbox.subNodeHtml({ ...SUB, pinned: 1, status: 'done' }, 0);
+  // 置顶是个人设置：子事项行的「已置顶」取决于当前账号的置顶集合
+  sandbox.setPinned('card', 'NC1', true);
+  const treeHtml = sandbox.subNodeHtml({ ...SUB, pinned: 0, status: 'done' }, 0);
   ok(treeHtml.includes('toggleCardPin'), '目录行含置顶按钮');
   ok(treeHtml.includes('toggleCardDone'), '目录行状态标签可切换完成状态');
   ok(treeHtml.includes('openSubModal'), '目录行点击打开子事项弹窗');
-  ok(treeHtml.includes('已置顶'), '已置顶状态有文案');
+  ok(treeHtml.includes('已置顶'), '个人置顶后显示「已置顶」文案');
   ok(treeHtml.includes('已完成'), '完成状态有标记');
   ok(!treeHtml.includes('openDetail'), '目录行不再走只读详情弹窗');
   ok(!/完成<\/button>|done-btn|doneBtn/.test(treeHtml), '目录行已移除冗余的「完成」按钮');
+  sandbox.setPinned('card', 'NC1', false);
 
   const drawerHtml = sandbox.drawerSubTree([{ ...SUB, pinned: 0, status: 'open' }], 'P1', 0);
   ok(drawerHtml.includes('toggleCardPin'), '抽屉行含置顶按钮');
@@ -304,6 +307,54 @@ function setVar(name, value) { vm.runInContext(`${name}=${JSON.stringify(value)}
   setVar('ME', { can_edit: true, is_admin: true, username: 'admin', role: 'admin', boards: [{ board_id: 'B1', board_name: '看板1' }] });
   const adminCostRow = sandbox.cardItem({ ...MAIN_ROW, board_id: '1162069797001000241' });
   ok(adminCostRow.includes('添加子事项'), '成本看板管理员可见「添加子事项」');
+
+  // ============================================================
+  // 用例 9：序号展示 / 负责人位置 / 编辑入口移入详情弹窗
+  // ============================================================
+  console.log('\n【用例9】序号、负责人位置与编辑入口');
+  const seqRow = sandbox.cardItem({ ...MAIN_ROW, owner: '王伟娜' }, 3);
+  ok(seqRow.includes('item-seq'), '行首渲染顺序序号');
+  ok(/class="item-seq[^"]*"[^>]*>3</.test(seqRow), '序号取渲染时传入的序号值');
+  ok(seqRow.indexOf('item-seq') < seqRow.indexOf('item-title'), '序号在标题之前（列表最前方只保留序号）');
+  ok(seqRow.indexOf('item-title') < seqRow.indexOf('item-owner'), '负责人紧跟在标题之后');
+  ok(seqRow.includes('王伟娜'), '负责人姓名已显示在行内');
+  ok(!seqRow.includes('owner-avatar'), '行首不再显示负责人头像');
+  ok(!seqRow.includes('openEdit('), '列表行不再有直接编辑入口');
+  ok(typeof sandbox.openDetailEdit === 'function', '详情弹窗提供编辑入口函数');
+  ok(typeof sandbox.renderDetailOps === 'function', '详情弹窗渲染操作区（编辑/置顶/完成）');
+
+  // ============================================================
+  // 用例 10：置顶改为个人级设置
+  // ============================================================
+  console.log('\n【用例10】置顶的个人级属性');
+  let pinEndpointCalls = 0;
+  sandbox.api = async (p) => {
+    if (String(p).includes('/pin')) pinEndpointCalls++;
+    return { ok: true, cards: [], columns: [] };
+  };
+  await sandbox.toggleCardPin('NCX', true, false);
+  ok(pinEndpointCalls === 0, '置顶不再调用服务端 /pin 接口（纯个人设置）');
+  ok(sandbox.isPinned('card', 'NCX'), '置顶状态记录在当前账号的个人设置里');
+  await sandbox.toggleCardPin('NCX', false, false);
+  ok(!sandbox.isPinned('card', 'NCX'), '取消置顶同样只改个人设置');
+  sandbox.setPinned('column', 'B1::X', true);
+  ok(sandbox.isPinned('column', 'B1::X'), '板块置顶也是个人设置');
+
+  // 排序只看个人置顶，服务端共享的 pinned 不再影响
+  sandbox.setPinned('card', 'C2', true);
+  const arr1 = [
+    { card_id: 'C1', pinned: 1, created: '2026-01-02 00:00:00' },
+    { card_id: 'C2', pinned: 0, created: '2026-01-01 00:00:00' },
+  ];
+  arr1.sort(sandbox.cmpCard);
+  ok(arr1[0].card_id === 'C2', '个人置顶的事项排在最前');
+  const arr2 = [
+    { card_id: 'C1', pinned: 1, created: '2026-01-02 00:00:00' },
+    { card_id: 'C2', pinned: 0, created: '2026-01-01 00:00:00' },
+  ];
+  sandbox.setPinned('card', 'C2', false);
+  arr2.sort(sandbox.cmpCard);
+  ok(arr2[0].card_id === 'C1', '服务端共享的 pinned 不再影响排序（按创建时间降序，新的在前）');
 
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);
