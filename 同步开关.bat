@@ -80,10 +80,10 @@ echo ================================================================
 echo.
 echo   Select target:
 echo.
-echo     [1] Dev  (--dev)    push to server dev environment
-echo     [2] Prod (--prod)   push to production
-echo     [3] Verify only     run local checks, no push
-echo     [4] Cancel
+echo     [1] Dev  (--dev)    推送到服务器开发环境
+echo     [2] Prod (--prod)   推送到生产环境
+echo     [3] Verify only     仅本地检查，不推送
+echo     [4] Cancel          取消
 echo.
 choice /c 1234 /n /m "   Enter 1-4: "
 
