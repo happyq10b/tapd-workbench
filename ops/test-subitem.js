@@ -293,23 +293,23 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
     pinned: 0, created: '2026-10-28 07:00:00', locked_by: null, sub_count: 3,
   };
   const rowHtml = sandbox.cardItem(MAIN_ROW);
-  ok(rowHtml.includes('添加子事项'), '行内显示「添加子事项」');
+  ok(rowHtml.includes('＋ 子事项'), '行内显示「＋ 子事项」');
   ok(!/子事项\s*\d/.test(rowHtml), '行内不再显示「子事项 N」计数按钮');
-  ok(rowHtml.includes('openDrawer'), '「添加子事项」仍打开右侧抽屉（新增流程不变）');
+  ok(rowHtml.includes('openDrawer'), '「＋ 子事项」仍打开右侧抽屉（新增流程不变）');
   ok(rowHtml.includes('item-chev'), '已有子事项时仍保留左侧展开箭头（目录查看入口不丢）');
 
   // 只读账号不应看到「添加子事项」
   setVar('ME', { can_edit: false, is_admin: false, username: 'viewer', role: 'viewer', boards: [{ board_id: 'B1', board_name: '看板1' }] });
   const viewerRow = sandbox.cardItem(MAIN_ROW);
-  ok(!viewerRow.includes('添加子事项'), '只读账号不显示「添加子事项」');
+  ok(!viewerRow.includes('＋ 子事项'), '只读账号不显示「＋ 子事项」');
 
   // 成本看板：非管理员同样不显示（与「编辑」按钮口径一致）
   setVar('ME', { can_edit: true, is_admin: false, username: 'editor', role: 'editor', boards: [{ board_id: 'B1', board_name: '看板1' }] });
   const costRow = sandbox.cardItem({ ...MAIN_ROW, board_id: '1162069797001000241' });
-  ok(!costRow.includes('添加子事项'), '成本看板非管理员不显示「添加子事项」');
+  ok(!costRow.includes('＋ 子事项'), '成本看板非管理员不显示「＋ 子事项」');
   setVar('ME', { can_edit: true, is_admin: true, username: 'admin', role: 'admin', boards: [{ board_id: 'B1', board_name: '看板1' }] });
   const adminCostRow = sandbox.cardItem({ ...MAIN_ROW, board_id: '1162069797001000241' });
-  ok(adminCostRow.includes('添加子事项'), '成本看板管理员可见「添加子事项」');
+  ok(adminCostRow.includes('＋ 子事项'), '成本看板管理员可见「＋ 子事项」');
 
   // ============================================================
   // 用例 9：序号展示 / 负责人位置 / 编辑入口移入详情弹窗
@@ -461,10 +461,66 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   sandbox.renderBoard(CARDS, COLS, '', []);
   ok(getEl('boardContent').innerHTML.includes('板块A'), '取消筛选后恢复全部板块');
 
-  // 选中的年份在新看板不存在 → 一致重置为「全部年份」
+  // 选中的年份在新看板不存在 → 先回落到当前年份，当前年份也没有则重置为「全部年份」
   setLet('curYear', '2025');
   sandbox.renderYearFilter([{ column_name: '只有2026', year: '2026' }]);
-  eq(getLet('curYear'), '', '年份在新看板不存在时重置为全部年份');
+  eq(getLet('curYear'), String(new Date().getFullYear()), '年份在新看板不存在时回落到当前年份');
+  setLet('curYear', '2025');
+  sandbox.renderYearFilter([{ column_name: '只有2027', year: '2027' }]);
+  eq(getLet('curYear'), '', '当前年份也不存在时重置为全部年份');
+
+  // ============================================================
+  // 用例 13：默认当前年份 / 按钮文案 / 负责人前缀 / 圆点配色 / 父事项责任人
+  // ============================================================
+  console.log('\n【用例13】年份默认值、按钮文案、负责人前缀与圆点配色');
+
+  // 1) 年份默认落在当前年份
+  const yNow = String(new Date().getFullYear());
+  eq(getLet('YEAR_DEFAULT'), yNow, '年份默认值 = 当前年份');
+  setLet('curYear', yNow);
+  sandbox.renderYearFilter(COLS);
+  ok(getEl('yearFilter').innerHTML.includes('selected'), '默认选中当前年份');
+
+  // 切换看板统一重置回当前年份
+  setLet('curYear', '2025');
+  await sandbox.pickBoard('B1');
+  eq(getLet('curYear'), yNow, '切换看板后年份重置为当前年份');
+
+  // 2) 行内子事项入口文案
+  const subBtnRow = sandbox.cardItem({
+    card_id: 'C9', card_name: '带子事项的事项', column_name: '板块A', owner: '王伟娜',
+    status: 'open', created: '2026-01-01', due: '', pinned: 0, sub_count: 2,
+    subtask_total: 0, subtask_done: 0, board_id: 'B1', locked_by: null,
+  }, 1);
+  ok(subBtnRow.includes('＋ 子事项'), '行内按钮文案为「＋ 子事项」');
+  ok(!subBtnRow.includes('添加子事项'), '旧的「＋ 添加子事项」文案已移除');
+
+  // 3) 负责人前缀（主事项行 + 子事项目录行）
+  ok(subBtnRow.includes('负责人：王伟娜'), '主事项行的负责人带「负责人：」前缀');
+  const subHtml = sandbox.subNodeHtml({ card_id: 'S1', card_name: '子事项', owner: '吴婷婷', status: 'open', created: '2026-10-17 16:25:00', due: '2026-10-24', children: [] }, 0);
+  ok(subHtml.includes('负责人：吴婷婷'), '子事项目录行的负责人带「负责人：」前缀');
+  ok(!/👤/.test(subHtml), '子事项行不再使用 👤 图标前缀');
+
+  // 4) 圆点配色统一为品牌金 #CCB484
+  ok(htmlSrc.includes('--gold:#CCB484'), '品牌金变量为 #CCB484');
+  ok(/\.s-dot\{[^}]*background:var\(--gold\)/.test(htmlSrc), '子事项圆点统一用品牌金');
+  ok(!subHtml.includes('avatarColor'), '子事项圆点不再按负责人姓名哈希颜色');
+
+  // 5) 父事项追加责任人：自身无负责人时回落为子事项负责人汇总
+  const noOwnerRow = sandbox.cardItem({
+    card_id: 'C10', card_name: '父事项', column_name: '板块A', owner: '',
+    status: 'open', created: '2026-01-01', due: '', pinned: 0, sub_count: 2,
+    subtask_total: 0, subtask_done: 0, board_id: 'B1', locked_by: null,
+    sub_owners: ['何巧娴', '吴婷婷'],
+  }, 1);
+  ok(noOwnerRow.includes('负责人：何巧娴、吴婷婷'), '父事项自身无负责人时显示子事项责任人汇总');
+  const selfOwnerRow = sandbox.cardItem({
+    card_id: 'C11', card_name: '父事项2', column_name: '板块A', owner: '王伟娜',
+    status: 'open', created: '2026-01-01', due: '', pinned: 0, sub_count: 2,
+    subtask_total: 0, subtask_done: 0, board_id: 'B1', locked_by: null,
+    sub_owners: ['何巧娴'],
+  }, 1);
+  ok(selfOwnerRow.includes('负责人：王伟娜') && !selfOwnerRow.includes('何巧娴'), '父事项自身有负责人时优先显示自己的');
 
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);
