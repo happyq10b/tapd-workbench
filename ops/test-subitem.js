@@ -277,6 +277,34 @@ function setVar(name, value) { vm.runInContext(`${name}=${JSON.stringify(value)}
   ok(boardContent._rippleBound === true, '看板容器已绑定涟漪反馈');
   ok(getEl('drawerBody')._rippleBound === true, '抽屉容器已绑定涟漪反馈');
 
+  // ============================================================
+  // 用例 8：主事项行只保留「添加子事项」按钮
+  // ============================================================
+  console.log('\n【用例8】主事项行的子事项入口');
+  const MAIN_ROW = {
+    card_id: 'P1', card_name: '主事项A', parent_id: '', board_id: 'B1',
+    status: 'open', owner: '王伟娜', begin: '', due: '', description: '',
+    pinned: 0, created: '2026-10-28 07:00:00', locked_by: null, sub_count: 3,
+  };
+  const rowHtml = sandbox.cardItem(MAIN_ROW);
+  ok(rowHtml.includes('添加子事项'), '行内显示「添加子事项」');
+  ok(!/子事项\s*\d/.test(rowHtml), '行内不再显示「子事项 N」计数按钮');
+  ok(rowHtml.includes('openDrawer'), '「添加子事项」仍打开右侧抽屉（新增流程不变）');
+  ok(rowHtml.includes('item-chev'), '已有子事项时仍保留左侧展开箭头（目录查看入口不丢）');
+
+  // 只读账号不应看到「添加子事项」
+  setVar('ME', { can_edit: false, is_admin: false, username: 'viewer', role: 'viewer', boards: [{ board_id: 'B1', board_name: '看板1' }] });
+  const viewerRow = sandbox.cardItem(MAIN_ROW);
+  ok(!viewerRow.includes('添加子事项'), '只读账号不显示「添加子事项」');
+
+  // 成本看板：非管理员同样不显示（与「编辑」按钮口径一致）
+  setVar('ME', { can_edit: true, is_admin: false, username: 'editor', role: 'editor', boards: [{ board_id: 'B1', board_name: '看板1' }] });
+  const costRow = sandbox.cardItem({ ...MAIN_ROW, board_id: '1162069797001000241' });
+  ok(!costRow.includes('添加子事项'), '成本看板非管理员不显示「添加子事项」');
+  setVar('ME', { can_edit: true, is_admin: true, username: 'admin', role: 'admin', boards: [{ board_id: 'B1', board_name: '看板1' }] });
+  const adminCostRow = sandbox.cardItem({ ...MAIN_ROW, board_id: '1162069797001000241' });
+  ok(adminCostRow.includes('添加子事项'), '成本看板管理员可见「添加子事项」');
+
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('测试异常:', e); process.exit(1); });
