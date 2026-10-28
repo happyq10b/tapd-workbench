@@ -319,7 +319,7 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   ok(seqRow.includes('item-seq'), '行首渲染顺序序号');
   ok(/class="item-seq[^"]*"[^>]*>3</.test(seqRow), '序号取渲染时传入的序号值');
   ok(seqRow.indexOf('item-seq') < seqRow.indexOf('item-title'), '序号在标题之前（列表最前方只保留序号）');
-  ok(seqRow.indexOf('item-title') < seqRow.indexOf('item-owner'), '负责人紧跟在标题之后');
+  ok(seqRow.indexOf('item-title') < seqRow.indexOf('fcol-owner'), '负责人紧跟在标题之后');
   ok(seqRow.includes('王伟娜'), '负责人姓名已显示在行内');
   ok(!seqRow.includes('owner-avatar'), '行首不再显示负责人头像');
   ok(!seqRow.includes('openEdit('), '列表行不再有直接编辑入口');
@@ -506,21 +506,97 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   ok(/\.s-dot\{[^}]*background:var\(--gold\)/.test(htmlSrc), '子事项圆点统一用品牌金');
   ok(!subHtml.includes('avatarColor'), '子事项圆点不再按负责人姓名哈希颜色');
 
-  // 5) 父事项追加责任人：自身无负责人时回落为子事项负责人汇总
+  // 5) 父事项负责人：独立取值，不与子事项关联
   const noOwnerRow = sandbox.cardItem({
     card_id: 'C10', card_name: '父事项', column_name: '板块A', owner: '',
     status: 'open', created: '2026-01-01', due: '', pinned: 0, sub_count: 2,
     subtask_total: 0, subtask_done: 0, board_id: 'B1', locked_by: null,
     sub_owners: ['何巧娴', '吴婷婷'],
   }, 1);
-  ok(noOwnerRow.includes('负责人：何巧娴、吴婷婷'), '父事项自身无负责人时显示子事项责任人汇总');
+  ok(noOwnerRow.includes('负责人：—'), '父事项自身无负责人时占位为「负责人：—」');
+  ok(!noOwnerRow.includes('何巧娴') && !noOwnerRow.includes('吴婷婷'),
+    '父事项负责人不关联子事项负责人（不做继承/汇总）');
   const selfOwnerRow = sandbox.cardItem({
     card_id: 'C11', card_name: '父事项2', column_name: '板块A', owner: '王伟娜',
     status: 'open', created: '2026-01-01', due: '', pinned: 0, sub_count: 2,
     subtask_total: 0, subtask_done: 0, board_id: 'B1', locked_by: null,
     sub_owners: ['何巧娴'],
   }, 1);
-  ok(selfOwnerRow.includes('负责人：王伟娜') && !selfOwnerRow.includes('何巧娴'), '父事项自身有负责人时优先显示自己的');
+  ok(selfOwnerRow.includes('负责人：王伟娜') && !selfOwnerRow.includes('何巧娴'), '父事项只显示自己独立设置的负责人');
+
+  // ============================================================
+  // 用例 14：字段名 / 列对齐 / 父子字段一致 / 负责人独立
+  // ============================================================
+  console.log('\n【用例14】创建日期、字段列对齐与父子字段一致');
+
+  // 1) 「创建时间」→「创建日期」，只显示年月日
+  eq(sandbox.fmtDate('2026-05-21 10:52:33'), '2026-05-21', '创建时间裁成创建日期（去时分秒）');
+  eq(sandbox.fmtDate('2026-05-21'), '2026-05-21', '纯日期原样返回');
+  eq(sandbox.fmtDate('2026-5-1'), '2026-05-01', '单位补零');
+  eq(sandbox.fmtDate(''), '', '空值返回空串');
+
+  const datedRow = sandbox.cardItem({
+    card_id: 'C20', card_name: '带日期的事项', column_name: '板块A', owner: '王伟娜',
+    status: 'open', created: '2026-05-21 10:52:33', due: '2026-04-30',
+    pinned: 0, sub_count: 0, subtask_total: 0, subtask_done: 0, board_id: 'B1', locked_by: null,
+  }, 1);
+  ok(datedRow.includes('创建日期：2026-05-21'), '行内显示「创建日期：2026-05-21」');
+  ok(!datedRow.includes('10:52'), '行内不再显示时分秒');
+  ok(datedRow.includes('截止日期：2026-04-30'), '行内显示「截止日期：2026-04-30」');
+  ok(!datedRow.includes('创建时间'), '不再出现「创建时间」字样');
+
+  // 2) 三列等宽对齐：用 grid 定宽，空值占位与截止日期一致
+  ok(/\.fcols\{[^}]*display:grid/.test(htmlSrc), '字段列使用 grid 布局（定宽对齐）');
+  ok(/\.fcols\{[^}]*grid-template-columns:[^;]*\d+px[^;]*\d+px[^;]*\d+px/.test(htmlSrc), '字段列为三列定宽');
+  const emptyOwnerRow = sandbox.cardItem({
+    card_id: 'C21', card_name: '无负责人的事项', column_name: '板块A', owner: '',
+    status: 'open', created: '2026-05-21 10:52:33', due: '', pinned: 0, sub_count: 0,
+    subtask_total: 0, subtask_done: 0, board_id: 'B1', locked_by: null,
+  }, 1);
+  ok(emptyOwnerRow.includes('负责人：—'), '负责人为空时占位为「负责人：—」');
+  ok(emptyOwnerRow.includes('截止日期：—'), '截止日期为空时占位为「截止日期：—」');
+  ok(emptyOwnerRow.includes('fcol-owner empty') && emptyOwnerRow.includes('fcol-due empty'),
+    '负责人与截止日期的空值用同一套 empty 占位样式');
+
+  // 3) 子事项字段集合与顺序与父事项一致
+  const parentFields = (html) => (html.match(/fcol-(owner|created|due)/g) || []);
+  const parentOrder = parentFields(datedRow);
+  const childOrder = parentFields(subHtml);
+  ok(parentOrder.join(',') === 'fcol-owner,fcol-created,fcol-due', '父事项字段顺序 = 负责人/创建日期/截止日期');
+  ok(childOrder.join(',') === 'fcol-owner,fcol-created,fcol-due', '子事项字段顺序与父事项一致');
+  ok(childOrder.join(',') === parentOrder.join(','), '父子字段集合与顺序完全一致');
+  const subWithDate = sandbox.subNodeHtml({
+    card_id: 'S2', card_name: '带日期的子项', owner: '吴婷婷', status: 'open',
+    created: '2026-10-27 16:25:13', due: '2026-10-24', children: [],
+  }, 0);
+  ok(subWithDate.includes('创建日期：2026-10-27'), '子事项显示「创建日期：2026-10-27」');
+  ok(!subWithDate.includes('16:25'), '子事项不再显示时分秒');
+
+  // 4) 负责人独立：子事项不继承父事项负责人
+  const childOwner = sandbox.subNodeHtml({
+    card_id: 'S3', card_name: '独立负责人的子项', owner: '吴婷婷', status: 'open',
+    created: '2026-10-27 16:25:13', due: '', children: [],
+  }, 0);
+  ok(childOwner.includes('负责人：吴婷婷'), '子事项显示自己的负责人');
+  ok(!childOwner.includes('王伟娜'), '子事项不继承父事项负责人');
+  ok(!htmlSrc.includes('sub_owners'), '后端/前端都不再汇总子事项负责人');
+
+  // 5) 列对齐机制：三列定宽 + 行尾可选元素用定宽槽位 → 跨行起点一致
+  ok(/\.fcols\{[^}]*display:grid/.test(htmlSrc)
+    && /grid-template-columns:\d+px \d+px \d+px/.test(htmlSrc),
+    '字段列为 grid 三列定宽');
+  ok(/\.item-tail\{[^}]*margin-left:auto/.test(htmlSrc), '行尾区块整体右对齐（锚定行尾）');
+  ok(/\.sub-tail\{[^}]*margin-left:auto/.test(htmlSrc), '子事项行尾区块整体右对齐');
+  // 逾期 / 代办 / 状态 / 置顶 / 子事项 五个可选元素都要有定宽槽位
+  for (const cls of ['slot-overdue', 'slot-subtask', 'slot-status', 'slot-pin', 'slot-sub']) {
+    ok(new RegExp('\\.' + cls + '\\{[^}]*width:\\d+px').test(htmlSrc), `${cls} 槽位有固定宽度`);
+  }
+  // 每行都要渲染这几个槽位（无论内容有无）→ 行内结构恒定
+  ok(datedRow.includes('slot-overdue') && datedRow.includes('slot-subtask')
+    && datedRow.includes('slot-status') && datedRow.includes('slot-pin') && datedRow.includes('slot-sub'),
+    '主事项行渲染全部固定槽位（有/无内容都占位）');
+  ok(subWithDate.includes('slot-overdue') && subWithDate.includes('slot-status') && subWithDate.includes('slot-pin'),
+    '子事项行渲染全部固定槽位');
 
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);

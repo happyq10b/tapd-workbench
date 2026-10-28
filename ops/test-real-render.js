@@ -65,18 +65,32 @@ function ok(c, m) { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++;
   console.log('\n【真实数据渲染验证】');
   const cards = await api('/api/cards?size=2000');
 
-  // 找有子事项的父事项
-  const parent = cards.cards.find(c => (c.sub_owners || []).length > 0);
+  // 找有子事项的父事项（用 sub_count 判断，不依赖已移除的 sub_owners）
+  const parent = cards.cards.find(c => (c.sub_count || 0) > 0);
   ok(!!parent, '找到有子事项的父事项：' + (parent ? parent.card_name : '无'));
 
   if (parent) {
-    // 1) 父事项行渲染：责任人汇总
+    // 1) 父事项行渲染：负责人独立取值
     vm.runInContext(`ME={can_edit:true,is_admin:true,username:'admin',boards:[{board_id:'${parent.board_id}',board_name:'B'}]};curBoard='${parent.board_id}';`, sandbox);
     const rowHtml = sandbox.cardItem(parent, 1);
-    console.log('    父事项行 HTML 片段:', rowHtml.match(/<span class="item-owner"[^>]*>[^<]*<\/span>/)?.[0] || '(无)');
+    console.log('    父事项行 HTML 片段:', rowHtml.match(/<span class="fcol[^>]*>[^<]*<\/span>/)?.[0] || '(无)');
     ok(/负责人：[^<]/.test(rowHtml), '父事项行显示了「负责人：」前缀');
-    ok(rowHtml.includes(parent.sub_owners[0]), '父事项行包含子事项责任人');
     ok(rowHtml.includes('＋ 子事项'), '父事项行的子事项按钮文案正确');
+    // 父事项负责人独立：不借用子事项负责人
+    const childOwners = await api('/api/cards/' + parent.card_id + '/children')
+      .then(d => (d.children || []).map(c => c.owner).filter(Boolean));
+    if (childOwners.length && !parent.owner) {
+      ok(!childOwners.some(o => rowHtml.includes(o)),
+        '父事项无负责人时不借用子事项负责人');
+      ok(rowHtml.includes('负责人：—'), '父事项无负责人时占位为「负责人：—」');
+    }
+    // 字段列：创建日期只到年月日
+    ok(/创建日期：\d{4}-\d{2}-\d{2}/.test(rowHtml), '行内显示「创建日期：YYYY-MM-DD」');
+    ok(!/创建日期：\d{4}-\d{2}-\d{2}\s\d{2}:/.test(rowHtml), '创建日期不含时分秒');
+    ok(rowHtml.includes('fcols'), '字段列用 grid 定宽容器');
+    ok(rowHtml.includes('slot-overdue') && rowHtml.includes('slot-status')
+      && rowHtml.includes('slot-pin') && rowHtml.includes('slot-sub'),
+      '主事项行渲染全部固定槽位（有/无内容都占位）');
 
     // 2) 子事项目录行渲染
     const children = await api('/api/cards/' + parent.card_id + '/children');
@@ -89,12 +103,22 @@ function ok(c, m) { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++;
       ok(!subHtml.includes('avatarColor'), '子事项行不再按姓名哈希颜色');
       ok(/class="s-dot"/.test(subHtml), '子事项行有 s-dot 圆点');
       ok(!/s-dot[^>]*style=/.test(subHtml), '圆点不再带内联背景色（统一走 CSS 的品牌金）');
+      // 子事项的字段集合与顺序与父事项一致
+      const pOrder = (rowHtml.match(/fcol-(owner|created|due)/g) || []);
+      const sOrder = (subHtml.match(/fcol-(owner|created|due)/g) || []);
+      ok(pOrder.join(',') === 'fcol-owner,fcol-created,fcol-due', '父事项字段顺序 = 负责人/创建日期/截止日期');
+      ok(sOrder.join(',') === pOrder.join(','), '子事项字段集合与顺序与父事项完全一致');
+      ok(/创建日期：\d{4}-\d{2}-\d{2}/.test(subHtml), '子事项显示「创建日期：YYYY-MM-DD」');
+      ok(!/创建日期：\d{4}-\d{2}-\d{2}\s\d{2}:/.test(subHtml), '子事项创建日期不含时分秒');
+      ok(subHtml.includes('slot-overdue') && subHtml.includes('slot-status') && subHtml.includes('slot-pin'),
+        '子事项行渲染全部固定槽位');
     }
 
     // 3) 抽屉里的子事项行
     const drawerHtml = sandbox.drawerSubTree(children.children, parent.card_id, 0);
     ok(drawerHtml.includes('负责人：' + (sub ? sub.owner : '')), '抽屉子事项行显示「负责人：」前缀');
     ok(!drawerHtml.includes('avatarColor'), '抽屉子事项行不再按姓名哈希颜色');
+    ok(/创建日期：\d{4}-\d{2}-\d{2}/.test(drawerHtml), '抽屉子事项行显示「创建日期：YYYY-MM-DD」');
   }
 
   // 4) 年份筛选默认值
