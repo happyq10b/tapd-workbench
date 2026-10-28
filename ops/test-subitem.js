@@ -356,6 +356,53 @@ function setVar(name, value) { vm.runInContext(`${name}=${JSON.stringify(value)}
   arr2.sort(sandbox.cmpCard);
   ok(arr2[0].card_id === 'C1', '服务端共享的 pinned 不再影响排序（按创建时间降序，新的在前）');
 
+  // ============================================================
+  // 用例 11：布局对调 / 板块编辑界面 / 归属年份 / 折叠交互
+  // ============================================================
+  console.log('\n【用例11】布局对调与板块编辑交互');
+  const fs2 = require('fs');
+  const path2 = require('path');
+  const htmlSrc = fs2.readFileSync(path2.join(__dirname, '..', 'src', 'static', 'index.html'), 'utf8');
+  const iProg = htmlSrc.indexOf('id="progressOverview"');
+  const iTool = htmlSrc.indexOf('class="toolbar"');
+  ok(iProg > 0 && iTool > 0 && iProg < iTool, '进度概览已排到工具栏之前（上下位置对调）');
+  ok(/class="chev" onclick="toggleWeek\(/.test(htmlSrc), '三角图标绑定折叠切换');
+  ok(/openColumnEdit\(this\)/.test(htmlSrc), '板块标题点击打开编辑弹窗');
+  ok(!/class="week-header" onclick=/.test(htmlSrc), '板块标题栏本身不再绑定折叠切换');
+  ok(/data-colkey=/.test(htmlSrc), '板块标题携带 data-* 用于回显');
+  ok(/id="c_year"/.test(htmlSrc), '板块表单含「归属年份」字段');
+
+  // 编辑模式：回显 + 字段裁剪
+  setVar('ME', { can_edit: true, is_admin: true, username: 'admin', role: 'admin', boards: [{ board_id: 'B1', board_name: '看板1' }] });
+  const fakeEl = {
+    dataset: { colkey: 'B1::X', bid: 'B1', cname: '测试板块', year: '2026', nature: '专项', created: '2026-08-13 10:00:00', creator: '王伟娜' },
+  };
+  sandbox.openColumnEdit(fakeEl);
+  eq(getEl('c_name').value, '测试板块', '编辑时板块名称已回显');
+  eq(getEl('c_year').value, '2026', '编辑时归属年份已回显');
+  eq(getEl('c_created').value, '2026-08-13', '编辑时创建日期已回显');
+  eq(getEl('c_creator').value, '王伟娜', '编辑时创建人已回显');
+  eq(getEl('c_board_wrap').style.display, 'none', '编辑模式下所属看板不可改');
+  eq(getEl('c_submit').textContent, '保存', '编辑模式主按钮为「保存」');
+
+  // 保存：请求体带上归属年份与原 col_key
+  let putPayload = null;
+  sandbox.api = async (p, opt) => {
+    if (opt && opt.method === 'PUT') { putPayload = JSON.parse(opt.body); return { ok: true }; }
+    if (String(p).indexOf('/api/overview') >= 0) return { total: 0, done: 0, progressing: 0, open: 0, boards: [], owners: [] };
+    return { ok: true, cards: [], columns: [] };
+  };
+  await sandbox.saveColumn();
+  ok(putPayload && putPayload.year === '2026', '保存请求带上归属年份');
+  ok(putPayload && putPayload.col_key === 'B1::X', '保存请求带上原 col_key（用于定位板块）');
+  ok(putPayload && putPayload.column_name === '测试板块', '保存请求带上板块名称');
+
+  // 新建模式：字段与默认值
+  sandbox.openColumnModal();
+  eq(getEl('c_year').value, String(new Date().getFullYear()), '新建时归属年份默认当年');
+  eq(getEl('c_submit').textContent, '创建板块', '新建模式主按钮为「创建板块」');
+  eq(getEl('c_board_wrap').style.display, '', '新建模式可选择所属看板');
+
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('测试异常:', e); process.exit(1); });
