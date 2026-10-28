@@ -1,0 +1,226 @@
+// 子事项交互回归测试（Node + 最小 DOM stub）
+// 覆盖：1) 创建失败后表单重置；2) 创建成功后表单重置；
+//       3) 目录点击打开子事项弹窗（字段裁剪 + 父事项约束）
+const fs = require('fs');
+const vm = require('vm');
+const path = require('path');
+
+const ROOT = path.resolve(__dirname, '..');
+const html = fs.readFileSync(path.join(ROOT, 'src', 'static', 'index.html'), 'utf8');
+const blocks = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+const main = blocks.sort((a, b) => b.length - a.length)[0];
+
+// ---------- 最小 DOM stub ----------
+function mkEl(id) {
+  const attrs = {};
+  const el = {
+    id,
+    value: '',
+    textContent: '',
+    _html: '',
+    style: {},
+    dataset: {},
+    checked: false,
+    disabled: false,
+    classList: { _s: new Set(), add(...c) { c.forEach(x => this._s.add(x)); }, remove(...c) { c.forEach(x => this._s.delete(x)); }, toggle(c) { this._s.has(c) ? this._s.delete(c) : this._s.add(c); }, contains(c) { return this._s.has(c); } },
+    addEventListener() {}, removeEventListener() {}, focus() {}, click() {}, blur() {},
+    querySelector() { return mkEl(id + '>q'); },
+    querySelectorAll() { return []; },
+    closest() { return null; },
+    appendChild() {}, remove() {}, setAttribute(k, v) { attrs[k] = String(v); },
+    getAttribute(k) { return k in attrs ? attrs[k] : null; },
+    removeAttribute(k) { delete attrs[k]; },
+    getBoundingClientRect() { return { top: 0, left: 0, width: 0, height: 0 }; },
+  };
+  Object.defineProperty(el, 'innerHTML', {
+    get() { return el._html; },
+    set(v) { el._html = String(v); },
+  });
+  return el;
+}
+const els = new Map();
+const getEl = (id) => { if (!els.has(id)) els.set(id, mkEl(id)); return els.get(id); };
+
+const document = {
+  getElementById: getEl,
+  querySelector() { return mkEl('s'); },
+  querySelectorAll() { return []; },
+  createElement() { return mkEl('c'); },
+  addEventListener() {}, removeEventListener() {},
+  body: mkEl('body'), documentElement: mkEl('de'), head: mkEl('head'),
+};
+
+const sandbox = {
+  console,
+  setTimeout: () => 0, clearTimeout: () => 0, setInterval: () => 0, clearInterval: () => 0,
+  document,
+  localStorage: { getItem: () => '', setItem() {}, removeItem() {} },
+  fetch: () => Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({}) }),
+  location: { href: 'http://127.0.0.1:8100/', search: '', pathname: '/', origin: 'http://127.0.0.1:8100' },
+  history: {}, navigator: { userAgent: 'node' },
+  alert: () => {}, confirm: () => true,
+  WebSocket: function () { return { close() {}, send() {}, readyState: 0 }; },
+  addEventListener() {}, removeEventListener() {},
+};
+sandbox.window = sandbox; sandbox.globalThis = sandbox;
+sandbox.self = sandbox;
+
+vm.createContext(sandbox);
+try { vm.runInContext(main, sandbox, { filename: 'index-inline.js' }); }
+catch (e) { console.error('脚本装载失败:', e.message); process.exit(1); }
+
+// ---------- 断言工具 ----------
+let pass = 0, fail = 0;
+function ok(cond, msg) {
+  if (cond) { pass++; console.log('  ✓ ' + msg); }
+  else { fail++; console.log('  ✗ ' + msg); }
+}
+function eq(a, b, msg) { ok(a === b, msg + `  (实际=${JSON.stringify(a)} 期望=${JSON.stringify(b)})`); }
+// 脚本里 ME / TEAM_MEMBERS 用 let 声明（词法作用域），只能在该上下文内部赋值
+function setVar(name, value) { vm.runInContext(`${name}=${JSON.stringify(value)};`, sandbox); }
+
+// ============================================================
+// 用例 1：创建子事项失败 → 表单必须被重置（负责人等脏数据不得残留）
+// ============================================================
+(async () => {
+  console.log('\n【用例1】创建失败后的表单重置');
+  setVar('ME', { can_edit: true, is_admin: true, username: 'admin', role: 'admin', boards: [{ board_id: 'B1', board_name: '看板1' }] });
+  setVar('TEAM_MEMBERS', ['王伟娜', '张三', '李四']);
+  sandbox.DRAWER_STACK = [{ type: 'list', cardId: 'P1' }];
+  sandbox.DRAWER_OWNER = ['王伟娜', '张三'];
+  sandbox.DRAWER_NEW_UNDER = null;
+
+  getEl('dn_name').value = '要创建的子事项';
+  getEl('dn_desc').value = '描述残留';
+  getEl('dn_begin').value = '2026-01-01';
+  getEl('dn_due').value = '2026-02-01';
+  getEl('dn_status').value = 'done';
+
+  let called = 0;
+  sandbox.api = async () => { called++; throw new Error('模拟创建失败：父事项已完成'); };
+
+  await sandbox.createDrawerSub();
+
+  eq(called, 1, '确实发起了创建请求');
+  eq(sandbox.DRAWER_OWNER.length, 0, '负责人已清空（DRAWER_OWNER）');
+  eq(getEl('dn_name').value, '', '标题已清空');
+  eq(getEl('dn_desc').value, '', '描述已清空');
+  eq(getEl('dn_begin').value, '', '开始日期已清空');
+  eq(getEl('dn_due').value, '', '截止日期已清空');
+  eq(getEl('dn_status').value, 'open', '状态已回到默认「未完成」');
+  // 选择器是否重绑到空数组：PP['dn_owner'].arr 必须与 DRAWER_OWNER 一致且为空
+  ok(sandbox.PP && sandbox.PP['dn_owner'], '负责人选择器已重新初始化');
+  eq(sandbox.PP['dn_owner'].arr.length, 0, '选择器绑定的数组为空（界面上不会残留已选成员）');
+  ok(sandbox.PP['dn_owner'].arr === sandbox.DRAWER_OWNER, '选择器与 DRAWER_OWNER 指向同一数组');
+
+  // ============================================================
+  // 用例 2：创建成功 → 字段同样正常清空
+  // ============================================================
+  console.log('\n【用例2】创建成功后的表单清空');
+  sandbox.DRAWER_OWNER = ['李四'];
+  getEl('dn_name').value = '成功创建的子事项';
+  getEl('dn_desc').value = '描述';
+  getEl('dn_status').value = 'progressing';
+  sandbox.api = async () => ({ ok: true, card_id: 'NC999' });
+  // renderDrawerList 会发起多次请求，这里统一返回空结构避免干扰
+  sandbox.api = async (p) => {
+    if (String(p).startsWith('/api/cards?')) return { cards: [], columns: [] };
+    if (String(p).endsWith('/children')) return { children: [], total: 0 };
+    if (String(p).endsWith('/subtasks')) return { subtasks: [], flat: [], total: 0, done: 0 };
+    return { ok: true };
+  };
+  await sandbox.createDrawerSub();
+  eq(sandbox.DRAWER_OWNER.length, 0, '成功后负责人已清空');
+  eq(getEl('dn_status').value, 'open', '成功后状态已回到默认');
+
+  // ============================================================
+  // 用例 3：目录点击子事项 → 打开子事项弹窗（字段裁剪 + 父事项约束）
+  // ============================================================
+  console.log('\n【用例3】目录点击打开子事项弹窗');
+  const SUB = {
+    card_id: 'NC1', card_name: '子事项A', parent_id: 'P1', board_id: 'B1',
+    status: 'progressing', owner: '王伟娜', cc: '张三', begin: '2026-03-02', due: '2026-03-20',
+    description: '子事项描述', pinned: 0, created: '2026-10-28 08:00:00', locked_by: null,
+  };
+  const PARENT = {
+    card_id: 'P1', card_name: '父事项A', parent_id: '', board_id: 'B1',
+    status: 'open', owner: '王伟娜', begin: '2026-03-01', due: '2026-03-31',
+    description: '', pinned: 0, created: '2026-10-28 07:00:00', locked_by: null,
+  };
+  sandbox.api = async (p) => {
+    if (String(p).includes('card_id=NC1')) return { cards: [SUB], columns: [] };
+    if (String(p).includes('card_id=P1')) return { cards: [PARENT], columns: [] };
+    if (String(p).endsWith('/subtasks')) return { subtasks: [], flat: [], total: 0, done: 0 };
+    return { cards: [], columns: [] };
+  };
+  sandbox.lockCard = async () => true;
+  getEl('editModal').style.display = 'none';
+
+  await sandbox.openSubModal('NC1');
+
+  eq(getEl('editModal').style.display, 'flex', '子事项弹窗已打开');
+  eq(getEl('editTitle').textContent, '编辑子事项', '标题为「编辑子事项」');
+  eq(getEl('e_board_wrap').style.display, 'none', '「所属看板」已隐藏（子事项继承父看板）');
+  eq(getEl('e_cc_wrap').style.display, 'none', '「参与人」已隐藏（子事项无参与人）');
+  eq(getEl('e_parent_wrap').style.display, '', '父事项信息区已展示');
+  ok(String(getEl('e_parent_info').innerHTML).includes('父事项A'), '父事项信息含父事项名称');
+  eq(getEl('e_begin').getAttribute('min'), '2026-03-01', '开始日期受父事项起始约束(min)');
+  eq(getEl('e_due').getAttribute('max'), '2026-03-31', '截止日期受父事项截止约束(max)');
+  eq(getEl('e_name').value, '子事项A', '标题已回填');
+  eq(getEl('e_status').value, 'progressing', '状态已回填');
+  eq(getEl('e_begin').value, '2026-03-02', '开始日期已回填');
+  eq(getEl('e_due').value, '2026-03-20', '截止日期已回填');
+
+  // 保存子事项：不得带上「参与人」（否则会写入上一个主事项的残留值）
+  let saved = null;
+  sandbox.api = async (p, opt) => {
+    if (opt && opt.method === 'PUT') { saved = JSON.parse(opt.body); return { ok: true }; }
+    return { cards: [SUB], columns: [] };
+  };
+  await sandbox.saveEdit();
+  ok(saved && saved.fields, '保存请求已发出');
+  ok(saved.fields.cc === undefined, '保存子事项时不发送参与人字段');
+  eq(saved.fields.status, 'progressing', '保存的状态正确');
+  eq(saved.fields.owner, '王伟娜', '保存的负责人正确');
+  eq(saved.fields.status_name, '进行中', '保存的状态文案正确');
+
+  // ============================================================
+  // 用例 4：目录行与抽屉行都带齐 置顶 / 完成情况
+  // ============================================================
+  console.log('\n【用例4】子事项行的置顶与完成情况按钮');
+  const treeHtml = sandbox.subNodeHtml({ ...SUB, pinned: 1, status: 'done' }, 0);
+  ok(treeHtml.includes('toggleCardPin'), '目录行含置顶按钮');
+  ok(treeHtml.includes('toggleCardDone'), '目录行含完成情况按钮');
+  ok(treeHtml.includes('openSubModal'), '目录行点击打开子事项弹窗');
+  ok(treeHtml.includes('已置顶'), '已置顶状态有文案');
+  ok(treeHtml.includes('已完成'), '完成状态有标记');
+  ok(!treeHtml.includes('openDetail'), '目录行不再走只读详情弹窗');
+
+  const drawerHtml = sandbox.drawerSubTree([{ ...SUB, pinned: 0, status: 'open' }], 'P1', 0);
+  ok(drawerHtml.includes('toggleCardPin'), '抽屉行含置顶按钮');
+  ok(drawerHtml.includes('toggleCardDone'), '抽屉行含完成情况按钮');
+  ok(drawerHtml.includes('openSubModal'), '抽屉行编辑按钮打开子事项弹窗');
+  ok(drawerHtml.includes('＋下级'), '抽屉行保留「＋下级」');
+  ok(drawerHtml.includes('delDrawerSub'), '抽屉行保留「删除」');
+
+  // 抽屉列表里主事项的操作区也应与主事项行一致
+  console.log('\n【用例5】抽屉右侧面板的完整渲染');
+  sandbox.api = async (p) => {
+    if (String(p).includes('card_id=P1')) return { cards: [PARENT], columns: [] };
+    if (String(p).endsWith('/children')) return { children: [{ ...SUB, pinned: 1, status: 'done', children: [] }], total: 1 };
+    if (String(p).endsWith('/subtasks')) return { subtasks: [], flat: [], total: 0, done: 0 };
+    return { cards: [], columns: [] };
+  };
+  sandbox.DRAWER_STACK = [{ type: 'list', cardId: 'P1' }];
+  await sandbox.renderDrawerList('P1');
+  const drawerHtml2 = getEl('drawerBody').innerHTML;
+  ok(drawerHtml2.includes('toggleCardPin'), '抽屉主事项卡含置顶按钮');
+  ok(drawerHtml2.includes('toggleCardDone'), '抽屉主事项卡含完成情况按钮');
+  ok(drawerHtml2.includes('openEdit'), '抽屉主事项卡含编辑入口');
+  ok(drawerHtml2.includes('dn_owner'), '新建子事项表单含负责人选择器');
+  ok(drawerHtml2.includes('子事项目录'), '抽屉含子事项目录区块');
+  ok(drawerHtml2.includes('代办清单') === false, '无代办时不展示代办清单');
+
+  console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
+  process.exit(fail ? 1 : 0);
+})().catch(e => { console.error('测试异常:', e); process.exit(1); });
