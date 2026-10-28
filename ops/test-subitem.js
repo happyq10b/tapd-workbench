@@ -11,8 +11,17 @@ const blocks = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m =>
 const main = blocks.sort((a, b) => b.length - a.length)[0];
 
 // ---------- 最小 DOM stub ----------
-function mkEl(id) {
-  const attrs = {};
+function adopt(parent, child) {
+  if (!parent || !child) return;
+  if (child.parentNode && child.parentNode._kids) {
+    const i = child.parentNode._kids.indexOf(child);
+    if (i >= 0) child.parentNode._kids.splice(i, 1);
+  }
+  child.parentNode = parent;
+  if (!parent._kids) parent._kids = [];
+  if (!parent._kids.includes(child)) parent._kids.push(child);
+}
+function mkEl(id) {  const attrs = {};
   const el = {
     id,
     value: '',
@@ -27,11 +36,16 @@ function mkEl(id) {
     querySelector() { return mkEl(id + '>q'); },
     querySelectorAll() { return []; },
     closest() { return null; },
-    appendChild() {}, remove() {}, setAttribute(k, v) { attrs[k] = String(v); },
+    appendChild(child) { adopt(el, child); return child; },
+    insertBefore(child, ref) { adopt(el, child); return child; },
+    remove() {}, setAttribute(k, v) { attrs[k] = String(v); },
     getAttribute(k) { return k in attrs ? attrs[k] : null; },
     removeAttribute(k) { delete attrs[k]; },
     getBoundingClientRect() { return { top: 0, left: 0, width: 0, height: 0 }; },
   };
+  el.parentNode = null;
+  el._kids = [];
+  Object.defineProperty(el, 'firstChild', { get() { return el._kids[0] || null; } });
   Object.defineProperty(el, 'innerHTML', {
     get() { return el._html; },
     set(v) { el._html = String(v); },
@@ -185,26 +199,32 @@ function setVar(name, value) { vm.runInContext(`${name}=${JSON.stringify(value)}
   eq(saved.fields.status_name, '进行中', '保存的状态文案正确');
 
   // ============================================================
-  // 用例 4：目录行与抽屉行都带齐 置顶 / 完成情况
+  // 用例 4：目录行与抽屉行只保留唯一的状态切换入口（状态标签）
   // ============================================================
-  console.log('\n【用例4】子事项行的置顶与完成情况按钮');
+  console.log('\n【用例4】子事项行的置顶与状态切换入口');
   const treeHtml = sandbox.subNodeHtml({ ...SUB, pinned: 1, status: 'done' }, 0);
   ok(treeHtml.includes('toggleCardPin'), '目录行含置顶按钮');
-  ok(treeHtml.includes('toggleCardDone'), '目录行含完成情况按钮');
+  ok(treeHtml.includes('toggleCardDone'), '目录行状态标签可切换完成状态');
   ok(treeHtml.includes('openSubModal'), '目录行点击打开子事项弹窗');
   ok(treeHtml.includes('已置顶'), '已置顶状态有文案');
   ok(treeHtml.includes('已完成'), '完成状态有标记');
   ok(!treeHtml.includes('openDetail'), '目录行不再走只读详情弹窗');
+  ok(!/完成<\/button>|done-btn|doneBtn/.test(treeHtml), '目录行已移除冗余的「完成」按钮');
 
   const drawerHtml = sandbox.drawerSubTree([{ ...SUB, pinned: 0, status: 'open' }], 'P1', 0);
   ok(drawerHtml.includes('toggleCardPin'), '抽屉行含置顶按钮');
-  ok(drawerHtml.includes('toggleCardDone'), '抽屉行含完成情况按钮');
+  ok(drawerHtml.includes('toggleCardDone'), '抽屉行状态标签可切换完成状态');
   ok(drawerHtml.includes('openSubModal'), '抽屉行编辑按钮打开子事项弹窗');
   ok(drawerHtml.includes('＋下级'), '抽屉行保留「＋下级」');
   ok(drawerHtml.includes('delDrawerSub'), '抽屉行保留「删除」');
+  ok(!/done-btn|doneBtn/.test(drawerHtml), '抽屉行已移除冗余的「完成」按钮');
 
-  // 抽屉列表里主事项的操作区也应与主事项行一致
-  console.log('\n【用例5】抽屉右侧面板的完整渲染');
+  // 状态标签的点击必须冒泡阻断，不能连带触发所在行的「打开弹窗」
+  ok(treeHtml.includes('event.stopPropagation()'), '状态标签点击不触发所在行的打开动作');
+
+  // ============================================================
+  // 用例 5：抽屉右侧面板的完整渲染
+  // ============================================================
   sandbox.api = async (p) => {
     if (String(p).includes('card_id=P1')) return { cards: [PARENT], columns: [] };
     if (String(p).endsWith('/children')) return { children: [{ ...SUB, pinned: 1, status: 'done', children: [] }], total: 1 };
@@ -215,11 +235,47 @@ function setVar(name, value) { vm.runInContext(`${name}=${JSON.stringify(value)}
   await sandbox.renderDrawerList('P1');
   const drawerHtml2 = getEl('drawerBody').innerHTML;
   ok(drawerHtml2.includes('toggleCardPin'), '抽屉主事项卡含置顶按钮');
-  ok(drawerHtml2.includes('toggleCardDone'), '抽屉主事项卡含完成情况按钮');
+  ok(drawerHtml2.includes('toggleCardDone'), '抽屉主事项卡的状态标签可切换完成状态');
+  ok(!/done-btn|doneBtn/.test(drawerHtml2), '抽屉主事项卡也已移除冗余的「完成」按钮');
   ok(drawerHtml2.includes('openEdit'), '抽屉主事项卡含编辑入口');
   ok(drawerHtml2.includes('dn_owner'), '新建子事项表单含负责人选择器');
   ok(drawerHtml2.includes('子事项目录'), '抽屉含子事项目录区块');
   ok(drawerHtml2.includes('代办清单') === false, '无代办时不展示代办清单');
+
+  // ============================================================
+  // 用例 6：「负责人」在子事项模式搬到状态右侧同一行，并标注选填
+  // ============================================================
+  console.log('\n【用例6】负责人字段的选填与位置');
+  // 先开一次子事项弹窗（用例3已建立 API stub）
+  await sandbox.openSubModal('NC1');
+  const ownerGroup = getEl('e_owner_group');
+  const statusRow = getEl('e_status_row');
+  const ownerRow = getEl('e_owner_row');
+  ok(ownerGroup.parentNode === statusRow, '负责人已搬到「状态」所在行（与状态并列）');
+  ok(ownerRow.style.display === 'none', '原来的「负责人/参与人」行已收起（不占位、不错位）');
+  eq(getEl('e_owner_opt').style.display, '', '负责人已标注「（选填）」');
+  ok(statusRow._kids.includes(ownerGroup), '负责人确实是状态行的子节点（网格第 2 列）');
+
+  // 切回主事项：负责人必须还原到原行，且「（选填）」标注撤掉
+  const MAIN = { ...PARENT, card_name: '主事项A' };
+  sandbox.api = async (p) => {
+    if (String(p).includes('card_id=P1')) return { cards: [MAIN], columns: [] };
+    if (String(p).endsWith('/subtasks')) return { subtasks: [], flat: [], total: 0, done: 0 };
+    return { cards: [], columns: [] };
+  };
+  await sandbox.openEdit('P1', MAIN);
+  ok(ownerGroup.parentNode === ownerRow, '主事项模式下负责人已还原到原行');
+  eq(ownerRow.style.display, '', '主事项模式下原行正常显示');
+  eq(getEl('e_owner_opt').style.display, 'none', '主事项模式不显示「（选填）」标注');
+
+  // ============================================================
+  // 用例 7：点击涟漪反馈已挂载
+  // ============================================================
+  console.log('\n【用例7】目录项点击反馈');
+  ok(typeof sandbox.attachRipple === 'function', '涟漪反馈函数已提供');
+  const boardContent = getEl('boardContent');
+  ok(boardContent._rippleBound === true, '看板容器已绑定涟漪反馈');
+  ok(getEl('drawerBody')._rippleBound === true, '抽屉容器已绑定涟漪反馈');
 
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);
