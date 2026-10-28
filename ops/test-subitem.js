@@ -92,6 +92,9 @@ function ok(cond, msg) {
 function eq(a, b, msg) { ok(a === b, msg + `  (实际=${JSON.stringify(a)} 期望=${JSON.stringify(b)})`); }
 // 脚本里 ME / TEAM_MEMBERS 用 let 声明（词法作用域），只能在该上下文内部赋值
 function setVar(name, value) { vm.runInContext(`${name}=${JSON.stringify(value)};`, sandbox); }
+// let 声明的普通状态变量同样只能通过上下文赋值/读取
+function setLet(name, value) { vm.runInContext(`${name}=${JSON.stringify(value)};`, sandbox); }
+function getLet(name) { return vm.runInContext(name, sandbox); }
 
 // ============================================================
 // 用例 1：创建子事项失败 → 表单必须被重置（负责人等脏数据不得残留）
@@ -402,6 +405,66 @@ function setVar(name, value) { vm.runInContext(`${name}=${JSON.stringify(value)}
   eq(getEl('c_year').value, String(new Date().getFullYear()), '新建时归属年份默认当年');
   eq(getEl('c_submit').textContent, '创建板块', '新建模式主按钮为「创建板块」');
   eq(getEl('c_board_wrap').style.display, '', '新建模式可选择所属看板');
+
+  // ============================================================
+  // 用例 12：锁图标按权限显示 / 年份筛选器 / 归属年份默认
+  // ============================================================
+  console.log('\n【用例12】锁图标、归属年份默认与年份筛选');
+  const COST = { board_id: '1162069797001000241', board_name: '成本工作事项（2026年度）' };
+  setVar('ME', { can_edit: true, is_admin: true, username: 'admin', role: 'admin', boards: [COST], depts: [] });
+  const adminTab = sandbox.boardTabHtml(COST, '核算部');
+  ok(!adminTab.includes('🔒'), '管理员看不到成本看板的锁（对其确无实际限制）');
+  setVar('ME', { can_edit: true, is_admin: false, username: 'scj', role: 'editor', boards: [COST], depts: [] });
+  const editorTab = sandbox.boardTabHtml(COST, '核算部');
+  ok(editorTab.includes('🔒'), '非管理员仍看到锁（限制对其确实生效）');
+  ok(editorTab.includes('仅管理员可编辑'), '锁带说明含义的提示文字');
+  const normalTab = sandbox.boardTabHtml({ board_id: 'B1', board_name: '综合工作事项' }, '核算部');
+  ok(!normalTab.includes('🔒'), '普通看板没有锁');
+
+  // 归属年份默认 = 创建年份（新建时跟随创建日期）
+  sandbox.openColumnModal();
+  eq(getEl('c_year').value, getEl('c_created').value.slice(0, 4), '新建时归属年份默认取创建日期的年份');
+  getEl('c_created').value = '2025-03-08';
+  sandbox.syncYearFromDate();
+  eq(getEl('c_year').value, '2025', '改创建日期后归属年份自动跟随');
+  getEl('c_year').value = '2027';
+  getEl('c_year').dispatchEvent && null;
+  sandbox.YEAR_TOUCHED = true;
+  getEl('c_created').value = '2026-01-01';
+  sandbox.syncYearFromDate();
+  eq(getEl('c_year').value, '2027', '用户手动改过归属年份后不再被创建日期覆盖');
+
+  // 年份筛选器：选项 = 当前看板下各板块的归属年份
+  const COLS = [
+    { column_name: '板块A', year: '2026', col_key: 'B::板块A', board_id: 'B', card_count: 2, done_count: 1, created_at: '2026-01-01', creator: 'x', nature: '日常' },
+    { column_name: '板块B', year: '2025', col_key: 'B::板块B', board_id: 'B', card_count: 1, done_count: 0, created_at: '2025-01-01', creator: 'x', nature: '日常' },
+    { column_name: '板块C', year: '2026', col_key: 'B::板块C', board_id: 'B', card_count: 0, done_count: 0, created_at: '2026-02-01', creator: 'x', nature: '日常' },
+  ];
+  const CARDS = [
+    { card_id: 'C1', card_name: '事项1', column_name: '板块A', owner: '王伟娜', status: 'open', created: '2026-01-01', due: '', pinned: 0, sub_count: 0, subtask_total: 0, subtask_done: 0, board_id: 'B', locked_by: null },
+    { card_id: 'C2', card_name: '事项2', column_name: '板块B', owner: '王伟娜', status: 'open', created: '2025-01-01', due: '', pinned: 0, sub_count: 0, subtask_total: 0, subtask_done: 0, board_id: 'B', locked_by: null },
+  ];
+  setLet('curYear', '');
+  sandbox.renderYearFilter(COLS);
+  const opts = getEl('yearFilter').innerHTML;
+  ok(opts.includes('全部年份'), '年份下拉含「全部年份」');
+  ok(opts.includes('2026') && opts.includes('2025'), '年份下拉含各板块可用年份');
+  ok((opts.match(/<option/g) || []).length === 3, '年份选项不重复（2026 只出现一次）');
+
+  // 按年份筛选板块
+  setLet('curYear', '2025');
+  sandbox.renderBoard(CARDS, COLS, '', []);
+  const filtered = getEl('boardContent').innerHTML;
+  ok(filtered.includes('板块B'), '筛选后显示该年份的板块');
+  ok(!filtered.includes('板块A'), '筛选后隐藏其它年份的板块');
+  setLet('curYear', '');
+  sandbox.renderBoard(CARDS, COLS, '', []);
+  ok(getEl('boardContent').innerHTML.includes('板块A'), '取消筛选后恢复全部板块');
+
+  // 选中的年份在新看板不存在 → 一致重置为「全部年份」
+  setLet('curYear', '2025');
+  sandbox.renderYearFilter([{ column_name: '只有2026', year: '2026' }]);
+  eq(getLet('curYear'), '', '年份在新看板不存在时重置为全部年份');
 
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);
