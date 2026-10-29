@@ -184,7 +184,7 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   eq(getEl('e_begin').getAttribute('min'), '2026-03-01', '开始日期受父事项起始约束(min)');
   eq(getEl('e_due').getAttribute('max'), '2026-03-31', '截止日期受父事项截止约束(max)');
   eq(getEl('e_name').value, '子事项A', '标题已回填');
-  eq(getEl('e_status').value, 'progressing', '状态已回填');
+  ok(!/id="e_status"/.test(html), '编辑弹窗不再有状态下拉（状态统一由头部状态按钮承载）');
   eq(getEl('e_begin').value, '2026-03-02', '开始日期已回填');
   eq(getEl('e_due').value, '2026-03-20', '截止日期已回填');
 
@@ -197,9 +197,9 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   await sandbox.saveEdit();
   ok(saved && saved.fields, '保存请求已发出');
   ok(saved.fields.cc === undefined, '保存子事项时不发送参与人字段');
-  eq(saved.fields.status, 'progressing', '保存的状态正确');
+  ok(saved.fields.status === undefined, '保存时不发送状态字段（状态由头部状态按钮单独设置）');
   eq(saved.fields.owner, '王伟娜', '保存的负责人正确');
-  eq(saved.fields.status_name, '进行中', '保存的状态文案正确');
+  ok(saved.fields.status_name === undefined, '保存时不发送状态文案');
 
   // ============================================================
   // 用例 4：目录行与抽屉行只保留唯一的状态切换入口（状态标签）
@@ -255,12 +255,12 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   // 先开一次子事项弹窗（用例3已建立 API stub）
   await sandbox.openSubModal('NC1');
   const ownerGroup = getEl('e_owner_group');
-  const statusRow = getEl('e_status_row');
+  const metaRow = getEl('e_meta_row');
   const ownerRow = getEl('e_owner_row');
-  ok(ownerGroup.parentNode === statusRow, '负责人已搬到「状态」所在行（与状态并列）');
+  ok(ownerGroup.parentNode === metaRow, '负责人已搬到「所属看板」所在行（该行原本的状态控件已移除）');
   ok(ownerRow.style.display === 'none', '原来的「负责人/参与人」行已收起（不占位、不错位）');
   eq(getEl('e_owner_opt').style.display, '', '负责人已标注「（选填）」');
-  ok(statusRow._kids.includes(ownerGroup), '负责人确实是状态行的子节点（网格第 2 列）');
+  ok(metaRow._kids.includes(ownerGroup), '负责人确实是该行的子节点（网格第 2 列）');
 
   // 切回主事项：负责人必须还原到原行，且「（选填）」标注撤掉
   const MAIN = { ...PARENT, card_name: '主事项A' };
@@ -639,6 +639,56 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
     '主事项行渲染全部固定槽位（有/无内容都占位）');
   ok(subWithDate.includes('slot-overdue') && subWithDate.includes('slot-status') && subWithDate.includes('slot-pin'),
     '子事项行渲染全部固定槽位');
+
+  // ============================================================
+  // 用例 7：详情弹窗的状态按钮（状态唯一呈现 + 唯一设置入口）与置顶按钮移除
+  // ============================================================
+  console.log('\n【用例7】详情弹窗的状态按钮与置顶按钮移除');
+  setVar('ME', { can_edit: true, is_admin: true, username: 'admin', role: 'admin', boards: [{ board_id: 'B1', board_name: '看板1' }] });
+
+  // 1) 弹窗内的置顶入口已移除（列表行的置顶仍保留）
+  ok(!/detailTogglePin/.test(html), '弹窗内的置顶入口已移除（detailTogglePin 已删除）');
+  ok(!/done-btn/.test(html), '旧的 done-btn（无样式定义、渲染成浏览器默认按钮）已移除');
+
+  // 2) 状态按钮：当前状态的唯一呈现
+  sandbox.renderDetailOps({ card_id: 'C1', status: 'progressing', locked_by: null });
+  const opsHtml = getEl('d_ops').innerHTML;
+  ok(opsHtml.includes('status-btn progressing'), '状态按钮按当前状态渲染（进行中）');
+  ok(opsHtml.includes('status-menu'), '状态按钮带可展开的状态菜单');
+  ok(opsHtml.includes('d_status_picker'), '详情弹窗的状态按钮容器 id 正确');
+  ok(!opsHtml.includes('pin-btn'), '弹窗操作区不再包含置顶按钮（列表行的置顶不受影响）');
+  ok(/📌 事项置顶/.test(html), '列表行的置顶按钮仍保留（未受影响）');
+  ok(opsHtml.includes('✏️ 编辑'), '编辑入口仍在');
+  ok(opsHtml.includes('未完成') && opsHtml.includes('进行中') && opsHtml.includes('已完成'),
+    '状态菜单三项齐全（未完成 / 进行中 / 已完成）');
+  ok(opsHtml.includes('cur'), '菜单里当前状态被标记');
+
+  // 3) 菜单的展开与收起
+  const dMenu = getEl('d_status_menu');
+  dMenu.hidden = true;
+  sandbox.toggleStatusMenu({ stopPropagation() {} }, 'd');
+  eq(dMenu.hidden, false, '点击后状态菜单展开');
+  sandbox.toggleStatusMenu({ stopPropagation() {} }, 'd');
+  eq(dMenu.hidden, true, '再次点击后状态菜单收起');
+
+  // 4) 设置状态：提交正确的 status + status_name
+  let putBody = null;
+  sandbox.api = async (p, opt) => {
+    if (opt && opt.method === 'PUT') { putBody = JSON.parse(opt.body); return { ok: true }; }
+    return { cards: [{ card_id: 'C1', status: 'done', card_name: 'x', board_name: 'B', column_name: 'C' }],
+             columns: [], column_hits: [], subtasks: [], comments: [], actions: [] };
+  };
+  setLet('DETAIL_ID', 'C1');
+  await sandbox.setCardStatus('d', 'done');
+  ok(putBody && putBody.fields && putBody.fields.status === 'done', '设置状态提交 status=done');
+  eq(putBody && putBody.fields.status_name, '已完成', '同时提交对应的状态文案');
+
+  // 5) 状态不在元信息里重复出现；编辑弹窗的状态控件收敛到头部
+  ok(!/状态：<b>/.test(html), '详情弹窗元信息不再单独渲染「状态：」字段');
+  ok(/id="e_status_ops"/.test(html), '编辑弹窗头部有状态按钮容器');
+  ok(!/id="e_status_group"/.test(html), '编辑弹窗表单内的状态控件已删除');
+  ok(!/id="e_status_row"/.test(html), '原 e_status_row 已改名为 e_meta_row');
+  ok(/id="e_meta_row"/.test(html), 'e_meta_row 承接原状态行（所属看板 + 子事项模式负责人搬移）');
 
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);
