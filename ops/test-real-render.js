@@ -114,20 +114,18 @@ function ok(c, m) { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++;
         '子事项行渲染全部固定槽位');
     }
 
-    // 3) 抽屉里的子事项行
-    const drawerHtml = sandbox.drawerSubTree(children.children, parent.card_id, 0);
-    ok(drawerHtml.includes('负责人：' + (sub ? sub.owner : '')), '抽屉子事项行显示「负责人：」前缀');
-    ok(!drawerHtml.includes('avatarColor'), '抽屉子事项行不再按姓名哈希颜色');
-    ok(/创建日期：\d{4}-\d{2}-\d{2}/.test(drawerHtml), '抽屉子事项行显示「创建日期：YYYY-MM-DD」');
+    // 3) 右侧抽屉已移除：子事项只保留列表目录 + 详情弹窗两处入口
+    ok(typeof sandbox.drawerSubTree === 'undefined', '抽屉子事项树已移除');
   }
 
-  // 4) 年份筛选默认值
+  // 4) 年份筛选默认值（多选 chips）
   const cols = cards.columns.map(c => ({ column_name: c.column_name, year: c.year }));
-  vm.runInContext('curYear=YEAR_DEFAULT;', sandbox);
+  vm.runInContext('curYears=new Set([YEAR_DEFAULT]);', sandbox);
   sandbox.renderYearFilter(cols);
   const sel = getEl('yearFilter').innerHTML;
-  ok(/value="2026"[^>]*selected/.test(sel) || /selected[^>]*value="2026"/.test(sel), '年份下拉默认选中当前年份');
-  console.log('    年份下拉 HTML:', sel.slice(0, 220));
+  ok(/data-year="\d{4}"/.test(sel), '年份筛选器默认渲染当前年份 chip');
+  ok(sel.includes('全部年份'), '年份筛选器含「全部年份」清空入口');
+  console.log('    年份筛选器 HTML:', sel.slice(0, 220));
 
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);

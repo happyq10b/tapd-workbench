@@ -95,6 +95,9 @@ function setVar(name, value) { vm.runInContext(`${name}=${JSON.stringify(value)}
 // let 声明的普通状态变量同样只能通过上下文赋值/读取
 function setLet(name, value) { vm.runInContext(`${name}=${JSON.stringify(value)};`, sandbox); }
 function getLet(name) { return vm.runInContext(name, sandbox); }
+// Set 类型的状态变量（年份多选 curYears）：需要整体替换而不是逐个赋值
+function setLetSet(name, arr) { vm.runInContext(`${name}=new Set(${JSON.stringify(arr)});`, sandbox); }
+function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
 
 // ============================================================
 // 用例 1：创建子事项的弹窗 —— 与主事项共用同一个 newModal，字段/校验一致
@@ -103,7 +106,6 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   console.log('\n【用例1】创建子事项弹窗（与主事项同构）');
   setVar('ME', { can_edit: true, is_admin: true, username: 'admin', role: 'admin', boards: [{ board_id: 'B1', board_name: '看板1' }] });
   setVar('TEAM_MEMBERS', ['王伟娜', '张三', '李四']);
-  sandbox.DRAWER_STACK = [{ type: 'list', cardId: 'P1' }];
 
   const SUB = {
     card_id: 'NC1', card_name: '子事项A', parent_id: 'P1', board_id: 'B1',
@@ -269,38 +271,32 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   ok(!/完成<\/button>|done-btn|doneBtn/.test(treeHtml), '目录行已移除冗余的「完成」按钮');
   sandbox.setPinned('card', 'NC1', false);
 
-  const drawerHtml = sandbox.drawerSubTree([{ ...SUB, pinned: 0, status: 'open' }], 'P1', 0);
-  ok(drawerHtml.includes('toggleCardPin'), '抽屉行含置顶按钮');
-  ok(drawerHtml.includes('toggleCardDone'), '抽屉行状态标签可切换完成状态');
-  ok(drawerHtml.includes('openSubModal'), '抽屉行编辑按钮打开子事项弹窗');
-  ok(drawerHtml.includes('＋下级'), '抽屉行保留「＋下级」');
-  ok(drawerHtml.includes('delDrawerSub'), '抽屉行保留「删除」');
-  ok(!/done-btn|doneBtn/.test(drawerHtml), '抽屉行已移除冗余的「完成」按钮');
-
+  // 右侧抽屉已整体移除：子事项管理统一到弹窗（本期需求）
+  ok(typeof sandbox.drawerSubTree === 'undefined', '抽屉子事项树函数已移除');
+  ok(typeof sandbox.renderDrawerList === 'undefined', '抽屉渲染函数已移除');
+  ok(!/id="drawerPanel"/.test(html), '抽屉面板 DOM 已移除');
+  ok(!/id="drawerMask"/.test(html), '抽屉遮罩 DOM 已移除');
+  ok(!/id="e_sub_btn"/.test(html), '编辑弹窗头部的「▤ 子事项」入口已移除（截图标注处）');
+  // 行内「＋ 子事项」现在直接打开新建弹窗，不再经过抽屉
+  ok(sandbox.cardItem({ ...SUB, pinned: 0, status: 'open' }, 1).includes('openNewSubModal'),
+     '行内「＋ 子事项」直接打开新建子事项弹窗（不再走抽屉）');
+  ok(!/openDrawer\(/.test(html), '代码里不再有 openDrawer 调用点');
+  // 本期不支持子事项以下更深层级：目录树不再渲染孙节点
+  const deepHtml = sandbox.subNodeHtml({
+    ...SUB, pinned: 0, status: 'open',
+    children: [{ card_id: 'NC2', card_name: '孙事项', status: 'open', children: [] }],
+  }, 0);
+  ok(!deepHtml.includes('孙事项'), '子事项行不再渲染下级（本期只支持两层）');
+  ok(!deepHtml.includes('toggleSubNode'), '子事项行不再有下级展开箭头');
   // 状态标签的点击必须冒泡阻断，不能连带触发所在行的「打开弹窗」
   ok(treeHtml.includes('event.stopPropagation()'), '状态标签点击不触发所在行的打开动作');
 
   // ============================================================
-  // 用例 5：抽屉右侧面板的完整渲染
+  // 用例 5：新建子事项弹窗（与主事项同构，无内联表单）
   // ============================================================
-  sandbox.api = async (p) => {
-    if (String(p).includes('card_id=P1')) return { cards: [PARENT], columns: [] };
-    if (String(p).endsWith('/children')) return { children: [{ ...SUB, pinned: 1, status: 'done', children: [] }], total: 1 };
-    if (String(p).endsWith('/subtasks')) return { subtasks: [], flat: [], total: 0, done: 0 };
-    return { cards: [], columns: [] };
-  };
-  sandbox.DRAWER_STACK = [{ type: 'list', cardId: 'P1' }];
-  await sandbox.renderDrawerList('P1');
-  const drawerHtml2 = getEl('drawerBody').innerHTML;
-  ok(drawerHtml2.includes('toggleCardPin'), '抽屉主事项卡含置顶按钮');
-  ok(drawerHtml2.includes('toggleCardDone'), '抽屉主事项卡的状态标签可切换完成状态');
-  ok(!/done-btn|doneBtn/.test(drawerHtml2), '抽屉主事项卡也已移除冗余的「完成」按钮');
-  ok(drawerHtml2.includes('openEdit'), '抽屉主事项卡含编辑入口');
-  ok(drawerHtml2.includes('openNewSubModal'), '抽屉含「＋ 创建子事项」入口（打开新建弹窗）');
-  ok(!/dn_owner|drawerNewBox/.test(drawerHtml2), '抽屉内不再有内联创建表单（已统一到新建弹窗）');
   ok(/id="n_owner"/.test(html), '新建弹窗含负责人选择器（与主事项同构）');
-  ok(drawerHtml2.includes('子事项目录'), '抽屉含子事项目录区块');
-  ok(drawerHtml2.includes('代办清单') === false, '无代办时不展示代办清单');
+  ok(/id="n_begin"/.test(html) && /id="n_due"/.test(html), '新建弹窗含开始/截止日期（与主事项同构）');
+  ok(!/id="drawerBody"/.test(html), '抽屉内容容器已移除（不再有独立的面板表单区）');
 
   // ============================================================
   // 用例 6：「负责人」在子事项模式搬到状态右侧同一行，并标注选填
@@ -335,7 +331,7 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   ok(typeof sandbox.attachRipple === 'function', '涟漪反馈函数已提供');
   const boardContent = getEl('boardContent');
   ok(boardContent._rippleBound === true, '看板容器已绑定涟漪反馈');
-  ok(getEl('drawerBody')._rippleBound === true, '抽屉容器已绑定涟漪反馈');
+  ok(!/id="drawerBody"/.test(html), '抽屉容器已随抽屉一并移除');
 
   // ============================================================
   // 用例 8：主事项行只保留「添加子事项」按钮
@@ -349,7 +345,8 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   const rowHtml = sandbox.cardItem(MAIN_ROW);
   ok(rowHtml.includes('＋ 子事项'), '行内显示「＋ 子事项」');
   ok(!/子事项\s*\d/.test(rowHtml), '行内不再显示「子事项 N」计数按钮');
-  ok(rowHtml.includes('openDrawer'), '「＋ 子事项」仍打开右侧抽屉（新增流程不变）');
+  ok(rowHtml.includes('openNewSubModal'), '「＋ 子事项」直接打开新建子事项弹窗（不再经过右侧抽屉）');
+  ok(!rowHtml.includes('openDrawer'), '「＋ 子事项」不再打开右侧抽屉');
   ok(rowHtml.includes('item-chev'), '已有子事项时仍保留左侧展开箭头（目录查看入口不丢）');
 
   // 只读账号不应看到「添加子事项」
@@ -488,7 +485,7 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   sandbox.syncYearFromDate();
   eq(getEl('c_year').value, '2027', '用户手动改过归属年份后不再被创建日期覆盖');
 
-  // 年份筛选器：选项 = 当前看板下各板块的归属年份
+  // 年份筛选器（多选）：chips 标签组
   const COLS = [
     { column_name: '板块A', year: '2026', col_key: 'B::板块A', board_id: 'B', card_count: 2, done_count: 1, created_at: '2026-01-01', creator: 'x', nature: '日常' },
     { column_name: '板块B', year: '2025', col_key: 'B::板块B', board_id: 'B', card_count: 1, done_count: 0, created_at: '2025-01-01', creator: 'x', nature: '日常' },
@@ -498,30 +495,48 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
     { card_id: 'C1', card_name: '事项1', column_name: '板块A', owner: '王伟娜', status: 'open', created: '2026-01-01', due: '', pinned: 0, sub_count: 0, subtask_total: 0, subtask_done: 0, board_id: 'B', locked_by: null },
     { card_id: 'C2', card_name: '事项2', column_name: '板块B', owner: '王伟娜', status: 'open', created: '2025-01-01', due: '', pinned: 0, sub_count: 0, subtask_total: 0, subtask_done: 0, board_id: 'B', locked_by: null },
   ];
-  setLet('curYear', '');
+  // 多选状态：用 Set 表达已选年份集合（空 = 全部年份）
+  setLetSet('curYears', []);
   sandbox.renderYearFilter(COLS);
   const opts = getEl('yearFilter').innerHTML;
-  ok(opts.includes('全部年份'), '年份下拉含「全部年份」');
-  ok(opts.includes('2026') && opts.includes('2025'), '年份下拉含各板块可用年份');
-  ok((opts.match(/<option/g) || []).length === 3, '年份选项不重复（2026 只出现一次）');
+  ok(opts.includes('全部年份'), '年份筛选器含「全部年份」（= 清空全部）');
+  ok(opts.includes('全部年份'), '未选年份时仅显示「全部年份」入口');
+  ok((opts.match(/year-chip/g) || []).length === 1, '未选年份时不渲染年份 chip（只有「全部年份」）');
 
-  // 按年份筛选板块
-  setLet('curYear', '2025');
+  // 选中两个年份 → 两个 chip，且都能单独移除
+  setLetSet('curYears', ["2025","2026"]);
+  sandbox.renderYearFilter(COLS);
+  const chips = getEl('yearFilter').innerHTML;
+  ok((chips.match(/class="year-chip"/g) || []).length === 2, '同时选中两个年份 → 渲染两个 chip');
+  ok(chips.includes('2026') && chips.includes('2025'), '已选年份在筛选器里可见');
+  ok(chips.includes('data-year="2025"') && chips.includes('data-year="2026"'), '每个 chip 带自己的年份标识');
+  ok((chips.match(/class="yc-x"/g) || []).length === 2, '每个已选年份都有独立的 ✕ 移除入口');
+
+  // 按多选年份筛选板块
+  setLetSet('curYears', ["2025"]);
   sandbox.renderBoard(CARDS, COLS, '', []);
   const filtered = getEl('boardContent').innerHTML;
   ok(filtered.includes('板块B'), '筛选后显示该年份的板块');
   ok(!filtered.includes('板块A'), '筛选后隐藏其它年份的板块');
-  setLet('curYear', '');
+  // 多选：两个年份同时生效，两个年份的板块都显示
+  setLetSet('curYears', ["2025","2026"]);
+  sandbox.renderBoard(CARDS, COLS, '', []);
+  const multi = getEl('boardContent').innerHTML;
+  ok(multi.includes('板块A') && multi.includes('板块B'), '多选时命中任一年份的板块都显示');
+  // 清空全部 → 不过滤
+  setLetSet('curYears', []);
   sandbox.renderBoard(CARDS, COLS, '', []);
   ok(getEl('boardContent').innerHTML.includes('板块A'), '取消筛选后恢复全部板块');
 
-  // 选中的年份在新看板不存在 → 先回落到当前年份，当前年份也没有则重置为「全部年份」
-  setLet('curYear', '2025');
+  // 已选年份在新看板不存在 → 先回落到当前年份，当前年份也没有则退回「全部年份」
+  setLetSet('curYears', ["2025"]);
   sandbox.renderYearFilter([{ column_name: '只有2026', year: '2026' }]);
-  eq(getLet('curYear'), String(new Date().getFullYear()), '年份在新看板不存在时回落到当前年份');
-  setLet('curYear', '2025');
+  eq(getLetSet('curYears').join(','), String(new Date().getFullYear()),
+     '年份在新看板不存在时回落到当前年份');
+  setLetSet('curYears', ["2025"]);
   sandbox.renderYearFilter([{ column_name: '只有2027', year: '2027' }]);
-  eq(getLet('curYear'), '', '当前年份也不存在时重置为全部年份');
+  eq(getLetSet('curYears').join(','), '',
+     '当前年份也不存在时重置为全部年份');
 
   // ============================================================
   // 用例 13：默认当前年份 / 按钮文案 / 负责人前缀 / 圆点配色 / 父事项责任人
@@ -531,14 +546,14 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   // 1) 年份默认落在当前年份
   const yNow = String(new Date().getFullYear());
   eq(getLet('YEAR_DEFAULT'), yNow, '年份默认值 = 当前年份');
-  setLet('curYear', yNow);
+  setLetSet('curYears', [yNow]);
   sandbox.renderYearFilter(COLS);
-  ok(getEl('yearFilter').innerHTML.includes('selected'), '默认选中当前年份');
+  ok(getEl('yearFilter').innerHTML.includes('data-year="' + yNow + '"'), '默认选中当前年份（渲染成 chip）');
 
   // 切换看板统一重置回当前年份
-  setLet('curYear', '2025');
+  setLetSet('curYears', ["2025"]);
   await sandbox.pickBoard('B1');
-  eq(getLet('curYear'), yNow, '切换看板后年份重置为当前年份');
+  eq(getLetSet('curYears').join(','), yNow, '切换看板后年份重置为当前年份');
 
   // 2) 行内子事项入口文案
   const subBtnRow = sandbox.cardItem({
