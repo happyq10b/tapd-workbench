@@ -110,15 +110,36 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   setLet('ME', { can_edit: true, is_admin: true, username: 'admin', role: 'admin', boards: [], depts: [] });
   setLet('TEAM_MEMBERS', ['王伟娜', '吴婷婷']);
 
+  // ---- 头部布局：按钮过多会把标题挤成竖排（用户反馈的「年份筛选按钮有问题」）----
+  ok(/\.header-left\{[^}]*flex-shrink:0/.test(htmlSrc), '头部左侧禁止收缩（否则标题被压成竖排）');
+  ok(/\.header-left h1\{[^}]*white-space:nowrap/.test(htmlSrc), '标题禁止换行');
+  ok(/\.header-actions\{[^}]*flex-wrap:wrap/.test(htmlSrc), '右侧按钮区允许换行');
+  ok(/\.year-filter\{[^}]*flex-wrap:nowrap/.test(htmlSrc), '年份筛选器不换行（换行会被固定高度裁掉）');
+  ok(!/\.year-filter\{[^}]*height:\d+px/.test(htmlSrc), '年份筛选器不设固定高度（避免裁掉 chips）');
+  // 低频按钮收进「更多」下拉
+  ok(/id="headerMore"/.test(htmlSrc), '存在头部「更多」下拉容器');
+  ok(/id="headerMoreMenu"/.test(htmlSrc), '存在「更多」菜单');
+  ok(main.includes('function toggleHeaderMore'), '提供「更多」开关函数');
+  ok(main.includes('function closeHeaderMore'), '提供「更多」收起函数');
+  ok(/header-more-menu\[hidden\]\{display:none\}/.test(htmlSrc), '「更多」菜单默认隐藏');
+  // 常驻按钮数量受控（原来 11 个平铺）
+  const alwaysBtns = (htmlSrc.match(/class="header-btn[^"]*"/g) || []).length;
+  ok(alwaysBtns <= 8, `常驻头部按钮不超过 8 个（实际 ${alwaysBtns}，其余收进「更多」）`);
+
   // 页面结构：左右分栏 + 部门页/列表页两个容器
   ok(/id="deptPageWrap"/.test(htmlSrc), '存在部门页容器 deptPageWrap');
   ok(/id="boardListWrap"/.test(htmlSrc), '存在事项列表容器 boardListWrap');
+  ok(/id="deptSwitchBar"/.test(htmlSrc), '存在部门页顶部切换条');
   ok(/id="deptCultureCol"/.test(htmlSrc), '分栏一为部门文化展示区 deptCultureCol');
   ok(/id="deptWorkCol"/.test(htmlSrc), '分栏二为事项统计 deptWorkCol');
   ok(/class="dept-page"/.test(htmlSrc), '部门页用 .dept-page 网格做左右分栏');
   // 响应式：移动端折叠为上下堆叠
   ok(/@media\(max-width:1024px\)\{\s*\.dept-page\{grid-template-columns:1fr\}/.test(htmlSrc),
      '响应式：移动端 .dept-page 折叠为单列（上下堆叠）');
+  // 部门节点的入口分离：整块=展开板块，独立的「主页」按钮=进部门页
+  ok(/class="dept-home"/.test(htmlSrc), '部门节点有独立的「主页」入口按钮');
+  ok(main.includes('event.stopPropagation();openDeptPage'), '「主页」按钮阻止冒泡（不连带触发展开/收起）');
+  ok(/onclick="toggleDept\(/.test(htmlSrc), '部门块本身仍是展开/收起板块（保持原有行为）');
 
   const FAKE = {
     dept: '核算部',
@@ -179,6 +200,8 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   sandbox.backToBoardList();
   eq(getEl('boardListWrap').style.display, '', '返回后事项列表页可见');
   eq(getEl('deptPageWrap').style.display, 'none', '返回后部门页隐藏');
+  eq(getEl('boardTabs').style.display, '', '返回后顶部导航条恢复');
+  eq(getEl('deptSwitchBar').style.display, 'none', '返回后部门切换条隐藏');
 
   // 打开部门页 → 部门页显示，列表页隐藏；切换时先渲染加载态（清空旧数据）
   let resolveFn = null;
@@ -186,6 +209,10 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   const p = sandbox.openDeptPage('核算部');
   eq(getEl('boardListWrap').style.display, 'none', '进入部门页后事项列表页隐藏');
   eq(getEl('deptPageWrap').style.display, '', '进入部门页后部门页可见');
+  // 顶部导航条（部门节点 + 板块 tab）必须一并隐藏 —— 之前只切了两个 wrap 容器，
+  // 导航条留在屏幕上与部门页内容同时出现，用户看到的"切换混乱"就是这个
+  eq(getEl('boardTabs').style.display, 'none', '进入部门页后顶部导航条隐藏（不与部门页内容混排）');
+  eq(getEl('deptSwitchBar').style.display, '', '进入部门页后显示部门切换条');
   ok(getEl('deptCultureBody').innerHTML.includes('加载中'), '切换部门时先渲染加载态（清空旧内容）');
   ok(getEl('deptStatsBody').innerHTML.includes('加载中'), '统计区同样先渲染加载态');
   // 过期响应：在用户切走后才返回 → 必须被丢弃
@@ -200,12 +227,29 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   ok(getEl('deptCultureBody').innerHTML.includes('精益核算'), '正常响应渲染文化内容');
   ok(getEl('deptStatsBody').innerHTML.includes('1136'), '正常响应渲染统计指标');
   eq(getLet('CUR_DEPT'), '核算部', '当前部门已更新');
+  eq(getEl('boardTabs').style.display, 'none', '仍在部门页时导航条保持隐藏');
 
   // 加载失败 → 错误态
   sandbox.api = async () => { throw new Error('网络异常'); };
   await sandbox.openDeptPage('管理部');
   ok(getEl('deptCultureBody').innerHTML.includes('加载失败'), '加载失败时展示错误提示');
   ok(getEl('deptStatsBody').innerHTML.includes('加载失败'), '统计区加载失败也有提示');
+
+  // 返回后所有视图元素复原
+  sandbox.backToBoardList();
+  eq(getEl('boardTabs').style.display, '', '返回后顶部导航条恢复');
+  eq(getEl('boardListWrap').style.display, '', '返回后事项列表页恢复');
+  eq(getEl('deptPageWrap').style.display, 'none', '返回后部门页隐藏');
+  eq(getEl('deptSwitchBar').style.display, 'none', '返回后部门切换条隐藏');
+
+  // 部门切换条：下拉列出全部部门，当前部门选中
+  sandbox.api = async () => FAKE;
+  setLet('ME', { can_edit: true, is_admin: true, username: 'admin', role: 'admin',
+                 boards: [], depts: ['财务中心', '核算部', '总账部', '管理部', '资金部', '商务部'] });
+  await sandbox.openDeptPage('核算部');
+  const sw = getEl('deptSwitchSel').innerHTML;
+  ok(sw.includes('财务中心') && sw.includes('商务部'), '部门切换条列出全部部门');
+  ok(sw.includes('value="核算部" selected'), '部门切换条当前部门为选中态');
 
   // ============================================================
   console.log('\n【用例3】编辑权限、图片校验、保存三态');
