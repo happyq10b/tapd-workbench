@@ -97,85 +97,137 @@ function setLet(name, value) { vm.runInContext(`${name}=${JSON.stringify(value)}
 function getLet(name) { return vm.runInContext(name, sandbox); }
 
 // ============================================================
-// 用例 1：创建子事项失败 → 表单必须被重置（负责人等脏数据不得残留）
+// 用例 1：创建子事项的弹窗 —— 与主事项共用同一个 newModal，字段/校验一致
 // ============================================================
 (async () => {
-  console.log('\n【用例1】创建失败后的表单重置');
+  console.log('\n【用例1】创建子事项弹窗（与主事项同构）');
   setVar('ME', { can_edit: true, is_admin: true, username: 'admin', role: 'admin', boards: [{ board_id: 'B1', board_name: '看板1' }] });
   setVar('TEAM_MEMBERS', ['王伟娜', '张三', '李四']);
   sandbox.DRAWER_STACK = [{ type: 'list', cardId: 'P1' }];
-  sandbox.DRAWER_OWNER = ['王伟娜', '张三'];
-  sandbox.DRAWER_NEW_UNDER = null;
 
-  getEl('dn_name').value = '要创建的子事项';
-  getEl('dn_desc').value = '描述残留';
-  getEl('dn_begin').value = '2026-01-01';
-  getEl('dn_due').value = '2026-02-01';
-  getEl('dn_status').value = 'done';
-
-  let called = 0;
-  sandbox.api = async () => { called++; throw new Error('模拟创建失败：父事项已完成'); };
-
-  await sandbox.createDrawerSub();
-
-  eq(called, 1, '确实发起了创建请求');
-  eq(sandbox.DRAWER_OWNER.length, 0, '负责人已清空（DRAWER_OWNER）');
-  eq(getEl('dn_name').value, '', '标题已清空');
-  eq(getEl('dn_desc').value, '', '描述已清空');
-  eq(getEl('dn_begin').value, '', '开始日期已清空');
-  eq(getEl('dn_due').value, '', '截止日期已清空');
-  eq(getEl('dn_status').value, 'open', '状态已回到默认「未完成」');
-  // 选择器是否重绑到空数组：PP['dn_owner'].arr 必须与 DRAWER_OWNER 一致且为空
-  ok(sandbox.PP && sandbox.PP['dn_owner'], '负责人选择器已重新初始化');
-  eq(sandbox.PP['dn_owner'].arr.length, 0, '选择器绑定的数组为空（界面上不会残留已选成员）');
-  ok(sandbox.PP['dn_owner'].arr === sandbox.DRAWER_OWNER, '选择器与 DRAWER_OWNER 指向同一数组');
-
-  // ============================================================
-  // 用例 2：创建成功 → 字段同样正常清空
-  // ============================================================
-  console.log('\n【用例2】创建成功后的表单清空');
-  sandbox.DRAWER_OWNER = ['李四'];
-  getEl('dn_name').value = '成功创建的子事项';
-  getEl('dn_desc').value = '描述';
-  getEl('dn_status').value = 'progressing';
-  sandbox.api = async () => ({ ok: true, card_id: 'NC999' });
-  // renderDrawerList 会发起多次请求，这里统一返回空结构避免干扰
-  sandbox.api = async (p) => {
-    if (String(p).startsWith('/api/cards?')) return { cards: [], columns: [] };
-    if (String(p).endsWith('/children')) return { children: [], total: 0 };
-    if (String(p).endsWith('/subtasks')) return { subtasks: [], flat: [], total: 0, done: 0 };
-    return { ok: true };
-  };
-  await sandbox.createDrawerSub();
-  eq(sandbox.DRAWER_OWNER.length, 0, '成功后负责人已清空');
-  eq(getEl('dn_status').value, 'open', '成功后状态已回到默认');
-
-  // ============================================================
-  // 用例 3：目录点击子事项 → 打开子事项弹窗（字段裁剪 + 父事项约束）
-  // ============================================================
-  console.log('\n【用例3】目录点击打开子事项弹窗');
   const SUB = {
     card_id: 'NC1', card_name: '子事项A', parent_id: 'P1', board_id: 'B1',
     status: 'progressing', owner: '王伟娜', cc: '张三', begin: '2026-03-02', due: '2026-03-20',
     description: '子事项描述', pinned: 0, created: '2026-10-28 08:00:00', locked_by: null,
   };
   const PARENT = {
-    card_id: 'P1', card_name: '父事项A', parent_id: '', board_id: 'B1',
-    status: 'open', owner: '王伟娜', begin: '2026-03-01', due: '2026-03-31',
+    card_id: 'P1', card_name: '父事项A', parent_id: '', board_id: 'B1', board_name: '看板1',
+    column_name: '费用组', status: 'open', owner: '王伟娜', begin: '2026-03-01', due: '2026-03-31',
     description: '', pinned: 0, created: '2026-10-28 07:00:00', locked_by: null,
   };
   sandbox.api = async (p) => {
     if (String(p).includes('card_id=NC1')) return { cards: [SUB], columns: [] };
     if (String(p).includes('card_id=P1')) return { cards: [PARENT], columns: [] };
     if (String(p).endsWith('/subtasks')) return { subtasks: [], flat: [], total: 0, done: 0 };
+    if (String(p).endsWith('/comments')) return { comments: [] };
+    if (String(p).endsWith('/actions')) return { actions: [] };
+    return { cards: [], columns: [] };
+  };
+
+  // 打开「新建子事项」：与主事项共用 newModal，只是看板/板块的取值来源不同
+  await sandbox.openNewSubModal('P1');
+  eq(getEl('newModal').style.display, 'flex', '新建子事项弹窗已打开');
+  eq(getEl('n_title').textContent, '新建子事项', '标题为「新建子事项」');
+  eq(getEl('n_board').value, 'B1', '所属看板继承父事项并锁定');
+  eq(getEl('n_board').disabled, true, '所属看板为只读（子事项继承父看板）');
+  eq(getEl('n_col_wrap').style.display, '', '所属板块行展示（父事项所属板块）');
+  eq(getEl('n_col').value, '费用组', '所属板块显示父事项的板块');
+  eq(getEl('n_begin').getAttribute('min'), '2026-03-01', '开始日期受父事项起始约束(min)');
+  eq(getEl('n_due').getAttribute('max'), '2026-03-31', '截止日期受父事项截止约束(max)');
+  // 字段与主事项创建弹窗完全一致（状态按钮 / 负责人 / 日期 / 描述都在）
+  ok(/id="n_status_ops"/.test(html), '新建弹窗有状态按钮（与主事项同一套组件）');
+  ok(/id="n_owner"/.test(html), '新建弹窗有负责人字段');
+  ok(/id="n_begin"/.test(html) && /id="n_due"/.test(html), '新建弹窗有开始/截止日期字段');
+  ok(/id="n_desc"/.test(html), '新建弹窗有描述字段');
+
+  // 校验：标题为空不发请求
+  let posted = null;
+  sandbox.api = async (p, opt) => {
+    if (opt && opt.method === 'POST') { posted = JSON.parse(opt.body); return { ok: true }; }
+    return { cards: [], columns: [] };
+  };
+  getEl('n_name').value = '';
+  await sandbox.createCard();
+  ok(posted === null, '标题为空时不发起创建请求');
+
+  // 校验：起止颠倒不发请求（主事项与子事项共用同一段校验）
+  getEl('n_name').value = '新子事项';
+  getEl('n_begin').value = '2026-05-01';
+  getEl('n_due').value = '2026-04-01';
+  await sandbox.createCard();
+  ok(posted === null, '开始日期晚于截止日期时不发起创建请求（与主事项口径一致）');
+
+  // 正常创建：字段齐全且挂在父事项下
+  getEl('n_begin').value = '2026-03-02';
+  getEl('n_due').value = '2026-03-20';
+  getEl('n_desc').value = '子事项描述';
+  sandbox.pickStatus('n', 'progressing');
+  await sandbox.createCard();
+  ok(posted && posted.parent_id === 'P1', '创建时挂在父事项下');
+  eq(posted.card_name, '新子事项', '标题正确');
+  eq(posted.fields.status, 'progressing', '状态正确（由状态按钮记录）');
+  eq(posted.fields.status_name, '进行中', '状态文案正确');
+  eq(posted.fields.begin, '2026-03-02', '开始日期正确');
+  eq(posted.fields.due, '2026-03-20', '截止日期正确');
+  eq(posted.fields.description, '子事项描述', '描述正确');
+
+  // ============================================================
+  // 用例 2：创建失败 → 弹窗不关闭、输入保留（与主事项同一套失败处理）
+  // ============================================================
+  console.log('\n【用例2】创建失败时弹窗保持打开');
+  // 先用能正常返回父事项的 stub 把弹窗打开，再把创建请求换成失败
+  sandbox.api = async (p) => {
+    if (String(p).includes('card_id=P1')) return { cards: [PARENT], columns: [] };
+    return { cards: [], columns: [] };
+  };
+  await sandbox.openNewSubModal('P1');
+  eq(getEl('newModal').style.display, 'flex', '新建子事项弹窗已打开');
+  getEl('n_name').value = '会失败的子事项';
+  getEl('n_desc').value = '描述保留';
+  sandbox.api = async (p, opt) => {
+    if (opt && opt.method === 'POST') throw new Error('模拟创建失败');
+    return { cards: [], columns: [] };
+  };
+  await sandbox.createCard();
+  eq(getEl('newModal').style.display, 'flex', '创建失败后弹窗仍然打开（可直接改后重试）');
+  eq(getEl('n_name').value, '会失败的子事项', '失败后标题保留（不丢用户输入）');
+  eq(getEl('n_desc').value, '描述保留', '失败后描述保留');
+
+  // ============================================================
+  // 用例 3：目录点击子事项 → 打开详情弹窗（与主事项同构），编辑入口独立
+  // ============================================================
+  console.log('\n【用例3】目录点击子事项打开详情弹窗');
+  sandbox.api = async (p) => {
+    if (String(p).includes('card_id=NC1')) return { cards: [SUB], columns: [] };
+    if (String(p).includes('card_id=P1')) return { cards: [PARENT], columns: [] };
+    if (String(p).endsWith('/subtasks')) return { subtasks: [], flat: [], total: 0, done: 0 };
+    if (String(p).endsWith('/comments')) return { comments: [] };
+    if (String(p).endsWith('/actions')) return { actions: [] };
     return { cards: [], columns: [] };
   };
   sandbox.lockCard = async () => true;
   getEl('editModal').style.display = 'none';
+  getEl('detailModal').style.display = 'none';
 
   await sandbox.openSubModal('NC1');
 
-  eq(getEl('editModal').style.display, 'flex', '子事项弹窗已打开');
+  eq(getEl('detailModal').style.display, 'flex', '子事项打开的是详情弹窗（不再直接进编辑）');
+  eq(getEl('editModal').style.display, 'none', '编辑弹窗未自动打开（编辑流程与详情分离）');
+  eq(getEl('d_title').textContent, '子事项A', '详情标题为子事项名');
+  const meta = String(getEl('d_meta').innerHTML);
+  ok(meta.includes('父事项'), '元信息展示「父事项」而非「板块」');
+  ok(meta.includes('父事项A'), '元信息含父事项名称');
+  ok(!meta.includes('状态：'), '元信息不重复呈现状态（由状态按钮承载）');
+  // 与主事项详情同构：状态按钮 + 评论 + 操作记录 模块都在
+  const dOps = String(getEl('d_ops').innerHTML);
+  ok(dOps.includes('status-btn progressing'), '子事项详情带状态按钮');
+  ok(dOps.includes('✏️ 编辑'), '子事项详情带独立的编辑入口');
+  ok(/id="d_comments"/.test(html) && /id="d_actions"/.test(html),
+    '评论与操作记录模块与主事项详情共用同一套 DOM');
+
+  // 从详情进入编辑 → 编辑弹窗（子事项模式：字段裁剪 + 父约束）
+  await sandbox.openDetailEdit();
+  eq(getEl('editModal').style.display, 'flex', '从详情点「编辑」进入编辑弹窗');
   eq(getEl('editTitle').textContent, '编辑子事项', '标题为「编辑子事项」');
   eq(getEl('e_board_wrap').style.display, 'none', '「所属看板」已隐藏（子事项继承父看板）');
   eq(getEl('e_cc_wrap').style.display, 'none', '「参与人」已隐藏（子事项无参与人）');
@@ -244,7 +296,9 @@ function getLet(name) { return vm.runInContext(name, sandbox); }
   ok(drawerHtml2.includes('toggleCardDone'), '抽屉主事项卡的状态标签可切换完成状态');
   ok(!/done-btn|doneBtn/.test(drawerHtml2), '抽屉主事项卡也已移除冗余的「完成」按钮');
   ok(drawerHtml2.includes('openEdit'), '抽屉主事项卡含编辑入口');
-  ok(drawerHtml2.includes('dn_owner'), '新建子事项表单含负责人选择器');
+  ok(drawerHtml2.includes('openNewSubModal'), '抽屉含「＋ 创建子事项」入口（打开新建弹窗）');
+  ok(!/dn_owner|drawerNewBox/.test(drawerHtml2), '抽屉内不再有内联创建表单（已统一到新建弹窗）');
+  ok(/id="n_owner"/.test(html), '新建弹窗含负责人选择器（与主事项同构）');
   ok(drawerHtml2.includes('子事项目录'), '抽屉含子事项目录区块');
   ok(drawerHtml2.includes('代办清单') === false, '无代办时不展示代办清单');
 
