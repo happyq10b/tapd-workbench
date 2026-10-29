@@ -232,7 +232,7 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   eq(getEl('editModal').style.display, 'flex', '从详情点「编辑」进入编辑弹窗');
   eq(getEl('editTitle').textContent, '编辑子事项', '标题为「编辑子事项」');
   eq(getEl('e_board_wrap').style.display, 'none', '「所属看板」已隐藏（子事项继承父看板）');
-  eq(getEl('e_cc_wrap').style.display, 'none', '「参与人」已隐藏（子事项无参与人）');
+  ok(getEl('e_cc_wrap').style.display !== 'none', '「参与人」在子事项模式下可见（对标主事项）');
   eq(getEl('e_parent_wrap').style.display, '', '父事项信息区已展示');
   ok(String(getEl('e_parent_info').innerHTML).includes('父事项A'), '父事项信息含父事项名称');
   eq(getEl('e_begin').getAttribute('min'), '2026-03-01', '开始日期受父事项起始约束(min)');
@@ -250,7 +250,7 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   };
   await sandbox.saveEdit();
   ok(saved && saved.fields, '保存请求已发出');
-  ok(saved.fields.cc === undefined, '保存子事项时不发送参与人字段');
+  eq(saved.fields.cc, '张三', '保存子事项时提交参与人字段（与主事项一致，已回填的值）');
   ok(saved.fields.status === undefined, '保存时不发送状态字段（状态由头部状态按钮单独设置）');
   eq(saved.fields.owner, '王伟娜', '保存的负责人正确');
   ok(saved.fields.status_name === undefined, '保存时不发送状态文案');
@@ -501,7 +501,10 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   const opts = getEl('yearFilter').innerHTML;
   ok(opts.includes('全部年份'), '年份筛选器含「全部年份」（= 清空全部）');
   ok(opts.includes('全部年份'), '未选年份时仅显示「全部年份」入口');
-  ok((opts.match(/year-chip/g) || []).length === 1, '未选年份时不渲染年份 chip（只有「全部年份」）');
+  // 未选年份时：没有年份 chip，但有「＋ 年份」与「全部年份」两个入口
+  ok((opts.match(/data-year=/g) || []).length === 0, '未选年份时不渲染年份 chip');
+  ok(opts.includes('data-add="1"'), '未选年份时仍提供「＋ 年份」选择入口');
+  ok(opts.includes('data-all="1"'), '未选年份时仍提供「全部年份」入口');
 
   // 选中两个年份 → 两个 chip，且都能单独移除
   setLetSet('curYears', ["2025","2026"]);
