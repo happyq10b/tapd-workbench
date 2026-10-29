@@ -272,6 +272,31 @@ def check_smoke():
             except Exception as e:
                 return step(6, "端到端冒烟", False, f"{path} 请求失败: {str(e)[:60]}")
 
+        # 筛选参数冒烟（创建日期区间 + 「无负责人」）：走真实接口，验证新增条件真的生效
+        def _get_cards(qs):
+            with urllib.request.urlopen(
+                    urllib.request.Request(base + "/api/cards?" + qs, headers=hdr), timeout=30) as r:
+                return json.loads(r.read())
+        try:
+            wide = _get_cards("created_start=2020-01-01&created_end=2099-12-31")
+            if wide.get("total", 0) <= 0:
+                return step(6, "端到端冒烟", False, "创建日期区间（超宽）应命中数据，却返回 0 条")
+            narrow = _get_cards("created_start=2099-01-01&created_end=2099-12-31")
+            if narrow.get("total", 0) != 0:
+                return step(6, "端到端冒烟", False, "创建日期区间（未来）应返回 0 条")
+            no_own = _get_cards("owner=__no_owner__")
+            for c in no_own.get("cards", []):
+                if (c.get("owner") or "").strip():
+                    return step(6, "端到端冒烟", False, "「无负责人」筛选返回了有负责人的记录")
+            # 非法日期值：应被忽略而不是让接口报错
+            _get_cards("created_start=not-a-date&created_end=also-bad")
+            # 区间与其它筛选条件组合
+            combo = _get_cards("owner=__no_owner__&status=open&created_start=2020-01-01")
+            if combo.get("total", 0) > no_own.get("total", 0):
+                return step(6, "端到端冒烟", False, "组合筛选的结果数不应大于单条件结果数")
+        except Exception as e:
+            return step(6, "端到端冒烟", False, f"筛选参数冒烟失败: {str(e)[:80]}")
+
         # xlsx 导出：内容类型 + 零合并单元格
         xlsx_path = os.path.join(tempfile.gettempdir(), "_verify_export.xlsx")
         try:
