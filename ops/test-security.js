@@ -44,6 +44,12 @@ console.log('\n【用例2】登录页小眼睛');
 ok(/id="pwdEye"/.test(loginSrc), '登录页有小眼睛按钮');
 ok(/function toggleEye\(\)/.test(loginSrc), '登录页切换函数');
 ok(/p\.type=willShow\?'text':'password'/.test(loginSrc), '登录页切换 type');
+// —— 小眼睛必须写死尺寸：通用 button 样式若带 width:100%，
+//    绝对定位后按钮会撑满并盖住输入框 → 「密码无法输入 + 显示错乱」——
+ok(/\.pwd-eye\{[^}]*width:28px[^}]*height:28px/.test(loginSrc), '小眼睛写死 28×28（不被通用 button 撑大）');
+ok(/\.pwd-eye\{[^}]*position:absolute/.test(loginSrc), '小眼睛绝对定位在输入框内右侧');
+ok(/#btn\{width:100%\}/.test(loginSrc), '通用 button 的 width:100% 已收窄到 #btn');
+ok(!/^button\{[^}]*width:100%/m.test(loginSrc), '通用 button 样式不再带 width:100%（避免误伤其他按钮）');
 ok(/\.pwd-eye\{position:absolute/.test(loginSrc), '登录页小眼睛样式');
 
 // ============================================================
