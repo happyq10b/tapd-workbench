@@ -4,7 +4,9 @@
 //   2) 移除「职能说明」：表单、渲染、提交、后端模型与数据字段全部清理
 //   3) 归属部门联动：看板管理的归属部门取自架构管理层级；中心=全部板块；
 //      成员按归属部门过滤看板，再按工作组↔板块绑定关系收窄
-//   4) 默认全选：进入看板管理时默认选中全部可见板块
+//   4) 默认不选中：进入看板管理时清空选中状态；全选/取消全选合并为单个切换按钮
+//   5) 删除确认：单条一次确认、批量两次确认；删除后刷新列表并清空选择
+//   6) 架构管理选中态：无残留高亮 + 重复点击同一节点取消选中
 // 运行：node ops/test-board-perm.js
 const fs = require('fs');
 const path = require('path');
@@ -133,21 +135,84 @@ ok(/@app\.post\('\/api\/board-config\/bulk'\)/.test(pySrc), '提供批量配置�
 ok(/function applyBulkConfig\(\)/.test(htmlSrc), '前端支持把归属部门批量应用到勾选的板块');
 
 // ============================================================
-// 用例 4：默认全选
+// 用例 4：默认不选中（全选 / 取消全选合并为单个切换按钮）
 // ============================================================
-console.log('\n【用例4】进入看板管理默认全选可见板块');
+console.log('\n【用例4】进入看板管理默认不选中，全选按钮可切换');
 ok(/var BC_SEL=new Set\(\);/.test(htmlSrc), '维护看板多选集合 BC_SEL');
 ok(/function bcVisibleBoards\(\)/.test(htmlSrc), '可见板块集合计算 bcVisibleBoards');
-ok(/BC_SEL=new Set\(bcVisibleBoards\(\)\.map\(function\(b\)\{return b\.board_id\}\)\);/.test(htmlSrc),
-  '进入看板管理时默认选中全部可见板块');
-ok(/function bcFilterChange\(dim,val\)\{[\s\S]*?BC_SEL=new Set\(bcVisibleBoards\(\)/.test(htmlSrc),
-  '筛选变化后默认全选可见板块');
-ok(/function bcPickAll\(checked\)/.test(htmlSrc), '提供全选/取消全选');
-ok(/onclick="bcPickAll\(true\)"/.test(htmlSrc) && /onclick="bcPickAll\(false\)"/.test(htmlSrc),
-  '界面上提供全选 / 取消全选按钮');
+ok(/async function openBoardConfigModal\(\)\{[\s\S]*?BC_SEL=new Set\(\);/.test(htmlSrc),
+  '进入看板管理时默认【不选中】（清空选中状态）');
+ok(/function bcFilterChange\(dim,val\)\{[\s\S]*?BC_SEL=new Set\(\);/.test(htmlSrc),
+  '筛选变化后清空勾选（保持默认不选中语义）');
+ok(!/BC_SEL=new Set\(bcVisibleBoards\(\)/.test(htmlSrc), '不再有「默认全选可见板块」的逻辑');
+ok(/function bcTogglePickAll\(\)/.test(htmlSrc), '全选与取消全选合并为单个切换函数 bcTogglePickAll');
+ok(!/function bcPickAll\(/.test(htmlSrc), '旧的 bcPickAll(checked) 双按钮函数已移除');
+ok(/id="bcPickAllBtn"/.test(htmlSrc) && /onclick="bcTogglePickAll\(\)"/.test(htmlSrc),
+  '界面上只有一个全选切换按钮（不再并排两个按钮）');
+ok(!/onclick="bcPickAll\(true\)"/.test(htmlSrc) && !/onclick="bcPickAll\(false\)"/.test(htmlSrc),
+  '界面不再同时显示「全选」和「取消全选」两个按钮');
+ok(/pb\.textContent=allOn\?'取消全选':'全选'/.test(htmlSrc), '按钮文案随当前状态切换');
 ok(/id="bcPickCount"/.test(htmlSrc), '展示已勾选板块数量');
 ok(/class="bc-pick"/.test(htmlSrc), '列表项带勾选框');
 ok(/function bcPaintPick\(\)/.test(htmlSrc), '勾选状态回写 DOM（选中态与勾选态分离）');
+
+// ============================================================
+// 用例 5：删除确认（单条一次 / 批量两次）+ 删除后刷新清空
+// ============================================================
+console.log('\n【用例5】删除确认与删除后刷新');
+ok(/function bcDeleteOne\(bid\)/.test(htmlSrc), '提供单条删除 bcDeleteOne');
+ok(/function bcDeleteSelected\(\)/.test(htmlSrc), '提供批量删除 bcDeleteSelected');
+ok(/function bcDeleteOne\(bid\)\{[\s\S]*?if\(!bcConfirm\([\s\S]*?\)\)return;/.test(htmlSrc),
+  '单条删除弹一次确认（取消即终止）');
+{
+  // 批量删除：两次确认，且第一次取消后不得继续到第二次
+  const m = htmlSrc.match(/async function bcDeleteSelected\(\)\{[\s\S]*?\n\}/);
+  ok(!!m, '批量删除函数体可解析');
+  const body = m ? m[0] : '';
+  const confirms = (body.match(/bcConfirm\(/g) || []).length;
+  ok(confirms === 2, '批量删除弹两次确认（实际 ' + confirms + ' 次）');
+  ok(/if\(!bcConfirm\([\s\S]*?\)\)return;[\s\S]*?if\(!bcConfirm\([\s\S]*?\)\)return;/.test(body),
+    '两次确认逐级拦截，任一次取消/关闭都不执行删除');
+}
+ok(/function bcAfterDelete\(\)/.test(htmlSrc), '删除后统一走 bcAfterDelete');
+ok(/async function bcAfterDelete\(\)\{[\s\S]*?BC_SEL=new Set\(\);/.test(htmlSrc),
+  '删除后清空选择状态');
+ok(/async function bcAfterDelete\(\)\{[\s\S]*?await loadBoardConfig\(\);/.test(htmlSrc),
+  '删除后刷新看板列表');
+ok(/async function bcAfterDelete\(\)\{[\s\S]*?renderBoardList\(\);[\s\S]*?renderEditArea\(\);/.test(htmlSrc),
+  '删除后重绘列表与编辑区');
+ok(/class="bc-item-del" onclick="event\.stopPropagation\(\);bcDeleteOne\(/.test(htmlSrc),
+  '列表项带行内单条删除按钮（不触发行点击）');
+ok(/id="bcDelBtn"/.test(htmlSrc) && /onclick="bcDeleteSelected\(\)"/.test(htmlSrc),
+  '批量删除按钮与全选按钮同排');
+ok(/\.bc-opbar\{display:flex;align-items:center;gap:8px;flex-wrap:wrap\}/.test(htmlSrc),
+  '操作条布局样式统一（全选/删除按钮同排）');
+ok(/\.bc-del-btn\{/.test(htmlSrc), '批量删除按钮有独立统一样式');
+ok(/db\.disabled=BC_SEL\.size===0/.test(htmlSrc), '未勾选时批量删除按钮禁用');
+ok(/@app\.post\('\/api\/board-config\/bulk-delete'\)/.test(pySrc), '提供批量删除配置接口');
+ok(/class BoardConfigBulkDeleteReq\(BaseModel\)/.test(pySrc), '批量删除请求模型定义');
+ok(/DELETE FROM board_config WHERE id=\?/.test(pySrc), '批量删除只删配置表，不动看板与卡片');
+
+// ============================================================
+// 用例 6：架构管理选中态（无残留 + 重复点击取消）
+// ============================================================
+console.log('\n【用例6】架构管理选中态与重复点击切换');
+ok(/function clearOrgSelection\(\)/.test(htmlSrc), '提供取消选中逻辑 clearOrgSelection');
+ok(/function selectOrgNode\(nid\)\{\s*if\(ORG_SELECTED===nid\)\{clearOrgSelection\(\);return;\}/.test(htmlSrc),
+  '重复点击同一节点即取消选中（切换）');
+ok(/function renderOrgIdle\(\)/.test(htmlSrc), '未选中时右侧面板回到初始态');
+ok(/async function openWgModal\(\)\{[\s\S]*?ORG_SELECTED=0;/.test(htmlSrc),
+  '打开架构管理弹窗时清空选中（默认未选中）');
+ok(!/class="org-node-row\$\{sel\?' sel':''\}/.test(htmlSrc),
+  '树行不再内联生成 .sel（消除双来源）');
+ok(/function renderWgList\(\)\{[\s\S]*?paintOrgSelection\(\);/.test(htmlSrc),
+  'renderWgList 渲染后统一回写选中态');
+ok(/function paintOrgSelection\(\)\{[\s\S]*?classList\.toggle\('sel'/.test(htmlSrc),
+  '高亮由 paintOrgSelection 单一来源回写');
+ok(/function resetWgForm\(\)\{[\s\S]*?ORG_SELECTED=0;/.test(htmlSrc),
+  '重置表单时同步清空选中态');
+ok(/function resetWgForm\(\)\{[\s\S]*?renderOrgIdle\(\);/.test(htmlSrc),
+  '重置表单时右侧回到未选中面板');
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
 process.exit(fail ? 1 : 0);
