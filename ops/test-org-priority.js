@@ -78,7 +78,7 @@ ok(/套用为负责人/.test(htmlSrc) && /套用为参与人/.test(htmlSrc), '�
 ok(/function applyPersonFilter\(kind, persons\)/.test(htmlSrc), '套用逻辑 applyPersonFilter');
 ok(/window\._ccFilter=names/.test(htmlSrc), '参与人条件写入 _ccFilter');
 ok(/ps\.set\('cc',cc\)/.test(htmlSrc), 'reload 带上 cc 参数');
-ok(/async function ensureOrgTree\(\)/.test(htmlSrc), '架构树按需加载（幂等）');
+ok(/async function ensureOrgTree\(force\)/.test(htmlSrc), '架构树按需加载（支持强制刷新）');
 ok(/await ensureOrgTree\(\)/.test(htmlSrc), '独立入口先加载架构树');
 ok(/function addOrgPickBtn\(containerId, kind\)/.test(htmlSrc), '编辑弹窗加「从架构选人」按钮');
 ok(/function openOrgPersonPick\(containerId, kind, anchor\)/.test(htmlSrc), '编辑弹窗打开 person 模式树');
@@ -169,7 +169,7 @@ ok(!/COST_BOARD_IDS/.test(pySrc), '后端已无 COST_BOARD_IDS');
 ok(!/check_cost_permission/.test(pySrc), '后端已无 check_cost_permission');
 ok(!/成本卡仅管理员可操作/.test(pySrc), '后端已无「成本卡仅管理员可操作」');
 // 架构管理弹窗：ensureOrgTree 后不得再引用已移走的局部变量 od
-ok(/await ensureOrgTree\(\);\s*\n\s*ORG_TYPE_NAMES=ORG_TYPE_NAMES\|\|\{\};/.test(htmlSrc),
+ok(/await ensureOrgTree\(true\);\s*\n\s*ORG_TYPE_NAMES=ORG_TYPE_NAMES\|\|\{\};/.test(htmlSrc),
   'openWgModal 不再引用已移走的 od（否则 ReferenceError → 弹窗打不开）');
 ok(/ORG_ROLES_BY_TYPE=od\.roles_by_type\|\|ORG_ROLES_BY_TYPE;/.test(htmlSrc),
   'ORG_ROLES_BY_TYPE 的赋值已移入 ensureOrgTree');
@@ -183,6 +183,18 @@ ok(/\.tm-table-scroll\{[^}]*flex-shrink:0/.test(htmlSrc),
   '表格容器 flex-shrink:0（否则被 flex 压扁且无法滚动）');
 ok(/#teamModal \.modal-body>\*\{flex-shrink:0\}/.test(htmlSrc),
   '成员弹窗主体子项一律不参与 flex 压缩');
+
+// —— 架构管理任命后刷新 ——
+ok(/async function ensureOrgTree\(force\)/.test(htmlSrc),
+  'ensureOrgTree 支持强制刷新参数');
+ok(/await ensureOrgTree\(true\);/.test(htmlSrc),
+  'openWgModal 用强制模式重新拉取架构树（任命后必须拿最新数据）');
+ok(/if\(!force && ORG_TREE&&ORG_TREE\.length\) return ORG_TREE;/.test(htmlSrc),
+  '独立入口（按人员筛选等）仍走缓存，不重复打接口');
+ok(/const keepSel=ORG_SELECTED;/.test(htmlSrc) && /selectOrgNode\(keepSel\)/.test(htmlSrc),
+  '任命刷新后保持当前选中节点（不重置表单）');
+ok(/await openWgModal\(\);/.test(htmlSrc),
+  '任命 / 免职成功后重新加载弹窗');
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
 process.exit(fail ? 1 : 0);
