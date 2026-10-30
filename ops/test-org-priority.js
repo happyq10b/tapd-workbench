@@ -137,8 +137,12 @@ ok(/m\.org_source==='org' && \(m\.org_nodes\|\|\[\]\)\.length/.test(htmlSrc),
   '树的权威源是架构管理的任命');
 ok(/WG_TREE_EXPANDED\.has\(key\)/.test(htmlSrc), '展开状态按节点 key 记忆');
 // —— 表头冻结 ——
-ok(/\.tm-table-scroll\{max-height:46vh;overflow:auto/.test(htmlSrc), '表格容器独立滚动');
-ok(/\.tm-table-scroll thead th\{position:sticky;top:0;z-index:2/.test(htmlSrc), '表头首行冻结');
+ok(/\.tm-table-scroll\{border:1px solid var\(--border\);border-radius:8px;overflow:visible/.test(htmlSrc),
+  '表格容器不独立滚动（避免与弹窗主体形成双滚轮）');
+ok(/\.tm-table-scroll thead th\{position:sticky;top:var\(--tm-sticky-top,0px\);z-index:2/.test(htmlSrc),
+  '表头首行冻结（相对弹窗主体滚动，top 避开常驻筛选栏）');
+ok(/function syncTmStickyTop\(\)/.test(htmlSrc), '测量筛选栏高度以确定表头 sticky 偏移');
+ok(/document\.addEventListener\('resize'/.test(htmlSrc), '视口变化时重算表头偏移');
 // —— 后端：归属收敛到架构管理 ——
 ok(/class TeamReq\(BaseModel\):\s*name: str\s*\n\s*# workgroups 已下线/.test(pySrc),
   'TeamReq 不再接受 workgroups');
@@ -148,6 +152,37 @@ ok(!/UPDATE team_members SET name=\?, workgroups=\?/.test(pySrc),
   'PUT 不再写 workgroups（否则会清空架构管理同步的数据）');
 ok(/dbe\('DELETE FROM org_appointments WHERE member_id=\?', \(mid,\)\)/.test(pySrc),
   '删除成员时显式清理架构管理的任职记录');
+
+// ============================================================
+// 用例 6：成本看板硬编码特例移除 + 架构管理弹窗修复 + 双滚轮
+// ============================================================
+console.log('\n【用例6】成本看板特例移除与弹窗修复');
+ok(!/COST_BOARD_ID/.test(htmlSrc), '前端已无 COST_BOARD_ID 常量');
+ok(!/isCostCard/.test(htmlSrc), '前端已无 isCostCard()');
+ok(!/成本卡仅管理员/.test(htmlSrc), '前端已无「成本卡仅管理员」文案');
+ok(!/tab-lock/.test(htmlSrc), '前端已无 tab-lock 锁样式');
+ok(/function canEditCard\(c\)\{return !!\(ME&&ME\.can_edit\)\}/.test(htmlSrc),
+  'canEditCard 统一看角色');
+ok(/function canEditColumn\(boardId\)\{return !!\(ME&&ME\.can_edit\)\}/.test(htmlSrc),
+  'canEditColumn 统一看角色');
+ok(!/COST_BOARD_IDS/.test(pySrc), '后端已无 COST_BOARD_IDS');
+ok(!/check_cost_permission/.test(pySrc), '后端已无 check_cost_permission');
+ok(!/成本卡仅管理员可操作/.test(pySrc), '后端已无「成本卡仅管理员可操作」');
+// 架构管理弹窗：ensureOrgTree 后不得再引用已移走的局部变量 od
+ok(/await ensureOrgTree\(\);\s*\n\s*ORG_TYPE_NAMES=ORG_TYPE_NAMES\|\|\{\};/.test(htmlSrc),
+  'openWgModal 不再引用已移走的 od（否则 ReferenceError → 弹窗打不开）');
+ok(/ORG_ROLES_BY_TYPE=od\.roles_by_type\|\|ORG_ROLES_BY_TYPE;/.test(htmlSrc),
+  'ORG_ROLES_BY_TYPE 的赋值已移入 ensureOrgTree');
+// —— 移除成本看板特例后必须补上板块可见性校验（否则越权）——
+ok(/def check_board_access\(board_id: str, username: str\)/.test(pySrc),
+  '新增板块准入校验 check_board_access');
+ok(/无权访问该板块/.test(pySrc), '板块不可见时拒绝写操作');
+ok((pySrc.match(/check_board_access\(/g)||[]).length>=9,
+  '写接口均接入 check_board_access（'+(pySrc.match(/check_board_access\(/g)||[]).length+' 处）');
+ok(/\.tm-table-scroll\{[^}]*flex-shrink:0/.test(htmlSrc),
+  '表格容器 flex-shrink:0（否则被 flex 压扁且无法滚动）');
+ok(/#teamModal \.modal-body>\*\{flex-shrink:0\}/.test(htmlSrc),
+  '成员弹窗主体子项一律不参与 flex 压缩');
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
 process.exit(fail ? 1 : 0);

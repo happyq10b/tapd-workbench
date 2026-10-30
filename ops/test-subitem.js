@@ -354,10 +354,11 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   const viewerRow = sandbox.cardItem(MAIN_ROW);
   ok(!viewerRow.includes('＋ 子事项'), '只读账号不显示「＋ 子事项」');
 
-  // 成本看板：非管理员同样不显示（与「编辑」按钮口径一致）
+  // 成本看板：**已移除硬编码的「仅管理员可编辑」特例**，
+  // 与其它板块一样按「角色 + 归属 + 可见性」判定 → editor 也可加子事项
   setVar('ME', { can_edit: true, is_admin: false, username: 'editor', role: 'editor', boards: [{ board_id: 'B1', board_name: '看板1' }] });
   const costRow = sandbox.cardItem({ ...MAIN_ROW, board_id: '1162069797001000241' });
-  ok(!costRow.includes('＋ 子事项'), '成本看板非管理员不显示「＋ 子事项」');
+  ok(costRow.includes('＋ 子事项'), '成本看板非管理员同样可「＋ 子事项」（无板块特例）');
   setVar('ME', { can_edit: true, is_admin: true, username: 'admin', role: 'admin', boards: [{ board_id: 'B1', board_name: '看板1' }] });
   const adminCostRow = sandbox.cardItem({ ...MAIN_ROW, board_id: '1162069797001000241' });
   ok(adminCostRow.includes('＋ 子事项'), '成本看板管理员可见「＋ 子事项」');
@@ -467,8 +468,8 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   ok(!adminTab.includes('🔒'), '管理员看不到成本看板的锁（对其确无实际限制）');
   setVar('ME', { can_edit: true, is_admin: false, username: 'scj', role: 'editor', boards: [COST], depts: [] });
   const editorTab = sandbox.boardTabHtml(COST, '核算部');
-  ok(editorTab.includes('🔒'), '非管理员仍看到锁（限制对其确实生效）');
-  ok(editorTab.includes('仅管理员可编辑'), '锁带说明含义的提示文字');
+  ok(!editorTab.includes('🔒'), '成本看板不再显示锁（硬编码特例已移除）');
+  ok(!editorTab.includes('仅管理员可编辑'), '成本看板不再有「仅管理员可编辑」文案');
   const normalTab = sandbox.boardTabHtml({ board_id: 'B1', board_name: '综合工作事项' }, '核算部');
   ok(!normalTab.includes('🔒'), '普通看板没有锁');
 
