@@ -161,6 +161,7 @@ ok(/function bcPaintPick\(\)/.test(htmlSrc), '勾选状态回写 DOM（选中态
 // ============================================================
 console.log('\n【用例5】删除确认与删除后刷新');
 ok(/function bcDeleteOne\(bid\)/.test(htmlSrc), '提供单条删除 bcDeleteOne');
+ok(!/function deleteBoardConfig\(/.test(htmlSrc), '旧的 deleteBoardConfig 已移除（统一走 bcDeleteOne）');
 ok(/function bcDeleteSelected\(\)/.test(htmlSrc), '提供批量删除 bcDeleteSelected');
 ok(/function bcDeleteOne\(bid\)\{[\s\S]*?if\(!bcConfirm\([\s\S]*?\)\)return;/.test(htmlSrc),
   '单条删除弹一次确认（取消即终止）');
@@ -181,12 +182,17 @@ ok(/async function bcAfterDelete\(\)\{[\s\S]*?await loadBoardConfig\(\);/.test(h
   '删除后刷新看板列表');
 ok(/async function bcAfterDelete\(\)\{[\s\S]*?renderBoardList\(\);[\s\S]*?renderEditArea\(\);/.test(htmlSrc),
   '删除后重绘列表与编辑区');
-ok(/class="bc-item-del" onclick="event\.stopPropagation\(\);bcDeleteOne\(/.test(htmlSrc),
-  '列表项带行内单条删除按钮（不触发行点击）');
+ok(!/class="bc-item-del"/.test(htmlSrc), '列表行内不再有删除按钮（已移入编辑区）');
+ok(/if\(isEdit\)\{footer\+='<button class="btn-secondary bc-del-single" onclick="bcDeleteOne\(/.test(htmlSrc),
+  '编辑区页脚提供单个看板的删除按钮');
 ok(/id="bcDelBtn"/.test(htmlSrc) && /onclick="bcDeleteSelected\(\)"/.test(htmlSrc),
   '批量删除按钮与全选按钮同排');
-ok(/\.bc-opbar\{display:flex;align-items:center;gap:8px;flex-wrap:wrap\}/.test(htmlSrc),
-  '操作条布局样式统一（全选/删除按钮同排）');
+ok(/\.bc-opbar\{display:flex;flex-direction:row;align-items:center;gap:8px;flex-wrap:nowrap/.test(htmlSrc),
+  '操作条强制横向一行（flex-direction:row，避免竖排）');
+ok(/\.bc-opbar-btns\{display:flex;align-items:center;gap:8px;flex-shrink:0\}/.test(htmlSrc),
+  '全选与删除按钮同组（不换行）');
+ok(/<div class="bc-opbar-btns">/.test(htmlSrc), '工具条按钮包裹在同一按钮组内');
+ok(/\.bc-opbar-count\{[^}]*margin-left:auto/.test(htmlSrc), '勾选计数靠右对齐');
 ok(/\.bc-del-btn\{/.test(htmlSrc), '批量删除按钮有独立统一样式');
 ok(/db\.disabled=BC_SEL\.size===0/.test(htmlSrc), '未勾选时批量删除按钮禁用');
 ok(/@app\.post\('\/api\/board-config\/bulk-delete'\)/.test(pySrc), '提供批量删除配置接口');
