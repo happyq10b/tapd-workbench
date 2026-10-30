@@ -96,5 +96,25 @@ ok(/verify_pw\(old, u\[0\]\['password_hash'\]\)/.test(pySrc), '改密码用哈�
 ok(/status_text=.{0,40}\[:120\]/.test(pySrc) || /\[:120\]/.test(pySrc), '个人状态长度受限（120 字）');
 ok(/PROFILE_MAX_IMG_BYTES=512\*1024/.test(htmlSrc), '前端图片大小上限与后端一致（512KB）');
 
+// ============================================================
+// 用例 6：顶栏显示「姓名(账号)」
+// ============================================================
+console.log('\n【用例6】顶栏显示姓名(账号)');
+ok(/def _member_display_name\(username: str\) -> str:/.test(pySrc), '后端提供账号→姓名解析函数');
+ok(/'display_name': display_name/.test(pySrc), '/api/me 返回 display_name');
+ok(/SELECT name FROM team_members WHERE account=\? LIMIT 1/.test(pySrc),
+  '姓名取自 team_members.account 绑定关系');
+ok(/function meDisplayLabel\(\)/.test(htmlSrc), '前端提供顶栏文案组装函数');
+ok(/dn \? \('\S*' \+ dn \+ '\(' \+ ME\.username \+ '\)'\)/.test(htmlSrc) ||
+   /dn\?'[^']*'\s*\+\s*'\('/.test(htmlSrc) ||
+   /\+\s*'\('\+ME\.username\+'\)'/.test(htmlSrc),
+  '有姓名时拼成「姓名(账号)」');
+ok(/getElementById\('userName'\)\.textContent=meDisplayLabel\(\)/.test(htmlSrc),
+  '顶栏用户名使用 meDisplayLabel()');
+ok(/id="profileTitle"/.test(htmlSrc), '个人界面标题有独立元素');
+ok(/profileTitle/.test(htmlSrc) && /个人界面/.test(htmlSrc), '个人界面标题带姓名信息');
+ok(/hu\.title=/.test(htmlSrc), '顶栏 hover 提示动态更新（带姓名）');
+ok(/👤 '\+ME\.username/.test(htmlSrc), '未绑定姓名时回退为只显示账号');
+
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
 process.exit(fail ? 1 : 0);
