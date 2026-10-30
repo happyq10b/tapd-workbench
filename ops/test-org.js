@@ -5,7 +5,7 @@
 //   3) 角色唯一性：唯一槽位岗位（组长/部门长/中心负责人/总经理）节点内至多一人
 //   4) 多重归属：一人多岗、多组织任职；成员任职视图
 //   5) 接口：节点 CRUD / 移动 / 任职维护
-//   6) 前端：类型徽章、岗位槽位渲染、多归属标记
+//   6) 前端：类型徽章、多归属标记（岗位与任职配置面板已下线）
 // 运行：node ops/test-org.js
 const fs = require('fs');
 const vm = require('vm');
@@ -104,8 +104,7 @@ ok(/def _org_sync_member_legacy/.test(pySrc), '存在成员侧同步函数（清
 ok(/@app\.get\('\/api\/org\/members\/\{member_id\}\/appointments'\)/.test(pySrc),
    '提供成员任职视图接口（横跨哪些节点、什么岗位）');
 ok(/other_org_count/.test(pySrc), '树接口返回「另有几个组织任职」标记');
-ok(/另有 \$\{a\.other_org_count\} 个组织任职/.test(htmlSrc) || /另有/.test(htmlSrc),
-   '前端展示多归属标记');
+ok(/人跨组织任职/.test(htmlSrc), '前端展示跨组织任职人数汇总（多归属只读呈现）');
 ok(/is_primary/.test(initDbSrc), '任职关系带 is_primary（主岗标记）');
 
 // ============================================================
@@ -137,20 +136,30 @@ ok(/仍绑定着板块/.test(pySrc), '绑定板块的节点禁止删除（避免
 // ============================================================
 // 用例 6：前端交互
 // ============================================================
-console.log('\n【用例6】前端：节点类型 / 岗位槽位 / 多归属');
+console.log('\n【用例6】前端：节点类型 / 多归属');
 ok(/id="g_new_type"/.test(htmlSrc), '有节点类型下拉');
-ok(/id="g_roles_box"/.test(htmlSrc), '有岗位与任职渲染容器');
-ok(/function renderOrgRoles/.test(htmlSrc), '提供岗位槽位渲染函数');
-ok(/function addOrgAppt/.test(htmlSrc), '提供任命（加人）函数');
-ok(/function removeOrgAppt/.test(htmlSrc), '提供免职（移除）函数');
+// 「岗位与任职」配置面板已下线（后端数据模型与接口保留，仅移除前端配置入口）
+ok(!/id="g_roles_box"/.test(htmlSrc), '岗位与任职容器 g_roles_box 已移除');
+ok(!/岗位与任职/.test(htmlSrc), '「岗位与任职」文案已清理');
+ok(!/function renderOrgRoles/.test(htmlSrc), 'renderOrgRoles 已移除');
+ok(!/function addOrgAppt/.test(htmlSrc), 'addOrgAppt 已移除');
+ok(!/function removeOrgAppt/.test(htmlSrc), 'removeOrgAppt 已移除');
+ok(!/class="org-chip/.test(htmlSrc), '任职人员 chip 样式已移除');
+ok(!/\.org-chip\{/.test(htmlSrc), '.org-chip 样式已清理');
+ok(!/ORG_ROLES_BY_TYPE/.test(htmlSrc), '仅岗位面板使用的 ORG_ROLES_BY_TYPE 已清理');
+ok(!/ORG_MEMBER_BY_ID/.test(htmlSrc), '仅岗位面板使用的 ORG_MEMBER_BY_ID 已清理');
+// 移除 flex:1 的岗位块后，右栏配置区改为按内容高度自适应（避免底部大块空白）
+ok(/flex-shrink:0;max-height:100%;overflow-y:auto;border:1px solid var\(--border\);border-radius:8px;padding:14px/.test(htmlSrc),
+  '右栏配置区按内容高度自适应，不再被拉高留出空白');
+ok(!/id="g_roles_box"/.test(htmlSrc) && !/flex:1;min-height:0;border:1px solid var\(--border\);border-radius:8px;padding:14px/.test(htmlSrc),
+  '旧的整高配置区布局已移除');
 ok(/function selectOrgNode/.test(htmlSrc), '提供节点选中（查看其岗位）函数');
 ok(/function fillOrgTypeOptions/.test(htmlSrc), '类型选项按上级过滤');
 ok(/function onOrgTypeChange/.test(htmlSrc), '类型变更时重算上级与板块范围');
 ok(/class="org-node-row/.test(htmlSrc), '节点行使用 .org-node-row 样式');
-ok(/\.org-chip\{/.test(htmlSrc), '任职人员使用 .org-chip 标签');
 ok(/ORG_TYPE_STYLE/.test(htmlSrc), '按节点类型区分图标与配色');
 // 旧的单 leader 下拉已移除
-ok(!/id="g_new_leader"/.test(htmlSrc), '旧的「组长/部门长」单选下拉已移除（改由岗位槽位承载）');
+ok(!/id="g_new_leader"/.test(htmlSrc), '旧的「组长/部门长」单选下拉已移除');
 ok(!/function fillLeaderOptions/.test(htmlSrc), '死代码 fillLeaderOptions 已清理');
 ok(!/function updateLeaderLabel/.test(htmlSrc), '死代码 updateLeaderLabel 已清理');
 ok(!/g_leader_label/.test(htmlSrc), '旧标签 g_leader_label 已清理');
