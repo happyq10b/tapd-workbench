@@ -175,8 +175,12 @@ ok(/ORG_ROLES_BY_TYPE=od\.roles_by_type\|\|ORG_ROLES_BY_TYPE;/.test(htmlSrc),
   'ORG_ROLES_BY_TYPE 的赋值已移入 ensureOrgTree');
 // —— 移除成本看板特例后必须补上板块可见性校验（否则越权）——
 ok(/def check_board_access\(board_id: str, username: str\)/.test(pySrc),
-  '新增板块准入校验 check_board_access');
-ok(/无权访问该板块/.test(pySrc), '板块不可见时拒绝写操作');
+  '新增看板准入校验 check_board_access');
+ok(/无权访问该看板/.test(pySrc), '看板不可见时拒绝写操作');
+ok(/def check_column_access\(board_id: str, column_id: str, username: str\)/.test(pySrc),
+  '新增板块准入校验 check_column_access（板块不可见时拒绝写入）');
+ok(/def check_card_access\(card_id: str, username: str, need_edit: bool = False\)/.test(pySrc),
+  '新增按卡片定位看板的可见性校验 check_card_access（读接口用）');
 ok((pySrc.match(/check_board_access\(/g)||[]).length>=9,
   '写接口均接入 check_board_access（'+(pySrc.match(/check_board_access\(/g)||[]).length+' 处）');
 ok(/\.tm-table-scroll\{[^}]*flex-shrink:0/.test(htmlSrc),

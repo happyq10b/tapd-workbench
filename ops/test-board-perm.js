@@ -108,8 +108,18 @@ ok(/def _dept_stage_boards\(username\)/.test(pySrc), '归属部门层过滤 _dep
 ok(/def _group_boards\(username: str\)/.test(pySrc), '工作组↔板块绑定过滤 _group_boards（第二层）');
 ok(/dept_boards = _dept_stage_boards\(username\)/.test(pySrc),
   'user_allowed 中先按归属部门过滤、再由账号/工作组权限收窄');
-ok(/if dept_boards is not None:[\s\S]*?boards = dept_boards if boards is None else boards & dept_boards/.test(pySrc),
-  '归属部门层与账号权限取交集（中心归属=对全员展示）');
+ok(/def _arch_scope_boards\(username: str, dept_boards: set\)/.test(pySrc),
+  '架构授权集汇总三层（归属部门 + 负责范围 + 工作组绑定）');
+ok(/boards = _arch_scope_boards\(username, dept_boards\)/.test(pySrc),
+  'user_allowed 用架构授权集作为可见范围基线');
+ok(/boards &= set\(x for x in raw_b\.split\(','\) if x\)/.test(pySrc),
+  '归属部门层与账号权限取交集（账号白名单只能收窄，不能越权授予）');
+ok(/if is_admin\(username\):\s*\n\s*return None, None/.test(pySrc),
+  'admin 超级管理员豁免架构权限过滤（拥有当前及未来新增的全部权限）');
+ok(/def _node_bound_boards\(node: dict/.test(pySrc),
+  '节点绑定的看板按节点类型派生（中心=全部 / 部门=归属看板 / 小组=手工绑定）');
+ok(/return merged if bound else None/.test(pySrc),
+  '工作组绑定层只取显式白名单（不再把部门自有看板并入，否则永远收窄不了）');
 ok(/_center_node_ids\(\)/.test(pySrc), '中心级部门单独识别（财务中心=全部板块）');
 ok(/scope & centers/.test(pySrc), '挂靠中心的成员按管理层全范围处理');
 ok(/nid in centers/.test(pySrc), '中心归属的板块对全员展示');
