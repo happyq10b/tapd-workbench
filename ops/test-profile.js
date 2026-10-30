@@ -39,9 +39,9 @@ ok(/原密码不正确/.test(pySrc), '改密码校验原密码');
 ok(/新密码至少 6 位/.test(pySrc), '新密码长度校验');
 ok(/新密码不能与原密码相同/.test(pySrc), '新旧密码相同则拒绝');
 ok(/hash_pw\(new\)/.test(pySrc), '新密码按哈希存储');
-ok(/UPDATE users SET avatar=\?, status_text=\? WHERE username=\?/.test(pySrc),
+ok(/UPDATE users SET avatar=\?, photo=\?, status_text=\? WHERE username=\?/.test(pySrc),
   '个人资料按当前登录账号写入（只能改自己的）');
-ok(/'avatar': avatar, 'status_text': status_text/.test(pySrc), '/api/me 返回头像与个人状态');
+ok(/'avatar': avatar, 'photo': photo, 'status_text': status_text/.test(pySrc), '/api/me 返回头像、照片与个人状态');
 ok(/audit_log\(username, client_ip\(request\), 'profile_update'/.test(pySrc), '资料修改写审计日志');
 ok(/audit_log\(username, client_ip\(request\), 'password_change'/.test(pySrc), '改密码写审计日志');
 
@@ -61,7 +61,7 @@ ok(/function submitChangePassword\(\)/.test(htmlSrc), '提供 submitChangePasswo
 ok(/function pickProfileAvatar\(inp\)/.test(htmlSrc), '提供头像文件选择处理');
 ok(/function renderProfileAvatarBox\(\)/.test(htmlSrc), '提供头像预览渲染');
 ok(/function renderMyProfile\(\)/.test(htmlSrc), '提供顶栏头像/状态统一渲染');
-ok(/ME\.avatar=PROFILE_AVATAR; ME\.status_text=status_text;/.test(htmlSrc), '保存后同步 ME 并刷新顶栏');
+ok(/ME\.avatar=PROFILE_AVATAR; ME\.photo=PROFILE_PHOTO; ME\.status_text=status_text;/.test(htmlSrc), '保存后同步 ME 并刷新顶栏');
 ok(/两次输入的新密码不一致/.test(htmlSrc), '前端校验两次新密码一致');
 ok(/新密码至少 6 位/.test(htmlSrc), '前端校验新密码长度');
 ok(/请输入原密码/.test(htmlSrc), '前端校验原密码非空');
@@ -115,6 +115,33 @@ ok(/id="profileTitle"/.test(htmlSrc), '个人界面标题有独立元素');
 ok(/profileTitle/.test(htmlSrc) && /个人界面/.test(htmlSrc), '个人界面标题带姓名信息');
 ok(/hu\.title=/.test(htmlSrc), '顶栏 hover 提示动态更新（带姓名）');
 ok(/👤 '\+ME\.username/.test(htmlSrc), '未绑定姓名时回退为只显示账号');
+
+// ============================================================
+// 用例 7：个人照片（形象照）
+// ============================================================
+console.log('\n【用例7】个人照片上传');
+ok(/photo\s+TEXT NOT NULL DEFAULT ''/.test(initSrc), 'users 表新增 photo 列（个人照片）');
+ok(/ALTER TABLE users ADD COLUMN photo TEXT NOT NULL DEFAULT ''/.test(initSrc),
+  'photo 列有幂等迁移');
+ok(/MAX_PHOTO_BYTES = 2 \* 1024 \* 1024/.test(pySrc), '个人照片独立上限 2MB');
+ok(/def _check_image_data_url\(data_url: str, max_bytes: int = None\)/.test(pySrc),
+  '图片校验支持按用途区分上限');
+ok(/photo: str = ''/.test(pySrc), 'ProfileReq 含 photo 字段');
+ok(/_check_image_data_url\(req\.photo, MAX_PHOTO_BYTES\)/.test(pySrc),
+  '照片按 2MB 上限校验');
+ok(/UPDATE users SET avatar=\?, photo=\?, status_text=\?/.test(pySrc), '保存资料时写入 photo');
+ok(/'photo': photo/.test(pySrc), '/api/me 返回 photo');
+ok(/id="profilePhotoBox"/.test(htmlSrc), '个人界面有照片上传区');
+ok(/id="profilePhotoFile"/.test(htmlSrc), '照片有文件选择控件');
+ok(/class="profile-photo-clear"/.test(htmlSrc), '照片有「清除」按钮');
+ok(/function renderProfilePhotoBox\(\)/.test(htmlSrc), '照片预览渲染函数');
+ok(/function clearProfilePhoto\(ev\)/.test(htmlSrc), '清除照片函数（阻止冒泡避免触发上传）');
+ok(/function compressProfilePhoto\(file\)/.test(htmlSrc), '照片自动压缩（canvas）');
+ok(/PROFILE_PHOTO_MAX_EDGE=1200/.test(htmlSrc), '压缩后最长边 1200px');
+ok(/cv\.toDataURL\('image\/jpeg',0\.85\)/.test(htmlSrc), '压缩输出 JPEG 质量 0.85');
+ok(/photo:PROFILE_PHOTO/.test(htmlSrc), '保存资料时提交 photo');
+ok(/ME\.photo=PROFILE_PHOTO/.test(htmlSrc), '保存后同步 ME.photo');
+ok(/PROFILE_PHOTO=ME\.photo\|\|''/.test(htmlSrc), '打开弹窗时读回已存照片');
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
 process.exit(fail ? 1 : 0);
