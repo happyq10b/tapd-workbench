@@ -86,6 +86,8 @@ def cleanup():
     c.execute("DELETE FROM actions WHERE card_id IN (?,?)", (CARD_X, CARD_Y))
     c.execute("DELETE FROM card_subtasks WHERE card_id IN (?,?)", (CARD_X, CARD_Y))
     c.execute("DELETE FROM cards WHERE card_id IN (?,?)", (CARD_X, CARD_Y))
+    # 经接口新建的卡片 id 不含前缀（NC…），按 board_id 一并清掉，避免残留
+    c.execute("DELETE FROM cards WHERE board_id LIKE ?||'%'", (PREFIX,))
     c.execute("DELETE FROM board_config WHERE board_id IN (?,?)", (TEST_BOARD, TEST_BOARD2))
     c.execute("DELETE FROM boards WHERE board_id IN (?,?)", (TEST_BOARD, TEST_BOARD2))
     c.execute("""DELETE FROM org_appointments WHERE member_id IN
