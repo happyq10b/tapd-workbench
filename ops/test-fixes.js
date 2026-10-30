@@ -124,19 +124,25 @@ const getLet = (n) => vm.runInContext(n, sandbox);
   sandbox.toggleYearPick('2025');
   eq([...vm.runInContext('curYears', sandbox)].join(','), '2026', '再次点击可取消该年份');
 
-  console.log('\n【用例2】统计区压缩 + 公告栏');
-  ok(/class="progress-cards"/.test(htmlSrc), '统计卡被包进 .progress-cards（独立左栏）');
+  console.log('\n【用例2】顶部栏左右分栏（看板/板块/统计 ←→ 公告）');
+  ok(/id="progressOverview"/.test(htmlSrc), '有统计容器 progressOverview');
   ok(/id="noticeBar"/.test(htmlSrc), '有公告栏容器 noticeBar');
-  ok(/class="notice-bar"/.test(htmlSrc), '公告栏使用长条形 .notice-bar 样式');
-  ok(/grid-template-columns:minmax\(0,1fr\) minmax\(0,1\.15fr\)/.test(htmlSrc),
-     '统计区为左右分栏（左=卡片，右=公告栏）');
+  ok(/class="notice-bar"/.test(htmlSrc), '公告栏使用 .notice-bar 样式');
+  ok(/class="topbar"/.test(htmlSrc) && /id="topbarAside"/.test(htmlSrc),
+     '顶部栏为左右分栏（左=topbar-main，右=topbar-aside 公告区）');
+  ok(/grid-template-columns:minmax\(0,1fr\) minmax\(300px,420px\)/.test(htmlSrc),
+     '顶部栏两列：左自适应 + 右公告列固定 300~420px');
+  ok(/\.topbar-main\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/.test(htmlSrc),
+     '左半主区为三列栅格（部门/板块/统计各占一行）');
+  ok(/id="tbDepts"/.test(htmlSrc) && /id="tbBoards"/.test(htmlSrc),
+     '左半拆分为「架构部门」「板块」两个带');
   ok(/function renderNoticeBar\(\)/.test(main), '提供公告栏渲染函数');
   ok(/function openNoticeModal\(\)/.test(main), '提供公告管理弹窗');
   ok(/id="noticeModal"/.test(htmlSrc), '有公告管理弹窗容器');
   ok(main.includes("api('/api/notices')"), '公告通过 /api/notices 接口读写');
-  // 统计卡片从 4 张降到 2 张
+  // 统计带：3 张卡片（总事项 / 已完成 / 未完成）
   const renderSrc = main.match(/async function renderProgress\(\)\{[\s\S]*?\n\}/)[0];
-  ok((renderSrc.match(/class="stat-card"/g) || []).length === 2, '统计卡片从 4 张压缩为 2 张');
+  ok((renderSrc.match(/class="stat-card"/g) || []).length === 3, '统计带为 3 张卡片（总事项/已完成/未完成）');
   // 紧凑样式
   ok(/\.stat-value\{font-size:20px/.test(htmlSrc), '统计数字字号已压缩（26px → 20px）');
   ok(/\.stat-card\{[^}]*padding:8px 14px/.test(htmlSrc), '统计卡片内边距已压缩');

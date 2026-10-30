@@ -72,11 +72,19 @@ ok(/function tpPersonClick\(name\)/.test(htmlSrc), '人员条目可勾选');
 ok(/ORG_PERSON_PREFIX\+m\.name/.test(htmlSrc), '人员条目用前缀写入 selected');
 ok(/x\.slice\(ORG_PERSON_PREFIX\.length\)/.test(htmlSrc), '回传时按常量长度剥离前缀');
 ok(/class="tp-node tp-person"/.test(htmlSrc), '人员条目有独立样式类');
-ok(/\.tp-box-na\{/.test(htmlSrc), 'person 模式下节点勾选框置灰');
+// 人员树选择器：节点框改为**可点击级联**（不再是置灰死元素），
+// 父节点勾选/取消会联动其下属人员；人员条目位于可折叠容器内（折叠随父节点隐藏）。
+ok(/\.tp-box-node\{/.test(htmlSrc), 'person 模式下节点勾选框可点击（级联勾选）');
+ok(/function tpPersonUnder\(node\)/.test(htmlSrc), '提供节点下属人员收集函数 tpPersonUnder');
 ok(/function openPersonFilterPicker\(anchor\)/.test(htmlSrc), '卡片列表页提供「按人员筛选」入口');
-ok(/套用为负责人/.test(htmlSrc) && /套用为参与人/.test(htmlSrc), '所选人员可套用为负责人或参与人条件');
+ok(/id="personFilterInput"/.test(htmlSrc) && /id="personFilterChips"/.test(htmlSrc),
+   '人员筛选是可输入 + 多选控件（输入框 + chips）');
+ok(/PERSON_SEL=new Set\(persons\)/.test(htmlSrc), '架构选人结果写入独立的 PERSON_SEL 集合');
 ok(/function applyPersonFilter\(kind, persons\)/.test(htmlSrc), '套用逻辑 applyPersonFilter');
-ok(/window\._ccFilter=names/.test(htmlSrc), '参与人条件写入 _ccFilter');
+// 人员筛选锚定在**负责人维度**：与 owner 条件同字段、两者取交集，不再改写负责人下拉
+ok(/ps\.set\('person'/.test(htmlSrc), 'reload 提交独立的 person 参数（与 owner 并存 → 交集）');
+ok(!/opt\.value=names; opt\.textContent='负责人：'/.test(htmlSrc),
+   '不再往负责人下拉注入自定义 option（旧实现的条件覆盖根源）');
 ok(/ps\.set\('cc',cc\)/.test(htmlSrc), 'reload 带上 cc 参数');
 ok(/async function ensureOrgTree\(force\)/.test(htmlSrc), '架构树按需加载（支持强制刷新）');
 ok(/await ensureOrgTree\(\)/.test(htmlSrc), '独立入口先加载架构树');
