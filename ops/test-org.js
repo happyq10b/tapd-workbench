@@ -155,6 +155,21 @@ ok(!/function fillLeaderOptions/.test(htmlSrc), '死代码 fillLeaderOptions 已
 ok(!/function updateLeaderLabel/.test(htmlSrc), '死代码 updateLeaderLabel 已清理');
 ok(!/g_leader_label/.test(htmlSrc), '旧标签 g_leader_label 已清理');
 
+// 右栏空白修复：保留任命功能，只让配置区按内容自适应（不再被 flex:1 拉高）
+ok(/flex-shrink:0;max-height:100%;overflow-y:auto;border:1px solid var\(--border\);border-radius:8px;padding:14px/.test(htmlSrc),
+  '右栏配置区按内容高度自适应，不再被拉高留出空白');
+ok(!/flex:1;min-height:0;border:1px solid var\(--border\);border-radius:8px;padding:14px/.test(htmlSrc),
+  '旧的整高配置区布局已移除');
+ok(/id="g_roles_box" style="margin-top:6px;max-height:240px;overflow:auto"/.test(htmlSrc),
+  '岗位与任职区改为 max-height 自适应（内容多时自身滚动）');
+// 任命功能必须完整保留
+ok(/id="g_roles_box"/.test(htmlSrc), '岗位与任职容器仍在');
+ok(/function renderOrgRoles/.test(htmlSrc), 'renderOrgRoles 仍在');
+ok(/function addOrgAppt/.test(htmlSrc), 'addOrgAppt（任命）仍在');
+ok(/function removeOrgAppt/.test(htmlSrc), 'removeOrgAppt（免职）仍在');
+ok(/\.org-chip\{/.test(htmlSrc), '任职人员 chip 样式仍在');
+ok(/岗位与任职/.test(htmlSrc), '「岗位与任职」标题仍在');
+
 // 元素引用完整性（删了元素必须删引用）
 const ids = new Set([...htmlSrc.matchAll(/id="([A-Za-z_][\w-]*)"/g)].map(m => m[1]));
 const badRefs = [];
