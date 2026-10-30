@@ -53,7 +53,7 @@ ok(/'org_source'/.test(pySrc) && /'org_conflict'/.test(pySrc) && /'org_nodes'/.t
 ok(/org_source:m\.org_source\|\|'none'/.test(htmlSrc), '前端 TM_ALL 带出归属来源字段');
 ok(/架构管理任命/.test(htmlSrc), '成员表格展示「架构管理任命」标注');
 ok(/忽略：/.test(htmlSrc), '冲突时提示被忽略的工作组');
-ok(/工作组选择（架构管理未任命）/.test(htmlSrc), '回退来源有明确文案');
+ok(/历史归属（架构管理未任命）/.test(htmlSrc), '回退来源有明确文案');
 
 // ============================================================
 // 用例 3：树形组件追加末级人员 + 人员筛选
@@ -104,6 +104,50 @@ ok(/const isAllRoles=roleList\.length>=ALL_ROLES\.length/.test(htmlSrc),
   '勾选满 4 类角色时视同全部（不漏掉有账号但无角色记录的成员）');
 ok(/不勾选任何角色 = 显示全部角色/.test(htmlSrc), '角色弹窗有语义提示');
 ok(/:'全部角色'/.test(htmlSrc), '筛选按钮文案为「全部角色」');
+
+// ============================================================
+// 用例 5：成员页面工作组控件下线 + 只读层级树 + 表头冻结
+// ============================================================
+console.log('\n【用例5】成员页面工作组控件下线与只读层级树');
+// —— 控件整体下线 ——
+ok(!/t_new_wg_btn/.test(htmlSrc), '新增成员的「工作组」选择控件已删除');
+ok(!/t_new_wg_tags/.test(htmlSrc), '新增成员的工作组标签容器已删除');
+ok(!/ADD_WG_SEL/.test(htmlSrc), 'ADD_WG_SEL 状态已清理');
+ok(!/renderAddWgTags/.test(htmlSrc), 'renderAddWgTags 已清理');
+ok(!/removeAddWg/.test(htmlSrc), 'removeAddWg 已清理');
+ok(!/flattenWgToLeaves/.test(htmlSrc), 'flattenWgToLeaves 已清理');
+ok(!/🌳 选择工作组/.test(htmlSrc), '表格内的「选择工作组」按钮已删除');
+ok(!/tm-grp-cell/.test(htmlSrc), '工作组列的样式类已清理');
+ok(!/已选工作组（最细颗粒）/.test(htmlSrc), '表头冗余括号注释已删除');
+ok(/text-align:left;width:230px">已选工作组</.test(htmlSrc), '表头为「已选工作组」');
+// —— 只读层级树 ——
+ok(/function renderMemberWgTree\(m\)/.test(htmlSrc), '提供只读层级树渲染 renderMemberWgTree');
+ok(/function memberWgTreeNodes\(m\)/.test(htmlSrc), '裁剪成员相关子树 memberWgTreeNodes');
+ok(/function toggleWgTree\(el, key\)/.test(htmlSrc), '支持逐级展开/收起 toggleWgTree');
+ok(/closest\(':scope > \.wgt-children'\)/.test(htmlSrc) || /:scope > \.wgt-children/.test(htmlSrc),
+  '展开用局部 DOM 操作（不重绘表格）');
+ok(!/function toggleWgTree\(el, key\)\{[\s\S]{0,200}renderTeamList\(\);/.test(htmlSrc),
+  '展开不重绘表格（否则会丢失未保存的编辑内容）');
+ok(/var WG_TREE_EXPANDED=new Set\(\)/.test(htmlSrc), '展开状态独立维护');
+ok(/默认收起/.test(htmlSrc) || /display:\$\{exp\?'block':'none'\}/.test(htmlSrc),
+  '节点默认收起、点击展开');
+ok(!/class="tp-box"/.test(htmlSrc.slice(htmlSrc.indexOf('function renderWgTreeLevel'), htmlSrc.indexOf('function renderMemberWgTree'))),
+  '只读树内无勾选框（无编辑入口）');
+ok(/m\.org_source==='org' && \(m\.org_nodes\|\|\[\]\)\.length/.test(htmlSrc),
+  '树的权威源是架构管理的任命');
+ok(/WG_TREE_EXPANDED\.has\(key\)/.test(htmlSrc), '展开状态按节点 key 记忆');
+// —— 表头冻结 ——
+ok(/\.tm-table-scroll\{max-height:46vh;overflow:auto/.test(htmlSrc), '表格容器独立滚动');
+ok(/\.tm-table-scroll thead th\{position:sticky;top:0;z-index:2/.test(htmlSrc), '表头首行冻结');
+// —— 后端：归属收敛到架构管理 ——
+ok(/class TeamReq\(BaseModel\):\s*name: str\s*\n\s*# workgroups 已下线/.test(pySrc),
+  'TeamReq 不再接受 workgroups');
+ok(/class TeamUpdateReq\(BaseModel\):\s*name: str\s*\n\s*account:/.test(pySrc),
+  'TeamUpdateReq 不再接受 workgroups');
+ok(!/UPDATE team_members SET name=\?, workgroups=\?/.test(pySrc),
+  'PUT 不再写 workgroups（否则会清空架构管理同步的数据）');
+ok(/dbe\('DELETE FROM org_appointments WHERE member_id=\?', \(mid,\)\)/.test(pySrc),
+  '删除成员时显式清理架构管理的任职记录');
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
 process.exit(fail ? 1 : 0);
