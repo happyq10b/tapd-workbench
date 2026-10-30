@@ -87,5 +87,23 @@ ok(/addOrgPickBtn\('e_owner','owner'\)/.test(htmlSrc) && /addOrgPickBtn\('e_cc',
 ok(/class="pp-in"/.test(htmlSrc), '人员选择器仍保留手动输入（与架构选人并存）');
 ok(/ORG_PERSON_NAMES=new Set\(\)/.test(htmlSrc), '汇总架构人员名以区分手动输入项');
 
+// ============================================================
+// 用例 4：成员表格角色筛选默认「全部角色」
+// ============================================================
+console.log('\n【用例4】角色筛选默认全部角色');
+ok(/var TM_FILTER=\{name:'',workgroup:\[\],role:\[\]\}/.test(htmlSrc),
+  'TM_FILTER 声明的默认角色为空数组（全部角色）');
+ok(/TM_FILTER=\{name:'',workgroup:\[\],role:\[\]\};   \/\/ 默认全部角色/.test(htmlSrc),
+  'openTeamModal 初始化为全部角色');
+ok(/TM_FILTER=\{name:'',workgroup:\[\],role:\[\]\};   \/\/ 重置回全部角色/.test(htmlSrc),
+  'resetTmFilter 重置回全部角色');
+ok(/const roleList=Array\.isArray\(TM_FILTER\.role\)\?TM_FILTER\.role:\[\]/.test(htmlSrc),
+  'renderTeamList 的兜底值也是空数组');
+ok(!/role:\['noaccount'\]/.test(htmlSrc), '已无任何 role:[\'noaccount\'] 的默认写法');
+ok(/const isAllRoles=roleList\.length>=ALL_ROLES\.length/.test(htmlSrc),
+  '勾选满 4 类角色时视同全部（不漏掉有账号但无角色记录的成员）');
+ok(/不勾选任何角色 = 显示全部角色/.test(htmlSrc), '角色弹窗有语义提示');
+ok(/:'全部角色'/.test(htmlSrc), '筛选按钮文案为「全部角色」');
+
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
 process.exit(fail ? 1 : 0);
