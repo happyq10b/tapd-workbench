@@ -187,6 +187,11 @@ ok(/if\(isEdit\)\{footer\+='<button class="btn-secondary bc-del-single" onclick=
   '编辑区页脚提供单个看板的删除按钮');
 ok(/id="bcDelBtn"/.test(htmlSrc) && /onclick="bcDeleteSelected\(\)"/.test(htmlSrc),
   '批量删除按钮与全选按钮同排');
+// 删除按钮不带个数：个数统一由右侧「已选 N 个」显示，避免同一信息重复两处
+ok(/id="bcDelBtn"[^>]*>删除所选</.test(htmlSrc), '删除按钮初始文案为「删除所选」（不带个数）');
+ok(/db\.textContent='删除所选';/.test(htmlSrc), '删除按钮文案固定，不随勾选数变化');
+ok(!/删除所选 '?\+?BC_SEL\.size/.test(htmlSrc), '删除按钮不再拼接选中个数');
+ok(/已选 <b id="bcPickCount">0<\/b> 个/.test(htmlSrc), '选中个数只在工具条右侧「已选 N 个」处显示');
 ok(/\.bc-opbar\{display:flex;flex-direction:row;align-items:center;gap:8px;flex-wrap:nowrap/.test(htmlSrc),
   '操作条强制横向一行（flex-direction:row，避免竖排）');
 ok(/\.bc-opbar-btns\{display:flex;align-items:center;gap:8px;flex-shrink:0\}/.test(htmlSrc),
