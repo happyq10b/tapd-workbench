@@ -183,6 +183,17 @@ ok(/function cancelCrop\(\)/.test(htmlSrc), '取消裁切');
 ok(/out\.width=spec\.outW; out\.height=spec\.outH/.test(htmlSrc), '按最小输出尺寸导出');
 ok(/openCropper\('avatar'/.test(htmlSrc), '选头像后进入裁切器');
 ok(/openCropper\('photo'/.test(htmlSrc), '选照片后进入裁切器');
+// —— 头像裁切框为圆形 + 提示单行 ——
+ok(/\.crop-stage\.crop-round\{border-radius:50%\}/.test(htmlSrc), '裁切台支持圆形模式');
+ok(/stage\.classList\.toggle\('crop-round', target==='avatar'\)/.test(htmlSrc),
+  '头像裁切时裁切台切为圆形（照片仍为矩形）');
+ok(/ctx\.arc\(spec\.outW\/2, spec\.outH\/2, spec\.outW\/2, 0, Math\.PI\*2\)/.test(htmlSrc),
+  '头像导出按圆形裁剪（圆外留白）');
+ok(/\.hint-text\{[^}]*text-overflow:ellipsis/.test(htmlSrc), '提示文案超长省略（不换行）');
+ok(/class="hint-text"/.test(htmlSrc), '提示文案包在 hint-text 里');
+ok(/点击上传（JPG\/PNG\/GIF\/WebP，≤512KB）/.test(htmlSrc), '头像提示已精简');
+ok(/点击上传（JPG\/PNG\/GIF\/WebP，≤2MB，自动压缩）/.test(htmlSrc), '照片提示已精简');
+ok(/拖动调整位置 · 滚轮\/滑块缩放/.test(htmlSrc), '裁切弹窗提示已精简');
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
 process.exit(fail ? 1 : 0);
