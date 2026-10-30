@@ -143,5 +143,46 @@ ok(/photo:PROFILE_PHOTO/.test(htmlSrc), '保存资料时提交 photo');
 ok(/ME\.photo=PROFILE_PHOTO/.test(htmlSrc), '保存后同步 ME.photo');
 ok(/PROFILE_PHOTO=ME\.photo\|\|''/.test(htmlSrc), '打开弹窗时读回已存照片');
 
+// ============================================================
+// 用例 8：统一占位图 + 裁切编辑
+// ============================================================
+console.log('\n【用例8】统一占位图与裁切编辑');
+// —— 占位图资源与路由 ——
+ok(/src\/static\/default-photo\.jpg/.test(fs.existsSync(path.join(ROOT, 'src/static/default-photo.jpg')) ? 'src/static/default-photo.jpg' : ''),
+  '默认占位图资源已部署');
+ok(/_STATIC_FILES = \{/.test(pySrc), '后端静态资源白名单');
+ok(/'\/static\/default-photo\.jpg': 'default-photo\.jpg'/.test(pySrc), '白名单含默认占位图');
+ok(/def static_asset\(filename: str\)/.test(pySrc), '提供静态资源路由');
+ok(/raise HTTPException\(404, '资源不存在'\)/.test(pySrc), '非白名单文件一律 404（防路径穿越）');
+// —— 占位图回退 ——
+ok(/var DEFAULT_PHOTO_URL='\/static\/default-photo\.jpg'/.test(htmlSrc), '前端占位图常量');
+ok(/function profileImgSrc\(saved\)/.test(htmlSrc), '占位图回退函数');
+ok(/profileImgSrc\(PROFILE_AVATAR\)/.test(htmlSrc), '头像区走占位图回退');
+ok(/profileImgSrc\(PROFILE_PHOTO\)/.test(htmlSrc), '照片区走占位图回退');
+ok(/profileImgSrc\(ME\.avatar\)/.test(htmlSrc), '顶栏头像走占位图回退');
+ok(/默认占位图/.test(htmlSrc), '提示区标注「默认占位图」');
+ok(/object-fit:cover;object-position:center/.test(htmlSrc), '占位图与上传图统一居中裁切展示');
+ok(/aspect-ratio:3\/4/.test(htmlSrc), '照片区固定 3:4 竖版比例');
+// —— 裁切编辑器 ——
+ok(/id="cropModal"/.test(htmlSrc), '裁切弹窗存在');
+ok(/id="cropCanvas"/.test(htmlSrc), '裁切画布存在');
+ok(/id="cropZoom"/.test(htmlSrc), '缩放滑块存在');
+ok(/var CROP_SPEC=\{/.test(htmlSrc), '裁切规格表');
+ok(/avatar:\{ratio:1,\s*outW:512, outH:512/.test(htmlSrc), '头像裁切 1:1，输出 512×512');
+ok(/photo: \{ratio:0\.75,outW:720, outH:960/.test(htmlSrc), '照片裁切 3:4，输出 720×960');
+ok(/function openCropper\(target, dataUrl\)/.test(htmlSrc), '裁切器入口');
+ok(/function cropPaint\(\)/.test(htmlSrc), '裁切器绘制（含三分构图线）');
+ok(/function cropClamp\(\)/.test(htmlSrc), '偏移约束（图片始终盖满裁切框，不留白）');
+ok(/function cropSetZoom\(z\)/.test(htmlSrc), '缩放逻辑');
+ok(/function cropBindDrag\(\)/.test(htmlSrc), '拖动/缩放事件绑定');
+ok(/mousedown/.test(htmlSrc) && /mousemove/.test(htmlSrc) && /mouseup/.test(htmlSrc), '鼠标拖动');
+ok(/touchstart/.test(htmlSrc) && /touchmove/.test(htmlSrc), '触摸拖动（移动端）');
+ok(/'wheel'/.test(htmlSrc), '滚轮缩放');
+ok(/function confirmCrop\(\)/.test(htmlSrc), '确认裁切');
+ok(/function cancelCrop\(\)/.test(htmlSrc), '取消裁切');
+ok(/out\.width=spec\.outW; out\.height=spec\.outH/.test(htmlSrc), '按最小输出尺寸导出');
+ok(/openCropper\('avatar'/.test(htmlSrc), '选头像后进入裁切器');
+ok(/openCropper\('photo'/.test(htmlSrc), '选照片后进入裁切器');
+
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
 process.exit(fail ? 1 : 0);
