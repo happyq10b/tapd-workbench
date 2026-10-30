@@ -108,8 +108,8 @@ def setup():
                                     (BOARD_B, '【测试】管理部看板', '管理部', 2)):
         c.execute("INSERT INTO boards (board_id, board_name, workspace_id, created_at) VALUES (?,?,?,?)",
                   (bid, bname, 'ws_cw', now))
-        c.execute("""INSERT INTO board_config (board_id, year, dept, dept_node_id, attr, status, created_at)
-                     VALUES (?,?,?,?,?,?,?)""", (bid, '2026', dept, node, '日常', '启用', now))
+        c.execute("""INSERT INTO board_config (board_id, dept, dept_node_id, attr, status, created_at)
+                     VALUES (?,?,?,?,?,?)""", (bid, dept, node, '日常', '启用', now))
     for key, bid, cname in ((COL_A, BOARD_A, '【测试】板块A'), (COL_B, BOARD_B, '【测试】板块B')):
         c.execute("""INSERT INTO board_columns (col_key, column_id, board_id, column_name,
                        created_at, creator, nature, year, pinned) VALUES (?,?,?,?,?,?,'日常','2026',0)""",

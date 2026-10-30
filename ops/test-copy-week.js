@@ -41,10 +41,10 @@ ok(/'weeks': week_options/.test(pySrc), '接口回传可选周数列表（供筛
 ok(/\{key:'week_no', label:'周数'/.test(htmlSrc), '列表字段列包含「周数」');
 ok(/\{key:'owner',\s+label:'负责人'[\s\S]{0,120}\{key:'week_no', label:'周数'[\s\S]{0,120}\{key:'created', label:'创建日期'/.test(htmlSrc),
   '「周数」位于「创建日期」之前（创建信息列之前）');
-ok(/fieldCols\(\{owner:c\.owner,week_no:c\.week_no,created:c\.created,due:c\.due\}\)/.test(htmlSrc),
-  '主事项行传入周数');
-ok(/fieldCols\(\{owner:n\.owner,week_no:n\.week_no,created:n\.created,due:n\.due\}\)/.test(htmlSrc),
-  '子事项行传入周数');
+ok(/fieldCols\(\{owner:c\.owner,week_no:c\.week_no,created:c\.created,due:c\.due,column_name:c\.column_name\}\)/.test(htmlSrc),
+  '主事项行传入周数（并带所属板块名，用于标注板块年份）');
+ok(/fieldCols\(\{owner:n\.owner,week_no:n\.week_no,created:n\.created,due:n\.due,column_name:n\.column_name\}\)/.test(htmlSrc),
+  '子事项行传入周数（并带所属板块名，用于标注板块年份）');
 // 主/子网格列宽必须完全一致（否则父子两行字段列起点会错位）
 const mainGrid = (htmlSrc.match(/\.fcols\{grid-template-columns:([^;]+);/) || [])[1];
 const subGrid = (htmlSrc.match(/\.sub-node \.fcols\{grid-template-columns:([^;]+);/) || [])[1];

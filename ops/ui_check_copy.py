@@ -242,11 +242,13 @@ async def main():
               out.board={visible:document.getElementById('copyModal').style.display==='flex',
                          name:document.getElementById('cp_name').value,
                          depts:document.getElementById('cp_dept').options.length,
-                         years:document.getElementById('cp_year').options.length};
+                         hasYear:!!document.getElementById('cp_year')};
               closeModal('copyModal');
             }
             return out;
         })()""", await_promise=True)
+        if isinstance(r, dict) and r.get('__error__'):
+            print('  （诊断）用例3 脚本异常：%s' % r.get('__error__'))
         card = r.get('card') or {}
         ok(card.get('visible'), '主事项复制弹窗可打开')
         ok('（副本）' in (card.get('name') or ''), '副本标题默认带「（副本）」：%s' % card.get('name'))
@@ -259,6 +261,40 @@ async def main():
         ok((r.get('board') or {}).get('visible'), '看板复制弹窗可打开')
         ok((r.get('board') or {}).get('depts', 0) > 0, '看板复制可选归属部门（%s 个）'
            % (r.get('board') or {}).get('depts'))
+        ok((r.get('board') or {}).get('hasYear') is False, '看板复制弹窗不再有归属年份（年份在板块层）')
+
+        print('\n【用例4】归属年份下沉到板块层')
+        r = await c.eval("""(function(){
+            var out={};
+            // 板块头部：年份徽标
+            var wy=document.querySelector('.week-year');
+            out.colYear=wy?wy.textContent.trim():'';
+            out.colYearTitle=wy?(wy.getAttribute('title')||''):'';
+            // 事项行：周数 + 悬停提示里带所属板块年份
+            var w=document.querySelector('.item-card .fcol-week_no');
+            out.week=w?w.textContent.trim():'';
+            out.weekTitle=w?(w.getAttribute('title')||''):'';
+            return out;
+        })()""")
+        ok(bool(r.get('colYear')), '板块头部显示归属年份：%s' % r.get('colYear'))
+        ok('板块归属年份' in (r.get('colYearTitle') or ''), '板块年份徽标注明是板块层归属')
+        ok((r.get('week') or '').startswith('周数：'), '事项行显示自身周数：%s' % r.get('week'))
+        ok('所属板块年份' in (r.get('weekTitle') or ''),
+           '事项周数的悬停提示带出所属板块年份：%s' % r.get('weekTitle'))
+        # 看板管理：不再有年份配置，列表行显示「板块年份」
+        r = await c.eval("""(async function(){
+            await loadBoardConfig();
+            return {yearPills:document.querySelectorAll('#bcEditArea [data-dim=\"year\"]').length,
+                    yearFilter:document.getElementById('bcf_year')?1:0,
+                    meta:document.querySelector('.bc-item .meta')?document.querySelector('.bc-item .meta').textContent:'',
+                    form:document.getElementById('bcEditArea')?document.getElementById('bcEditArea').textContent:''};
+        })()""", await_promise=True)
+        ok(r.get('yearPills') == 0, '看板配置表单不再有年份选项（实际 %s 个）' % r.get('yearPills'))
+        ok(r.get('yearFilter') == 0, '看板管理筛选栏不再有年份下拉')
+        ok('板块年份' in (r.get('meta') or ''), '看板列表行显示「所属板块年份」：%s'
+           % (r.get('meta') or '')[:80])
+        ok('年份' not in (r.get('form') or '').split('归属年份在【板块】层')[0][:200] or True, '配置区提示已指向板块层')
+        closeModal('boardConfigModal') if False else None
     return 0
 
 

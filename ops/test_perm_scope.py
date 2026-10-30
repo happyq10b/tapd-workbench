@@ -107,12 +107,12 @@ def setup():
               (TEST_BOARD, '【测试】资金部看板', 'ws_pt', now))
     c.execute("INSERT INTO boards (board_id, board_name, workspace_id, created_at) VALUES (?,?,?,?)",
               (TEST_BOARD2, '【测试】管理部看板', 'ws_pt', now))
-    c.execute("""INSERT INTO board_config (board_id, year, dept, dept_node_id, attr, status, created_at)
-                 VALUES (?,?,?,?,?,?,?)""",
-              (TEST_BOARD, '2026', '资金部', NODE_ZICHU, '日常', '启用', now))
-    c.execute("""INSERT INTO board_config (board_id, year, dept, dept_node_id, attr, status, created_at)
-                 VALUES (?,?,?,?,?,?,?)""",
-              (TEST_BOARD2, '2026', '管理部', NODE_GUANLI, '日常', '启用', now))
+    c.execute("""INSERT INTO board_config (board_id, dept, dept_node_id, attr, status, created_at)
+                 VALUES (?,?,?,?,?,?)""",
+              (TEST_BOARD, '资金部', NODE_ZICHU, '日常', '启用', now))
+    c.execute("""INSERT INTO board_config (board_id, dept, dept_node_id, attr, status, created_at)
+                 VALUES (?,?,?,?,?,?)""",
+              (TEST_BOARD2, '管理部', NODE_GUANLI, '日常', '启用', now))
     # 两个卡片，分处不同板块（用于板块级权限验证）
     for cid, col, name in ((CARD_X, 'COL_X', '【测试】X 板块事项'), (CARD_Y, 'COL_Y', '【测试】Y 板块事项')):
         c.execute("""INSERT INTO cards (card_id, board_id, board_name, column_id, column_name,
