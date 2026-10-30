@@ -194,6 +194,17 @@ ok(/class="hint-text"/.test(htmlSrc), '提示文案包在 hint-text 里');
 ok(/点击上传（JPG\/PNG\/GIF\/WebP，≤512KB）/.test(htmlSrc), '头像提示已精简');
 ok(/点击上传（JPG\/PNG\/GIF\/WebP，≤2MB，自动压缩）/.test(htmlSrc), '照片提示已精简');
 ok(/拖动调整位置 · 滚轮\/滑块缩放/.test(htmlSrc), '裁切弹窗提示已精简');
+// —— 上传说明常驻，状态只作后缀（不能整体覆盖）——
+ok(/function renderProfileAvatarHint\(state\)/.test(htmlSrc), '头像提示以状态后缀形式渲染');
+ok(/function renderProfilePhotoHint\(state\)/.test(htmlSrc), '照片提示以状态后缀形式渲染');
+ok(/const base='点击上传（JPG\/PNG\/GIF\/WebP，≤512KB）'/.test(htmlSrc), '头像基础上传说明为常量');
+ok(/const base='点击上传（JPG\/PNG\/GIF\/WebP，≤2MB，自动压缩）'/.test(htmlSrc), '照片基础上传说明为常量');
+ok(/\+base\+\(state\?' · '\+state:''\)\+'<\/span>'/.test(htmlSrc), '状态以「 · 」后缀追加，不覆盖基础上传说明');
+ok(!/if\(text\)\{ hint\.innerHTML='<span class="hint-text">'\+text\+'<\/span>'; return; \}/.test(htmlSrc),
+  '不再用状态文案整体覆盖提示行');
+ok(/renderProfileAvatarHint\('已裁切'\)/.test(htmlSrc), '头像裁切后缀为「已裁切」');
+ok(/renderProfilePhotoHint\('已清除'\)/.test(htmlSrc), '照片清除后缀为「已清除」');
+ok(/toast\('头像仅支持 JPG \/ PNG \/ GIF \/ WebP 格式'\)/.test(htmlSrc), '错误详情改走 toast（不挤占提示行）');
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
 process.exit(fail ? 1 : 0);
