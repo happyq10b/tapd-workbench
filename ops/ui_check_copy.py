@@ -160,18 +160,20 @@ async def main():
         ok(r.get('mainWidth') == r.get('subWidth'),
            '主/子事项字段列容器宽度一致：%s / %s' % (r.get('mainWidth'), r.get('subWidth')))
 
-        print('\n【用例2】周数筛选（多选）')
+        print('\n【用例2】周数筛选（可输入 + 多选）')
+        # 周数筛选已改为「输入框 + chips + 勾选式候选面板」（不再是纯下拉按钮）
         r = await c.eval("""(function(){
-            var btn=document.getElementById('weekFilterBtn');
-            if(!btn)return {btn:false};
-            btn.click();
+            var inp=document.getElementById('weekFilterInput');
+            if(!inp)return {btn:false};
+            inp.click();
             var drop=document.getElementById('weekFilterDrop');
             return {btn:true,hidden:drop?drop.hidden:null,
                     opts:drop?[].slice.call(drop.querySelectorAll('[data-pick-week]')).map(function(e){return e.dataset.pickWeek;}):[],
-                    hint:(document.getElementById('weekFilterHint')||{}).textContent||''};
+                    chips:!!document.getElementById('weekFilterChips')};
         })()""")
-        ok(r.get('btn'), '筛选栏存在「📅 周数」按钮')
-        ok(r.get('hidden') is False, '点击后下拉展开')
+        ok(r.get('btn'), '筛选栏存在周数输入框（可输入）')
+        ok(r.get('hidden') is False, '点击后候选面板展开')
+        ok(r.get('chips') is True, '有已选 chips 区（多选）')
         ok(len(r.get('opts') or []) > 0, '周数选项来自接口（%d 个）：%s'
            % (len(r.get('opts') or []), (r.get('opts') or [])[:3]))
         r2 = await c.eval("""(function(){
@@ -180,12 +182,12 @@ async def main():
             var w=box.dataset.pickWeek;
             box.click();
             return {sel:[...WEEK_SEL],
-                    btn:document.getElementById('weekFilterBtn').textContent,
-                    hint:(document.getElementById('weekFilterHint')||{}).textContent||'',
+                    chips:(document.getElementById('weekFilterChips')||{}).textContent||'',
+                    hint:(document.getElementById('filterHint')||{}).textContent||'',
                     picked:w};
         })()""")
         ok(len(r2.get('sel') or []) == 1, '勾选后进入多选集合：%s' % r2.get('sel'))
-        ok('周数' in (r2.get('btn') or ''), '按钮显示已选数量：%s' % r2.get('btn'))
+        ok((r2.get('chips') or '').strip() != '', '已选项显示为 chip：%s' % r2.get('chips'))
         await asyncio.sleep(1.5)
         r2b = await c.eval("""(function(){
             // 勾选后列表应只剩该周数的事项
@@ -196,7 +198,7 @@ async def main():
         })()""")
         ok(len(r2b.get('uniq') or []) <= 1,
            '勾选后列表只显示该周数的事项：%s' % (r2b.get('uniq') or [])[:5])
-        await c.eval("(function(){WEEK_SEL=new Set();paintWeekFilter();reload(1);})()")
+        await c.eval("(function(){WEEK_SEL=new Set();paintFilterCombos();reload(1);})()")
         await asyncio.sleep(1)
 
         print('\n【用例3】复制弹窗（主事项 / 板块 / 看板）')
