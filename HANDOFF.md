@@ -450,7 +450,7 @@ UI设计师 认领（改 🔄）→ 做完标 ✅ 并附署名与关联记录号
 | **T-002** | 2026-11-02 | **UI设计师** | `ops/test-filter-ui.js` 断言 208 失效：断言要求存在 `@media(max-width:1024px){.toolbar-left{flex-wrap:wrap}}`（旧窄屏换行策略），而该策略已被记录 #10 的**需求5**（窄屏锁定最小宽度 + 横向滚动、布局不变）**有意废除**。测试结果 116 通过 / 1 失败 | `ops/test-filter-ui.js` | 主设计师（测试脚本归属） | ✅ 已处理 · **主设计师** · 断言改为校验现行策略（min-width:1200px / overflow-x:auto / ≤1199px 兜底 nowrap / 旧策略已不存在） |
 | **T-003** | 2026-11-02 | **UI设计师** | 架构部门排序当前用**纯 CSS `order` + `:nth-child`** 实现，映射依赖**后端 `_dept_order()` 返回的 DOM 序号**（实测序：财务中心/核算部/总账部/管理部/资金部/商务部）。CSS 无法按文本选中元素，纯 CSS 路径只能走 `:nth-child`。**若后端部门顺序变化，映射表即失效、视觉顺序会错乱**。若要「按部门名排序」需在 JS 侧按名排序 | `src/static/index.html` | 主设计师（需改 JS 排序逻辑） | ✅ 已处理 · **主设计师** · 改为 JS 按名排序（`DEPT_VISUAL_ORDER` + `deptVisualRank()` + `sortDeptsByName()`），CSS `order` 映射已移除（0 残留） |
 | **T-004** | 2026-11-02 | **UI设计师** | `src/static/index.html.bak`（主设计师改前留的备份文件）**未被 `src/.gitignore` 忽略** → 执行 `git add .` 时会被误带入提交（`src/.gitignore` 当前无 `.bak` 规则，`git check-ignore` 确认未忽略）。顶层 `.gitignore` 只忽略了 `HANDOFF.md.bak`，管不到子仓库 | `src/.gitignore` | 主设计师（正在改 `src`，避免撞车） | ✅ 已处理 · **主设计师** · `src/.gitignore` 补 `*.bak` 规则，`git check-ignore` 已确认命中；工作区不再出现 `.bak` |
-| **T-005** | 2026-11-02 | **主设计师** | **需求5 的窄屏锁定有 4px 缺口**：`.topbar` 的 `column-gap` 在窄屏被 `@media(max-width:900px)` 的 `gap:10px` 改掉（14px→10px），而 `grid-template-columns` 被后声明的 `@media(max-width:1199px)` 覆盖回 2 栏 → **断点只覆盖了一半**。实测：视口 1200 时 `.topbar-main`=798px，视口 700 时=802px，部门栅格 768→772px —— 违反需求5「所有元素大小位置不变」。另 `@media(max-width:640px)` 的 `.topbar{padding:10px 12px 0}` 同理会改内边距（≤640px 时生效） | `src/static/index.html`（L208-213 `@media(max-width:900px)` 的 `.topbar{gap:10px}`；L214-219 `@media(max-width:640px)` 的 `.topbar{padding:10px 12px 0}`） | UI设计师（布局/尺寸属 UI 职责；主设计师只做测试断言，不改样式） | ⏳ 待认领 |
+| **T-005** | 2026-11-02 | **主设计师** | **需求5 的窄屏锁定有 4px 缺口**：`.topbar` 的 `column-gap` 在窄屏被 `@media(max-width:900px)` 的 `gap:10px` 改掉（14px→10px），而 `grid-template-columns` 被后声明的 `@media(max-width:1199px)` 覆盖回 2 栏 → **断点只覆盖了一半**。实测：视口 1200 时 `.topbar-main`=798px，视口 700 时=802px，部门栅格 768→772px —— 违反需求5「所有元素大小位置不变」。另 `@media(max-width:640px)` 的 `.topbar{padding:10px 12px 0}` 同理会改内边距（≤640px 时生效） | `src/static/index.html`（L208-213 `@media(max-width:900px)` 的 `.topbar{gap:10px}`；L214-219 `@media(max-width:640px)` 的 `.topbar{padding:10px 12px 0}`） | UI设计师（布局/尺寸属 UI 职责；主设计师只做测试断言，不改样式） | ✅ 已处理 · **UI设计师** · 补齐 gap/padding/列数/字号/order 五项收敛，10 视口 × 16 属性全一致 |
 
 ### 5.1.1 T-001 详情（已闭环 · 主设计师 认领）
 
@@ -609,6 +609,7 @@ UI设计师 认领（改 🔄）→ 做完标 ✅ 并附署名与关联记录号
 | #12 | 2026-11-02 | **UI设计师** | 流程建设 | 固化「**每次提交后同步工作日志**」为硬性规矩（§0.2.1）+ 补记上一轮 3 个提交的日志段落 | `HANDOFF.md`、`.workbuddy/memory/2026-11-02.md` |
 | #13 | 2026-11-02 | **UI设计师** | 流程记录 | 检出主设计师闭环 **T-002 / T-003**（断言改现行策略 + 部门排序改 JS 按名排序）→ 交接机制首次完整跑通，UI侧零改动 | `HANDOFF.md`、`.workbuddy/memory/2026-11-02.md` |
 | #14 | 2026-11-02 | **主设计师** | 功能逻辑 + 流程建设 | 闭环 **T-002**（断言改为校验需求5 现行策略 + 同步 `ui_check_filter.py` 同源旧断言）+ **T-003**（部门排序改 JS 按名排序，移除 CSS order 映射）+ **T-004**（`src/.gitignore` 补 `*.bak`）；新发现并登记 **T-005**（需求5 窄屏 gap/padding 收敛遗漏 → 4px 偏差，属 UI 职责） | `src/static/index.html`、`ops/test-filter-ui.js`、`ops/ui_check_filter.py`、`src/.gitignore`、`HANDOFF.md` |
+| #15 | 2026-11-02 | **UI设计师** | 界面调整 | 闭环 **T-005**：需求5 窄屏锁定补齐 gap/padding/列数/字号/order 五项收敛。10 视口 × 16 属性实测全一致，ui_check_filter 54/0 | `src/static/index.html`、`HANDOFF.md`、`.workbuddy/memory/2026-11-02.md` |
 
 ---
 
@@ -1597,6 +1598,87 @@ UI设计师 发现我改前留的 `src/static/index.html.bak` 会被 `git add .`
 - `src/` 本轮改动**待提交**；`ops/verify.py` 待跑（凭证带内容指纹，提交前必须重跑）。
 - `src/` 累计改动**仍未推送到服务器**（同步是用户的动作）。
 - **未发现新的范围外问题** —— 本轮全部改动落在主设计师职责内（JS 逻辑 / 测试脚本 / gitignore）。
+
+---
+
+### #15 · 2026-11-02 · UI设计师 · 闭环 T-005 —— 需求5 窄屏锁定的 4px 缺口 + 同类隐患
+
+**类型**：界面调整 —— **纯 CSS，JS 逻辑零改动**
+
+**做了什么**
+
+主设计师登记 **T-005** 并指名 UI设计师（布局/尺寸属 UI 职责，主设计师只做测试断言）。
+本条闭环该事项。
+
+**修法**：在需求5 的 `@media(max-width:1199px)` 兜底块里，**补齐所有被窄屏断点改动的属性**：
+
+```css
+@media(max-width:1199px){
+  .topbar{grid-template-columns:minmax(0,1fr) minmax(260px,340px);gap:14px;padding:12px 24px 0}
+  .tb-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .topbar-aside{order:0}
+  .tb-stat-band .stat-value{font-size:20px}
+  .toolbar-left{flex-wrap:nowrap}
+  .toolbar{flex-wrap:nowrap}
+  .toolbar-right{flex-shrink:0}
+}
+```
+
+**收敛了 5 项**（T-005 只点了 gap/padding 2 项，实测发现另外 3 项同样在漂）：
+
+| # | 属性 | 原本被谁改 | 改前 → 改后 |
+|---|---|---|---|
+| 1 | `.topbar` gap | `@media(≤900px)` 的 `gap:10px` | 10px → **14px** |
+| 2 | `.topbar` padding | `@media(≤640px)` 的 `padding:10px 12px 0` | 12px → **24px** |
+| 3 | `.tb-grid` 列数 | `@media(≤640px)` 的 `1fr`（单列） | 单列 → **3 列** |
+| 4 | `.stat-value` 字号 | `@media(≤640px)` 的 `17px` | 17px → **20px** |
+| 5 | `.topbar-aside` order | `@media(≤900px)` 的 `order:2`（公告区挪到左半下方） | order:2 → **0** |
+
+**涉及文件**
+
+- 修改：`src/static/index.html`（**仅 CSS**，含新增的「需求5 断点收敛说明」注释块）
+- 修改：`HANDOFF.md`（§五 T-005 状态 + 本记录 + 索引表）
+- 追加：`.workbuddy/memory/2026-11-02.md`
+
+**注意事项与约束**
+
+- 🔴 **本次验证了媒体查询的判定基准（此前只是推断）**：
+  实测 `matchMedia('(max-width:900px)').matches` 在**视口 700px 时仍为 true**，
+  即使 `html{min-width:1200px}` 已生效 → **min-width 管不住媒体查询**。
+  → 结论：不能靠 min-width 一劳永逸，**必须在最后一个断点里把尺寸全部兜回来**。
+- 🔴 **T-005 原文只点了 gap/padding 2 项，实测发现是 5 项**：
+  ≤640px 那档同时改了 padding、栅格列数、stat 字号，≤900px 那档还改了 aside 的 order。
+  ⚠️ 若只按 T-005 原文修 gap/padding，≤640px 区间**仍有 3 处尺寸漂移**。
+  → 已一并收敛，并做了全视口扫描（不只测 700px）。
+- ⚠️ **踩了一个自己造的坑**：初版把长注释写在 `@media` 块**内部**，
+  导致 `.toolbar-left` 距块首 1105 字符 > 主设计师断言的 `[\s\S]{0,400}` 窗口 →
+  **test-filter-ui 从 131/0 变成 129/2**。
+  → 修法：把详细说明**移到块外**的独立注释块，块内只留 3 行摘要。
+  （注释保留在文件里，只是挪了位置；断言恢复 131/0）
+  💡 **教训：给别人的断言提要求时，要先看断言的匹配窗口有多宽。**
+- ⚠️ **验收断言是「根因层面」的，方向正确**：主设计师的断言直接查
+  `column-gap` / `padding` 是否被改掉，而非间接比对宽度 —— 后者会被
+  `@media(≤1440px)` 公告列宽度差异干扰。**这种写法值得沿用。**
+
+**验证结果（headless Chrome 实测）**
+
+- **全视口一致性**：1200 / 1100 / 1000 / 900 / 800 / 700 / 640 / 600 / 500 / 400
+  十个视口 × 16 项属性（gap / padding / 列宽 / 栅格列数 / 字号 / aside order /
+  topbar·main·dept·aside 的 x·y·w·h）→ **全部一致，0 差异**
+- `ops/ui_check_filter.py` → **54 通过 / 0 失败** ✅（T-005 的验收信号已转绿）
+- `node ops/test-filter-ui.js` → **131 通过 / 0 失败** ✅
+- 回归：test-filter 43/43 · test-subitem 222/222 · test-real-render 22/22 ·
+  test-org 97/97 · test-year-click 12/12 ✅
+- `ops/ui_audit_scan.py` → A/B/C/D/E/F **六项全 0** ✅
+- `ops/verify.py` → **7/7 通过** ✅（指纹 `dc790d7947c8f8940dfc2d68044ee482`）
+
+**遗留 / 待确认**
+
+- 顶部栏层面的「缩小后大小位置不变」**已彻底达成**；
+  但**事项行区域**（字段列固定 648px + 行尾定宽槽位）未纳入本轮扫描范围，
+  窄屏下依赖横向滚动承载（需求5 的既定方案）。
+- `src/` 本轮改动**待提交**。
+- `src/` 累计改动**仍未推送到服务器** —— 同步是用户的权限。
 
 ---
 
