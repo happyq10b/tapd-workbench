@@ -116,6 +116,16 @@ async def main():
         await c.eval("document.getElementById('u').value=%s;document.getElementById('p').value=%s;"
                      "document.getElementById('btn').click();" % (json.dumps(USER), json.dumps(PWD)))
         await asyncio.sleep(2)
+        # ⚠️ 需求3（2026-11-02）：进入看板后**不再自动选中板块**，内容区默认显示
+        #    「请选择板块」（列表为空）。本用例要测列表里的字段列 → 必须先主动选板块。
+        await c.eval("""(function(){
+            var tabs=document.querySelectorAll('#tbBoards .tab-btn');
+            if(tabs.length){tabs[0].click();return;}
+            var els=[].slice.call(document.querySelectorAll('#tbDepts .tree-dept'));
+            var t=els.find(function(e){return e.textContent.indexOf('核算部')>=0;});
+            if(t)t.click();
+        })()""")
+        await asyncio.sleep(1.5)
         # 等首屏渲染完成（列表是异步加载的，不能只靠固定 sleep）
         for _ in range(30):
             n = await c.eval("document.querySelectorAll('.item-card').length")

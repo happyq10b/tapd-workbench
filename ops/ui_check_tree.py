@@ -195,6 +195,16 @@ async def main():
 
         # ---------- 用例 6：确认后真正筛出负责人为空的事项 ----------
         print('\n【用例6】确认后「无负责人」真正生效')
+        # ⚠️ 需求3（2026-11-02）：进入看板后**不再自动选中板块**，内容区默认为空。
+        #    本用例要验证筛选结果 → 必须先主动选一个板块，否则列表是空的、筛不出东西。
+        await ev("""(function(){
+            var tabs=document.querySelectorAll('#tbBoards .tab-btn');
+            if(tabs.length)tabs[0].click();
+            else{var els=[].slice.call(document.querySelectorAll('#tbDepts .tree-dept'));
+                 var t=els.find(function(e){return e.textContent.indexOf('核算部')>=0;});
+                 if(t)t.click();}
+        })()""")
+        await asyncio.sleep(2.0)
         await ev("treePickConfirm();")
         await asyncio.sleep(2.5)
         r = await ev("""(function(){

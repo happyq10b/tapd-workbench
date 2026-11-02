@@ -285,5 +285,36 @@ ok(/nth-child\(6\)/.test(htmlSrc) === false, '不再有 nth-child(6) 之类的�
 ok(/财务中心.*商务部.*核算部/.test(htmlSrc),
    '视觉顺序名录保持需求1 指定值（财务中心/商务部/核算部…）');
 
+// ============================================================
+// 用例 8：板块切换的联动 + 空状态 + 初始状态
+//   1) 切换部门/板块时所有区域整体联动，不残留上一个板块的内容
+//   2) 目标板块无数据时显示明确空状态（该板块暂无数据）
+//   3) 初始进入看板、未选板块时内容区默认为空（请选择板块）
+// ============================================================
+console.log('\n【用例8】板块切换联动 / 空状态 / 初始状态');
+// 初始状态：不再自动选中板块
+ok(/function ensureInitialSelection\(\)/.test(htmlSrc), '提供 ensureInitialSelection()');
+ok(/function ensureInitialSelection\(\)\{[\s\S]{0,600}?curBoard=/.test(htmlSrc) === false,
+   'ensureInitialSelection 不再自动设置 curBoard（初始不选板块）');
+ok(/let LAST_EMPTY_REASON=/.test(htmlSrc), '有空状态原因标记 LAST_EMPTY_REASON');
+// 空状态渲染
+ok(/function renderEmptyBoardState\(\)/.test(htmlSrc), '提供 renderEmptyBoardState()');
+ok(/请选择板块/.test(htmlSrc), '空状态文案含「请选择板块」');
+ok(/该板块暂无数据/.test(htmlSrc), '空状态文案含「该板块暂无数据」');
+// 切换联动
+ok(/function selectDeptBoards\(name\)/.test(htmlSrc), '提供 selectDeptBoards()（按部门选板块）');
+ok(/function boardBelongsToOpenDept\(\)/.test(htmlSrc),
+   '提供 boardBelongsToOpenDept()（判断当前板块是否仍属展开中的部门）');
+ok(/function clearBoardSelection\(reason\)/.test(htmlSrc), '提供 clearBoardSelection()（清空板块选择）');
+ok(/function toggleDept\(name\)\{[\s\S]{0,500}?selectDeptBoards\(name\)/.test(htmlSrc),
+   'toggleDept 展开部门时调用 selectDeptBoards（联动切换）');
+ok(/function toggleDept\(name\)\{[\s\S]{0,500}?clearBoardSelection\('部门已收起'\)/.test(htmlSrc),
+   'toggleDept 收起部门时清空板块选择（不残留旧内容）');
+ok(/if\(!curBoard\)\{renderEmptyBoardState\(\)/.test(htmlSrc),
+   'reload 在未选板块时直接渲染空状态（不拉全量数据）');
+// 统计带按板块取数
+ok(/api\/overview'\+\(curBoard\?/.test(htmlSrc),
+   '统计带按当前板块取数（/api/overview 带 board_id）');
+
 console.log('\n结果：%d 通过 / %d 失败', pass, fail);
 process.exit(fail ? 1 : 0);
