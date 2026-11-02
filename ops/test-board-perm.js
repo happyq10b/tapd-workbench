@@ -121,7 +121,13 @@ ok(/def _node_bound_boards\(node: dict/.test(pySrc),
 ok(/return merged if bound else None/.test(pySrc),
   '工作组绑定层只取显式白名单（不再把部门自有看板并入，否则永远收窄不了）');
 ok(/_center_node_ids\(\)/.test(pySrc), '中心级部门单独识别（财务中心=全部板块）');
-ok(/scope & centers/.test(pySrc), '挂靠中心的成员按管理层全范围处理');
+// ⚠️ 2026-11-02 修复：中心判定改用「原始任命节点的类型」而非「向上提升后的 scope」
+//    （小组成员不应因父部门是中心就获得管理层全范围）。
+ok(/get\('node_type'\)\s*==\s*'center'/.test(pySrc),
+   '挂靠中心的成员按管理层全范围处理（按原始任命节点类型判定）');ok(/_member_appointed_nodes\(username\)/.test(pySrc),
+   '权限判定使用「原始任命节点」（小组不被提升到父部门）');
+ok(/return merged if bound else None/.test(pySrc),
+   '工作组绑定层仍只取显式白名单（收窄语义不变）');
 ok(/nid in centers/.test(pySrc), '中心归属的板块对全员展示');
 ok(/def _dept_order\(\)/.test(pySrc), '目录树部门顺序随架构层级动态变化');
 // ⚠️ 2026-11-02：/api/me 的部门清单改为**按权限过滤** —— 只含有可见看板的部门。

@@ -116,7 +116,11 @@ async def main():
         PROBE = """(function(){
             function vis(id){var e=document.getElementById(id);if(!e)return 'MISSING';
                 return (e.style.display==='none'||getComputedStyle(e).display==='none')?'H':'V';}
-            var menu=document.getElementById('headerMoreMenu');
+            // ⚠️ 2026-11-02（UI设计师 记录 #26/#27）：备份/恢复/模板/导入/导出 5 项
+            //    已整体挪到独立的【导入导出】按钮下（#headerImportExportMenu），
+            //    原「更多」下拉（#headerMoreMenu）已空置。
+            //    → 权限断言改为在【导入导出】菜单里取这 5 项。
+            var menu=document.getElementById('headerImportExportMenu');
             var items={};
             if(menu)[].slice.call(menu.querySelectorAll('button')).forEach(function(b){
                 var t=b.textContent.trim().replace(/^[^\\u4e00-\\u9fa5]*/,'');
@@ -135,7 +139,7 @@ async def main():
                          "document.getElementById('p').value='At159357';"
                          "document.getElementById('btn').click();" % json.dumps(user))
                 await asyncio.sleep(5)
-                await ev("(function(){var b=document.querySelector('#headerMore .header-btn');"
+                await ev("(function(){var b=document.querySelector('#headerImportExport .header-btn');"
                          "if(b)b.click();})()")
                 await asyncio.sleep(0.8)
                 results[user] = await ev(PROBE)
@@ -148,7 +152,7 @@ async def main():
             ok(r.get('audit') == 'V', '操作日志：%s' % r.get('audit'))
             ok(r.get('newCol') == 'V', '新建板块：%s' % r.get('newCol'))
             ok(all(v == 'V' for v in (r.get('items') or {}).values()),
-               '更多菜单 5 项全显示：%s' % (r.get('items') or {}))
+               '导入导出菜单 5 项全显示：%s' % (r.get('items') or {}))
 
             print('\n【用例2】可编辑：管理员专属入口隐藏，其余可见')
             r = results[U_EDITOR]
@@ -158,7 +162,7 @@ async def main():
             ok(r.get('audit') == 'H', '操作日志隐藏：%s' % r.get('audit'))
             ok(r.get('newCol') == 'V', '新建板块可见：%s' % r.get('newCol'))
             ok(all(v == 'V' for v in (r.get('items') or {}).values()),
-               '更多菜单 5 项全显示（备份/恢复/模板/导入/导出）：%s' % (r.get('items') or {}))
+               '导入导出菜单 5 项全显示（备份/恢复/模板/导入/导出）：%s' % (r.get('items') or {}))
 
             print('\n【用例3】只读：写操作入口隐藏，只读可用的保留')
             r = results[U_VIEWER]
