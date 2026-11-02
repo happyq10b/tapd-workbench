@@ -1,4 +1,4 @@
-# 交接文档 · 财务工作事项平台
+# 交接文档 · 财务综合事务平台 FISP
 
 > **本文档是本项目全体 Agent 共享的交接载体**，由**交接管家**专职维护。
 >
@@ -1007,6 +1007,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #26 | 2026-11-02 | **UI设计师** | 界面调整 | 搜索框按实测字宽拉宽（167px，placeholder 完整可见）+ 「更多」去掉 ⋯ 前缀 + 备份/恢复/模板/导入/导出 独立成【导入导出】按钮（两菜单互斥）。连带同步工具栏锁定值 843→875 / 1172→1204 | `src/static/index.html`、`HANDOFF.md` |
 | #27 | 2026-11-02 | **UI设计师** | 界面调整 | 【导入导出】按钮双 emoji（📥📤）改单 emoji **🔄**（菜单内 📥 已被「恢复/导入」占用，🔄 与 5 项全不重复）；实测宽度 99px 排布整齐 | `src/static/index.html`、`HANDOFF.md` |
 | #28 | 2026-11-02 | **主设计师** | 后端 | **修复小组成员继承父部门看板**（苏春景可见全部 7 个看板的根因）：`_member_authority_nodes()` 把小组节点**向上提升**到部门祖先 → `_dept_stage_boards()` 再把 scope 里的 id 一律当部门查归属看板 → 费用组/税务组成员被当成核算部成员。修复：新增 `_member_appointed_nodes()`（原始任命节点）+ 第一层改用 `_node_bound_boards()` 按节点类型派生 + `_group_boards()` 不再沿父链收集。修复后苏春景/谭亚利 → 0 个看板，王伟娜/余河不受影响 | `src/app/app.py`、`ops/test_dept_group_scope.py`、`ops/test-board-perm.js`、`ops/ui_check_perm_entries.py` | `HANDOFF.md §七 #28` |
+| #29 | 2026-11-02 | **主设计师** | 界面调整 + 文档 | **平台改名**：「财务工作事项平台」→「**财务综合事务平台**」，并加英文首字母缩写 **FISP**（*Financial Integrated Service Platform*）。中文名后挂 `.abbr` 徽标（小号浅色 inline-block，同行不折行）；登录页补英文全称行；旧名称全站清零 | `src/static/index.html`、`src/static/login.html`、`src/app/app.py`、`ops/ui_check_brand.py`、`docs/调试指南.md`、`docs/UI问题排查清单.md`、`docs/交接记录文档管理方案.md`、`工作转移手册.md` | `HANDOFF.md §七 #29` |
 
 ---
 
@@ -2252,11 +2253,94 @@ for nid in scope:
 - `src/` 本轮改动**待提交**；`ops/verify.py` 已在提交前跑过（7/7）。
 - `src/` 累计改动**仍未推送到服务器**（同步是用户的动作）。
 
+### #29 · 2026-11-02 · 主设计师 · 平台改名「财务综合事务平台」+ 英文缩写 FISP
+
+**类型**：界面调整（文案层）—— **零业务逻辑改动、零数据改动**
+
+**做了什么**
+
+用户要求：「财务工作事项平台 改名 财务综合事务平台，顺便来个英文首字母缩写放后面」。
+
+**缩写选型**：`FISP` = **F**inancial **I**ntegrated **S**ervice **P**latform（财务综合事务平台）。
+取「财务综合事务」四字对应的英文实义词首字母，读音友好、四个字母不歧义。
+
+**改动落点（4 处对外展示）**：
+
+| 位置 | 改前 | 改后 |
+|---|---|---|
+| 登录页 `<h1>` | 财务工作事项平台 | 财务综合事务平台 **+ `.abbr` 徽标 FISP** |
+| 登录页副行 | （无） | 新增 `.en`：`Financial Integrated Service Platform` |
+| 登录页 `<title>` | 登录 - 财务工作事项平台 | 登录 - 财务综合事务平台 FISP |
+| 主界面顶栏 `<h1>` | 财务工作事项平台 | 财务综合事务平台 **+ `.abbr` 徽标 FISP** |
+| 主界面 `<title>` | 财务工作事项平台 | 财务综合事务平台 FISP |
+| FastAPI 应用标识 | `FastAPI(title="财务工作事项平台")` | `FastAPI(title="财务综合事务平台 FISP")` |
+
+**徽标样式**（两处各一份，登录页与主界面度量值不同故分开写）：
+
+```css
+/* 登录页 */
+.logo h1 .abbr{font-size:12px;font-weight:600;color:#8c98ad;margin-left:6px;letter-spacing:.5px}
+.logo .en{font-size:10.5px;color:#a3adc0;margin-top:5px;letter-spacing:.3px}
+
+/* 主界面顶栏 */
+.header-left h1 .abbr{display:inline-block;font-size:11px;font-weight:600;color:var(--text2);
+  letter-spacing:.6px;margin-left:6px;vertical-align:2px}
+```
+
+**同步的文档**：`HANDOFF.md` 标题与正文提及、`docs/调试指南.md`（§「平台名称文案」整表重写）、
+`docs/UI问题排查清单.md` 标题、`docs/交接记录文档管理方案.md` 标题、`工作转移手册.md` 标题与 §1.1。
+
+**涉及文件**
+
+- 修改：`src/static/index.html`（`<title>` / `<h1>` / 新增 `.abbr` 样式 / 头部注释）
+- 修改：`src/static/login.html`（`<title>` / `<h1>` / 新增 `.abbr` + `.en` / 副标题顺序）
+- 修改：`src/app/app.py`（`FastAPI(title=...)`）
+- 新增：`ops/ui_check_brand.py`（**18 断言**，真实 Chrome + CDP 渲染实测）
+- 修改：`HANDOFF.md`（本记录 + §六 #29 + 标题）
+- 修改：`docs/调试指南.md`、`docs/UI问题排查清单.md`、`docs/交接记录文档管理方案.md`、`工作转移手册.md`
+- 提交：`src@db00d96`
+
+**验证结果**
+
+| 项 | 结果 |
+|---|---|
+| `ops/ui_check_brand.py`（新增） | **18 / 0** —— 登录页 + 主界面 1600/1280/1024 三档视口实测 |
+| `ops/test-filter-ui.js` | 147 / 0（未受影响） |
+| `ops/verify.py` 门禁 | **7 / 7** |
+| 渲染截图肉眼核验 | 登录页徽标同行、主界面顶栏徽标同行且未挤压右侧按钮组 |
+
+**注意事项与约束**
+
+- 🔴 **`.abbr` 必须 `display:inline-block` + h1 保持 `white-space:nowrap`** ——
+  否则「财务综合事务平台 FISP」会被拆行，顶栏标题被挤成竖排单字（`index.html` 头部注释已记此坑）。
+- ⚠️ **同行判据不能用「top 差 < 8px」**：`.abbr` 有 `vertical-align:2px`，top 本就差几像素。
+  正确判据是「徽标垂直中心落在 h1 盒子内 ±2px」（`ui_check_brand.py` 按此写）。
+- 💡 **改名只动对外展示文案**，未改任何业务字段与数据。
+  功能性 TAPD 字样（「TAPD 工作空间 ID」输入框、「从 xlsx 导入原 TAPD 数据」）是数据来源说明，**保持原样**。
+- ⚠️ **导出文件名未改**：仍为 `工作台数据_*.xlsx` / `工作台数据备份_*.json` ——
+  这是数据文件名不是品牌名，改了会让用户的旧备份对不上号；如需改请用户拍板。
+- ⚠️ 数据库 `notices`（公告）表当前**为空**，`dept_profile.slogan` 是部门级标语（`hack`），
+  均不含平台名，**无需改数据**。
+
+**遗留 / 待确认**
+
+- **T-007 仍待用户拍板**（「更多」菜单空置后的去留）—— 本轮未动。
+- **7 个生产看板仍未配置 owner/participants**、**8 条 `column_id` 为空的历史孤儿事项是否删除** ——
+  两项仍需用户决定，本轮未动。
+- **建议更新 摘要 A**：新增一条结论 ——
+  「平台对外名称为『财务综合事务平台 FISP』（英文全称 Financial Integrated Service Platform），
+  中文名后挂 `.abbr` 徽标；改名只涉及展示层，不改业务字段」。
+  （摘要 A 由交接管家独占写权限，此处仅提建议。）
+- **建议更新 `docs/调试指南.md` 已是权威出处** —— 本轮已改，无需其他动作。
+- ⚠️ **§七 正文现存 12 条，已超 3 条上限**（#18 ~ #29）——
+  按 §0.5.2 归档区与 §七 正文区的写权限，**归档由交接管家执行**，本轮未越权整理。
+- **无新增待转交事项**。
+- `src/` 本轮改动**已提交**（`db00d96`），**未推送到服务器**（同步是用户的动作）。
+
 ---
 
 ## 附录 A · 给其他 Agent 的使用说明（可直接转发）　`🟡 转发时读`
-
-> 你正在接手本项目 `E:/WB缓存/2026-10-26-15-55-08`（TAPD 财务工作事项平台）。
+> 你正在接手本项目 `E:/WB缓存/2026-10-26-15-55-08`（TAPD 财务综合事务平台 FISP）。
 > 本项目有**多 Agent 协作**，所有改动必须留痕。
 >
 > **开工前**：先读项目根目录 `HANDOFF.md`。**不要通读全文** —— 文档里标了三档阅读等级：
