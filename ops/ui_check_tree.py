@@ -267,6 +267,10 @@ async def main():
         ok(r.get('opened') is True, '点击人员输入框 → 直接打开架构树')
         ok(r.get('search') is True, '树内有搜索框（承接原下拉面板的输入匹配能力）')
         ok(r.get('persons', 0) > 0, '树上渲染出末级人员：%s' % r.get('persons'))
+        # 🔴 相对基线：实测「无搜索词时树上总人数」，后续断言都用它比对。
+        #    **不硬编码绝对数字** —— 历史踩坑：写死 36 → 库里多一条数据就假性失败。
+        base_total = r.get('persons', 0)
+        print('     （基线）无搜索词时树上人数：%s' % base_total)
 
         # 树内搜索（走真实 input 事件，与用户打字路径一致）
         await ev("""(function(){
@@ -282,8 +286,8 @@ async def main():
                     names:[].slice.call(p.querySelectorAll('.tp-person')).map(function(e){
                         return e.textContent.replace(/👤/g,'').trim().split('（')[0].trim();})};
         })()""")
-        ok(r.get('persons', 0) > 0 and r.get('persons') < 36,
-           '搜索「吴」过滤出 %s 人（全部 %s 人）' % (r.get('persons'), 36))
+        ok(r.get('persons', 0) > 0 and r.get('persons') < base_total,
+           '搜索「吴」过滤出 %s 人（全部 %s 人）' % (r.get('persons'), base_total))
         ok(all('吴' in n for n in (r.get('names') or [])), '过滤结果均含关键字：%s' % (r.get('names') or []))
 
         # 无匹配 → 空态提示
@@ -333,7 +337,8 @@ async def main():
         ok(r.get('sameNode') is True, '拼音组合期间搜索框 DOM 节点未被替换')
         ok(r.get('focused') == 'tp_search', '拼音组合期间输入框保持焦点')
         ok(r.get('keyword') == '', '拼音组合期间不触发过滤（keyword 仍为空）')
-        ok(r.get('persons', 0) == 36, '拼音组合期间树上人员不消失（仍 %s 人）' % r.get('persons'))
+        ok(r.get('persons', 0) == base_total,
+           '拼音组合期间树上人员不消失（仍 %s 人，基线 %s）' % (r.get('persons'), base_total))
         # 上屏汉字 → 正常过滤
         await send('Input.insertText', {'text': '吴婷婷'})
         await asyncio.sleep(1.0)
