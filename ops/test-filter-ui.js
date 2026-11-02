@@ -184,8 +184,12 @@ ok(/bar\.hidden=!st/.test(htmlSrc), '状态文字为空时整条状态栏隐藏'
 // 5.2 三个标题加粗 + 放大
 ok(/\.tb-band-title\{font-size:13px;font-weight:700/.test(htmlSrc),
    '带标题加粗（font-weight:700）且放大到 13px');
-ok(/<div class="tb-band-title">可选板块<\/div>/.test(htmlSrc),
-   '「板块」标题改为「可选板块」');
+// ⚠️ 术语纠正（2026-11-02）：这条带渲染的是 ME.boards = 后端 boards 表 = **看板**，
+//    此前标题误写为「可选板块」——看板与板块被混用，已改正。
+ok(/<div class="tb-band-title">可选看板<\/div>/.test(htmlSrc),
+   '「可选板块」标题已纠正为「可选看板」（该带渲染的是 boards 表，不是板块）');
+ok(!/<div class="tb-band-title">可选板块<\/div>/.test(htmlSrc),
+   '旧标题「可选板块」已不存在（术语混用已纠正）');
 ok(/<div class="tb-band-title">架构部门<\/div>/.test(htmlSrc), '「架构部门」标题保留');
 ok(/<div class="tb-band-title">统计概览<\/div>/.test(htmlSrc), '「统计概览」标题保留');
 
@@ -214,8 +218,13 @@ ok(/html\{min-width:1200px;overflow-x:auto[^}]*overflow-y:visible/.test(htmlSrc)
    '窄屏横向滚动、纵向不滚动（overflow-y 不被误设）');
 ok(/@media\(max-width:1199px\)\{[\s\S]{0,400}?\.toolbar-left\{flex-wrap:nowrap\}/.test(htmlSrc),
    '窄屏兜底断点（≤1199px）内筛选区仍 nowrap（不换行，避免双重变形）');
-ok(/@media\(max-width:1199px\)\{[\s\S]{0,400}?\.toolbar\{flex-wrap:nowrap\}/.test(htmlSrc),
-   '窄屏兜底断点内整个工具栏不换行');
+// T-006 闭环（2026-11-02）：`.toolbar{flex-wrap:nowrap}` 已被 UI设计师 删除 ——
+//    新需求「筛选明细独占一行」要求 .toolbar 保持 wrap（明细行靠 flex:1 0 100% 强制换行）。
+//    旧断言与新需求**直接冲突** → 断言翻转为校验现行策略。
+ok(!/@media\(max-width:1199px\)\{[\s\S]{0,400}?\.toolbar\{flex-wrap:nowrap\}/.test(htmlSrc),
+   '窄屏兜底断点不再强制 .toolbar nowrap（与「筛选明细独占一行」新策略一致）');
+ok(/\.filter-hint\{[^}]*flex:1 0 100%/.test(htmlSrc),
+   '筛选明细行靠 flex:1 0 100% 强制独占一行（工具栏需保持 wrap）');
 ok(/\.toolbar-left\{[^}]*flex-wrap:nowrap/.test(htmlSrc),
    '筛选区基础规则即 nowrap（与窄屏兜底一致）');
 ok(!/@media\(max-width:1024px\)\{\s*\.toolbar-left\{flex-wrap:wrap\}/.test(htmlSrc),
@@ -299,8 +308,11 @@ ok(/function ensureInitialSelection\(\)\{[\s\S]{0,600}?curBoard=/.test(htmlSrc) 
 ok(/let LAST_EMPTY_REASON=/.test(htmlSrc), '有空状态原因标记 LAST_EMPTY_REASON');
 // 空状态渲染
 ok(/function renderEmptyBoardState\(\)/.test(htmlSrc), '提供 renderEmptyBoardState()');
-ok(/请选择板块/.test(htmlSrc), '空状态文案含「请选择板块」');
-ok(/该板块暂无数据/.test(htmlSrc), '空状态文案含「该板块暂无数据」');
+// ⚠️ 术语纠正（2026-11-02）：curBoard 存的是 board_id（**看板**），
+//    空状态文案此前写成「请选择板块 / 该板块暂无数据」→ 已改为看板口径。
+ok(/请选择看板/.test(htmlSrc), '空状态文案含「请选择看板」');
+ok(/该看板暂无数据/.test(htmlSrc), '空状态文案含「该看板暂无数据」');
+ok(!/请选择板块/.test(htmlSrc), '旧文案「请选择板块」已不存在（术语混用已纠正）');
 // 切换联动
 ok(/function selectDeptBoards\(name\)/.test(htmlSrc), '提供 selectDeptBoards()（按部门选板块）');
 ok(/function boardBelongsToOpenDept\(\)/.test(htmlSrc),

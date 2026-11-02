@@ -833,7 +833,7 @@ print('  （无输出 = 干净）' if not found else '  ↑ 有残留')
 | **T-003** | 2026-11-02 | **UI设计师** | 架构部门排序当前用**纯 CSS `order` + `:nth-child`** 实现，映射依赖**后端 `_dept_order()` 返回的 DOM 序号**（实测序：财务中心/核算部/总账部/管理部/资金部/商务部）。CSS 无法按文本选中元素，纯 CSS 路径只能走 `:nth-child`。**若后端部门顺序变化，映射表即失效、视觉顺序会错乱**。若要「按部门名排序」需在 JS 侧按名排序 | `src/static/index.html` | 主设计师（需改 JS 排序逻辑） | ✅ 已处理 · **主设计师** · 改为 JS 按名排序（`DEPT_VISUAL_ORDER` + `deptVisualRank()` + `sortDeptsByName()`），CSS `order` 映射已移除（0 残留） |
 | **T-004** | 2026-11-02 | **UI设计师** | `src/static/index.html.bak`（主设计师改前留的备份文件）**未被 `src/.gitignore` 忽略** → 执行 `git add .` 时会被误带入提交（`src/.gitignore` 当前无 `.bak` 规则，`git check-ignore` 确认未忽略）。顶层 `.gitignore` 只忽略了 `HANDOFF.md.bak`，管不到子仓库 | `src/.gitignore` | 主设计师（正在改 `src`，避免撞车） | ✅ 已处理 · **主设计师** · `src/.gitignore` 补 `*.bak` 规则，`git check-ignore` 已确认命中；工作区不再出现 `.bak` |
 | **T-005** | 2026-11-02 | **主设计师** | **需求5 的窄屏锁定有 4px 缺口**：`.topbar` 的 `column-gap` 在窄屏被 `@media(max-width:900px)` 的 `gap:10px` 改掉（14px→10px），而 `grid-template-columns` 被后声明的 `@media(max-width:1199px)` 覆盖回 2 栏 → **断点只覆盖了一半**。实测：视口 1200 时 `.topbar-main`=798px，视口 700 时=802px，部门栅格 768→772px —— 违反需求5「所有元素大小位置不变」。另 `@media(max-width:640px)` 的 `.topbar{padding:10px 12px 0}` 同理会改内边距（≤640px 时生效） | `src/static/index.html`（L208-213 `@media(max-width:900px)` 的 `.topbar{gap:10px}`；L214-219 `@media(max-width:640px)` 的 `.topbar{padding:10px 12px 0}`） | UI设计师（布局/尺寸属 UI 职责；主设计师只做测试断言，不改样式） | ✅ 已处理 · **UI设计师** · 补齐 gap/padding/列数/字号/order 五项收敛，10 视口 × 16 属性全一致 |
-| **T-006** | 2026-11-02 | **UI设计师** | **断言与新需求冲突**：`ops/test-filter-ui.js` 断言「窄屏兜底断点内整个工具栏不换行」（要求 `@media(max-width:1199px)` 内存在 `.toolbar{flex-wrap:nowrap}`）。该规则是 UI设计师 上一轮为防「双重变形」加的，但**与本轮新需求「筛选明细单独起一行」直接冲突** —— 明细行靠 `.toolbar` 的 `flex-wrap:wrap` 才能换到独立一行（`#filterHint` 用 `flex:1 0 100%` 强制换行）。已删除该规则（保留 `.toolbar-left{flex-wrap:nowrap}`）。测试结果 **143 通过 / 1 失败**，失败项即此条 | `ops/test-filter-ui.js`（断言 L217-218） | 主设计师（测试脚本归属） | ⏳ 待认领 |
+| **T-006** | 2026-11-02 | **UI设计师** | **断言与新需求冲突**：`ops/test-filter-ui.js` 断言「窄屏兜底断点内整个工具栏不换行」（要求 `@media(max-width:1199px)` 内存在 `.toolbar{flex-wrap:nowrap}`）。该规则是 UI设计师 上一轮为防「双重变形」加的，但**与本轮新需求「筛选明细单独起一行」直接冲突** —— 明细行靠 `.toolbar` 的 `flex-wrap:wrap` 才能换到独立一行（`#filterHint` 用 `flex:1 0 100%` 强制换行）。已删除该规则（保留 `.toolbar-left{flex-wrap:nowrap}`）。测试结果 **143 通过 / 1 失败**，失败项即此条 | `ops/test-filter-ui.js`（断言 L217-218） | 主设计师（测试脚本归属） | ✅ 已处理 · **主设计师** · 断言翻转为校验现行策略（`.toolbar{flex-wrap:nowrap}` 已按「筛选明细独占一行」新需求删除 → 断言改为「不再强制 nowrap」+「明细行靠 `flex:1 0 100%` 独占一行」）；`test-filter-ui` 143/1 → **147/0** |
 
 ### 5.1.1 T-001 详情（已闭环 · 主设计师 认领）
 
@@ -1003,6 +1003,7 @@ print('  （无输出 = 干净）' if not found else '  ↑ 有残留')
 | #22 | 2026-11-02 | **主设计师** | 流程建设 | **立规 §3.3「测试夹具与基线纪律」**：一天内因临时数据污染导致测试假性失败三次（`__ui_`/`__pv_` 夹具没清干净 → `ui_check_tree.py` 的「仍 36 人」断言失败 → 误以为代码坏了）。三条纪律（夹具 `try/finally` 自清理 / 断言禁用绝对基线数字改相对基线 / 一次性实测数据测完立刻删）+ stash 诊断法；并把 `ui_check_tree.py` 的 `36` 改为实测基线 | `HANDOFF.md`、`ops/ui_check_tree.py` | `HANDOFF.md §七 #22` |
 | #23 | 2026-11-02 | **UI设计师** | 界面调整 | 筛选明细（#filterHint）**独占一行**（原被 260px 限宽截断）+ 有选中项时**隐藏默认提示词**（:has() 检测 chip）；连带补齐需求5 遗漏的**工具栏宽度锁定**（.toolbar-left 843px / .toolbar 1172px） | `src/static/index.html`、`HANDOFF.md` |
 | #24 | 2026-11-02 | **UI设计师** | 界面调整 | 已选项改为**计数徽标**（「已选 3」）—— 框内不再显示已选项文本，展示合并到**树节点勾选态**与**下方筛选明细行**；实测宽度恒定（field 85px / 徽标 49px） | `src/static/index.html`、`HANDOFF.md` |
+| #25 | 2026-11-02 | **主设计师** | 后端 + 功能逻辑 + 流程建设 | **术语纠正（看板 vs 板块）**：顶部「可选板块」带实际渲染的是 `boards` 表（=看板）→ 标题与相关文案全部改为「可选看板」，并统一 `ME.boards`/`curBoard`=看板、`board_columns`/`column_id`=板块的口径；**ACL 层**：看板与板块各加 `owner`+`participants`，仅负责人/参与人可见（与既有权限链取交集，未配置 ACL 的层级不额外收窄），覆盖列表/计数/搜索/部门页/筛选候选全部入口；**数据清理**：新增 `ops/cleanup_empty.py` + 运行时 `cleanup_empty_columns_and_boards()`，无事项的板块删除、空看板一并删除 | `src/app/app.py`、`src/app/init_db.py`、`src/static/index.html`、`ops/cleanup_empty.py`、`ops/test_acl_scope.py`、`ops/test-filter-ui.js`、`ops/ui_check_board_switch.py` | `HANDOFF.md §七 #25` |
 
 ---
 
@@ -1665,6 +1666,258 @@ ok(r.get('persons', 0) == base_total, '拼音组合期间树上人员不消失�
 - **无新增待转交事项** —— 本轮改动全在主设计师职责内（流程规范 / 测试脚本）。
 - `src/` 本轮**无代码改动**（只有 `ops/ui_check_tree.py` 与文档），无需重跑 `verify.py` 门禁
   （但已跑，全绿）。
+- `src/` 累计改动**仍未推送到服务器**（同步是用户的动作）。
+
+---
+
+### #25 · 2026-11-02 · 主设计师 · 术语纠正（看板≠板块）+ 看板/板块 ACL + 空板块清理
+
+**类型**：后端（ACL + 清理）+ 功能逻辑（术语统一）+ 流程建设（T-006 闭环）
+**UI 样式零改动**（仅新增表单控件，复用既有 `.form-select` / `.cf-chip` 类）
+
+**做了什么**
+
+用户提了四项要求，本条逐项落实。
+
+---
+
+#### ① 术语纠正：用户把「看板」和「板块」混用了
+
+**根因（先查清再改）**：数据模型的层级是
+
+```
+部门（org_nodes / board_config.dept）
+  └─ 看板（boards 表，board_id）        ← 用户说的「可选板块」其实是这个
+       └─ 板块（board_columns 表，column_id）
+            └─ 事项（cards 表）
+```
+
+前端 `#tbBoards` 这条带渲染的是 `ME.boards`（= `boards` 表 = **看板**），
+但它的标题写着「**可选板块**」—— **标题与内容不符**，这是术语混乱的源头。
+
+**已改的地方**（前端 `src/static/index.html`）：
+
+| 位置 | 原文 | 改为 |
+|---|---|---|
+| 顶部带标题 | 可选板块 | **可选看板** |
+| 部门带 tooltip | 点击展开/收起该部门的板块 | …该部门的**看板** |
+| 部门带 tooltip | X 下暂无板块（可在「看板管理」中把板块挂载…） | …暂无**看板**…把**看板**挂载… |
+| 空状态提示 | 请选择板块 | **请选择看板** |
+| 空状态提示 | 该板块暂无数据 | **该看板暂无数据** |
+| 空状态提示 | 部门已收起，请从上方选择板块 | …选择**看板** |
+| 看板管理 toast | 已应用到 N 个板块 | N 个**看板** |
+| 看板管理 toast | 已删除 N 个板块配置 | N 个**看板**配置 |
+| 批量删除确认框 | 删除已勾选的 N 个板块配置？ | N 个**看板**配置？ |
+| 归属说明 | 该板块对全员展示（全部板块） | 该**看板**对全员展示（全部**看板**） |
+| 搜索框 placeholder | 搜索事项 / 板块… | 搜索事项 / **看板** / 板块… |
+| 核心函数注释 | groupBoardsByDept / toggleDept / selectDeptBoards / clearBoardSelection / ensureInitialSelection 等 | 全部改为看板口径，并加「术语」说明块 |
+
+**保留未改**（这些「板块」是对的）：板块弹窗（「新建板块」/「板块名称」/「归属年份」）、
+年份筛选（"X 年下暂无板块"指板块分组）、展开/折叠板块按钮（作用于看板内的板块分组）、
+后端 `visible_columns` / `board_columns_list` 等函数的 docstring。
+
+**判定口径（写进代码注释）**：`ME.boards` 的每一条 = **看板**；
+`board_columns` / `column_id` = **板块**。`curBoard` 变量名本来就对（存 board_id），
+只是它周围的文案全说「板块」。
+
+---
+
+#### ② 看板 ACL：负责人（owner）+ 参与人（participants）
+
+**之前的根因**：`boards` 表**早就有 `owner` 字段**，但它
+① 从来没被写入过（7 个看板全为空）、② **从来没参与过任何权限判定** ——
+权限链只有「架构归属 → 账号白名单 → 板块白名单」三层。
+而且**根本没有 participants 这个概念**。所以「看板权限隔离」无从谈起。
+
+**实现**（`src/app/app.py` 新增 ACL 引擎 + `src/app/init_db.py` 加列）：
+
+```python
+# boards / board_columns 各加两列
+owner         TEXT NOT NULL DEFAULT ''   -- 负责人（账号）
+participants  TEXT NOT NULL DEFAULT ''   -- 参与人（逗号分隔的账号）
+```
+
+```python
+def _acl_hit(username, owner, participants) -> bool:
+    """未配置 ACL（owner 与 participants 皆空）→ 返回 True（不额外收窄）；
+       配置了 → 仅 owner / participants 命中者通过"""
+```
+
+**判定语义（关键设计，写在 docstring 里）**：
+
+| 层级状态 | 可见性 |
+|---|---|
+| 未配置 ACL（两列皆空） | **不额外收窄** —— 完全由既有权限链决定 |
+| 配置了 ACL | **仅 owner / participants 命中者可见**，且与既有链**取交集** |
+
+> 🔴 **为什么「未配置 = 不收窄」而不是「未配置 = 谁都看不见」**：
+> 现有 7 个看板的 owner 全为空、且历史上**没有 participants 字段**。
+> 若按「未配置即不可见」，这套系统上线当天就会对所有人锁死。
+> 「未配置 = 不额外收窄」既让新 ACL 立即可用，
+> 又**不改变任何既有账号的现有可见范围**（fail-open 兜底）。
+> 反过来，**ACL 只能再收窄、不能放大权限**（与既有链取交集）—— fail-closed。
+
+**接入点**：`user_allowed()` 的返回值（`boards`, `columns`）在既有 ③ 之后
+追加第 ④ 层 ACL 收窄：
+
+```python
+boards = _acl_filter_boards(username, boards)         # 看板级 ACL
+cols   = _acl_filter_columns(username, boards, cols)  # 板块级 ACL
+```
+
+**关键设计：只改 `user_allowed` 一个出口** —— 因为所有读接口都从它取
+`(boards, columns)` 再走 `filter_rows` / `visible_columns`。
+→ **不可能出现「某个接口忘了加过滤」的漏网路径**（这是本条最重要的工程决策）。
+
+**覆盖到的入口（逐一实测）**：
+
+| 入口 | 越权账号的结果 |
+|---|---|
+| `/api/me`（目录树看板列表） | 看不到该看板 |
+| `/api/boards`（看板管理列表 + 卡片数） | 该行不出现 |
+| `/api/boards/{id}/columns`（板块列表） | 空 |
+| `/api/cards`（事项列表） | 0 条 |
+| `/api/cards?q=`（**搜索**） | 0 条 |
+| `/api/overview`（统计） | total=0 |
+| `/api/dept/{dept}/page`（部门主页统计） | 不含该看板的数 |
+| `/api/filter-options`（筛选候选） | 不含越权事项的负责人 |
+
+**配置界面**（`src/static/index.html` 看板管理弹窗）：
+新增「访问权限（负责人 / 参与人）」区块 —— 负责人单选下拉 + 参与人多选下拉 +
+已选徽标 + 「保存访问权限」按钮（调 `PUT /api/boards/{id}/acl`，管理员权限）。
+参与人候选来自 `/api/team`（只取**有登录账号**的成员）。
+后端另提供 `PUT /api/columns/{col_key}/acl`（板块级 ACL，管理员）。
+账号校验：owner / participants 必须是**已存在的登录账号**，否则 400（避免写入永远匹配不上的值）。
+
+---
+
+#### ③ 板块级 ACL
+
+板块同样带 `owner` + `participants`。语义：**所属看板仍可见，但该板块被隐藏**。
+
+```python
+def _acl_filter_columns(username, boards, columns):
+    """ACL 只能在既有收窄之上**再收窄**：
+       白名单排除的板块，ACL 命中也救不回来；
+       白名单允许但 ACL 不命中的板块 → 被排除。"""
+```
+
+**实测**（1 看板 3 板块：甲无 ACL / 乙 owner / 丙 participants）：
+
+| 账号 | 可见板块 | 事项数 |
+|---|---|---|
+| 负责人 | 板块甲 + 板块乙 | 4 |
+| 参与人 | 板块甲 + 板块丙 | 4 |
+| 无关账号 | **无**（看板都看不到） | 0 |
+| 管理员 | 甲 + 乙 + 丙 | 6 |
+
+---
+
+#### ④ 数据清理：每板块至少一个事项
+
+**两处实现**：
+
+| 位置 | 作用 |
+|---|---|
+| `src/app/app.py` → `cleanup_empty_columns_and_boards()` | **运行时**：删除事项后立即调用，保证不变量持续成立 |
+| `ops/cleanup_empty.py` | **一次性全量**：幂等，可重复跑，支持 `--dry-run` |
+
+**判定口径**：事项按 **`column_id`** 匹配板块（column_id 是板块的权威标识）。
+`column_id` 为空的历史脏数据（8 条，多为早期测试数据）**不计入任何板块** ——
+它们本就不属于任何板块，不应让空板块被误判为「非空」。
+
+**⚠️ 关键安全约束**：「板块全被清理为空」的看板，若还残留未删事项
+（板块外的孤儿事项），**不删看板** —— 那些事项会无处安放，删看板等于连带删数据。
+
+**实测**：生产库当前**无空板块、无空看板**（`--dry-run` 报告 0 个），
+符合「每板块至少一个事项」。清理逻辑用夹具验证：造 1 个空板块 + 1 个只有空板块的看板
+→ 清理后空板块消失、空看板消失、有事项的看板 3 个板块全部保留；
+再跑一次 → 删除数 0（**幂等**）。
+
+---
+
+#### 顺带闭环 T-006（测试脚本归属主设计师）
+
+`ops/test-filter-ui.js` 断言「窄屏兜底断点内整个工具栏不换行」
+（要求 `@media(max-width:1199px)` 内存在 `.toolbar{flex-wrap:nowrap}`）——
+该规则已被 UI设计师 按新需求「筛选明细独占一行」删除（明细行靠
+`#filterHint` 的 `flex:1 0 100%` 强制换行），断言与新需求**直接冲突**。
+
+→ **断言翻转为校验现行策略**：「不再强制 `.toolbar` nowrap」+「明细行靠
+`.filter-hint{flex:1 0 100%}` 独占一行」。`test-filter-ui` **143/1 → 147/0**。
+
+---
+
+#### 顺带修掉一个真实体验缺陷
+
+`ensureInitialSelection()` 原逻辑：记住的展开部门**即使没有看板**也会被沿用 →
+顶部「可选看板」带**一个 tab 都没有**，用户进来看到空列表却不知该点哪里。
+
+→ 改为「记住的部门必须**有看板**才沿用，否则回退到第一个有看板的部门」。
+
+---
+
+**涉及文件**
+
+- 修改：`src/app/app.py`（ACL 引擎 / `user_allowed` 接入 / `cleanup_empty_columns_and_boards()`
+  / `PUT /api/boards/{id}/acl` / `PUT /api/columns/{key}/acl` / `/api/boards` 返回 owner+participants）
+- 修改：`src/app/init_db.py`（`boards` + `board_columns` 各加 2 列 + 增量迁移）
+- 修改：`src/static/index.html`（术语纠正 30+ 处 / ACL 配置界面 / `ensureInitialSelection` 修正）
+- 新增：`ops/cleanup_empty.py`（一次性清理，支持 `--dry-run`）
+- 新增：`ops/test_acl_scope.py`（**32 断言**，9 个用例）
+- 新增：`ops/check_residue.py`（残留自查小工具，§3.3 的命令封装成脚本）
+- 修改：`ops/test-filter-ui.js`（术语断言翻转 + T-006 闭环，131 → 147）
+- 修改：`ops/ui_check_board_switch.py`（术语断言更新 + **显式重置 `DEPT_OPEN`**）
+- 修改：`HANDOFF.md`（T-006 状态 + §六 #25 + 本记录）
+- 备份：`src/app/app.py.bak`、`src/app/init_db.py.bak`、`src/static/index.html.bak`、`HANDOFF.md.bak`
+
+**注意事项与约束**
+
+- 🔴 **ACL 只在 `user_allowed()` 一处接入** —— 这是「不遗漏任何入口」的关键。
+  后人若新增读接口，**必须**从 `user_allowed()` 取 `(boards, columns)`，
+  再走 `filter_rows` / `visible_columns`；**不要自己写一套过滤**。
+- 🔴 **「未配置 ACL = 不额外收窄」是有意设计，不是遗漏**。
+  若将来要求「未配置 ACL 的看板默认仅管理员可见」，
+  改 `_acl_hit()` 即可，但**必须同时评估现有 7 个看板的影响**（它们都未配置）。
+- 🔴 **ACL 只能收窄不能放大** —— 与既有链取交集。若发现某人配了 ACL 反而
+  看到了更多，说明过滤逻辑被绕过了，**这是 bug 不是特性**。
+- ⚠️ **owner / participants 存的是「账号」不是「姓名」** ——
+  账号是登录唯一标识，姓名可能重复或被改。展示时映射成「姓名(账号)」。
+  后端 `_norm_acl_owner` / `_norm_acl_participants` 校验账号必须存在，否则 400。
+- 💡 **`_acl_filter_columns` 必须预取「看板 → 全部板块 id」** ——
+  否则排除一个板块就要查一次库（227 个板块 → 227 次查询）。已用
+  `board_cols` 预取消除 N+1。
+- ⚠️ **空板块判定按 `column_id` 匹配，不是 `column_name`** ——
+  `column_name` 会被改名（改名 = 换 key），`column_id` 才是权威标识。
+- ⚠️ **空看板判定要「剩余板块为 0 且无未删事项」** ——
+  只有板块没事项才会删板块；孤儿事项会阻止删看板（防止连带删数据）。
+- 🔴 **测试脚本曾依赖 localStorage 隐含状态**：`ui_check_board_switch.py`
+  的 `DEPT_OPEN` 沿用上一次运行的结果 → 记住的部门恰好无看板时，
+  用例1「tab 已渲染」**假性失败**。已改为**登录后显式重置**
+  （§3.3 精神：断言不得依赖隐含状态）。
+- 💡 **术语断言要跟着术语一起改** —— 本轮改了 UI 文案，
+  `test-filter-ui.js` / `ui_check_board_switch.py` 的文案断言同步更新，
+  并加了「旧文案已不存在」的反向断言，防止术语回退。
+
+**遗留 / 待确认**
+
+- **7 个生产看板尚未配置 ACL**（owner 全空）→ 可见性仍由架构归属决定，
+  与改动前完全一致。**要不要给它们配置负责人/参与人，需要用户指定人选。**
+- **板块级 ACL 尚无前端配置入口** —— 后端 `PUT /api/columns/{col_key}/acl`
+  已就绪，但前端只在看板管理里配了看板级。板块 ACL 目前需通过接口设置。
+  → 若需要 UI 入口，属界面调整，届时登记待转交事项。
+- **`ops/cleanup_empty.py` 尚未对生产库执行实际删除**（dry-run 显示无空板块，
+  无需执行）。若将来产生空板块，删除事项时运行时会自动清理。
+- **8 条 `column_id` 为空的历史孤儿事项**仍在（多为早期测试数据：
+  「测试」「测试1」「对对对」「顶顶顶顶顶 单独」等）。
+  它们不属于任何板块，也不在本次清理范围内（清理只删板块，不删事项）。
+  → **是否删除这些孤儿事项，需要用户拍板。**
+- **建议更新 摘要 A**：新增两条结论 ——
+  「看板=boards 表、板块=board_columns 表，勿混用」；
+  「ACL 层：owner+participants，未配置不额外收窄，ACL 只能再收窄」。
+  （摘要 A 由交接管家独占写权限，此处仅提建议。）
+- **建议更新 §3.1 基线表**：新增 `test_acl_scope`（32 断言）与 `cleanup_empty.py`。
+- `src/` 本轮改动**待提交**；`ops/verify.py` 已在提交前跑过（7/7）。
 - `src/` 累计改动**仍未推送到服务器**（同步是用户的动作）。
 
 ---
