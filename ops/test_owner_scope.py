@@ -97,6 +97,8 @@ def build_fixture():
     from app.app import hash_pw
     c = sqlite3.connect(os.path.join(ROOT, 'src', 'app.db'))
     now = '2026-11-02 22:00:00'
+    # 看板负责人 = mgr；板块负责人 = peer（分开，才能验证「上级可指派下级负责人、
+    # 下级不能自我授权」这两个方向）
     c.execute("INSERT INTO boards (board_id,board_name,workspace_id,owner,participants,sort,created_at)"
               " VALUES (?,?,?,?,'',0,?)",
               (BID, '【负责人】测试看板', 'ws_own', PREFIX + 'mgr', now))
@@ -106,14 +108,14 @@ def build_fixture():
     c.execute("INSERT INTO board_columns (col_key,column_id,board_id,column_name,created_at,"
               "creator,nature,year,pinned,owner,participants)"
               " VALUES (?,?,?,?,?,?,?,2026,0,?,'')",
-              (BID + '::甲板块', PREFIX + 'col', BID, '甲板块', now, 'seed', '日常', PREFIX + 'mgr'))
+              (BID + '::甲板块', PREFIX + 'col', BID, '甲板块', now, 'seed', '日常', PREFIX + 'peer'))
     for k in range(2):
         c.execute("""INSERT INTO cards (card_id,board_id,board_name,column_id,column_name,
                       workspace_id,card_name,status,status_name,creator,created,parent_id,version,deleted)
                       VALUES (?,?,?,?,?,?,?,?,?,?,?,'',1,0)""",
                   ('%sc_%d' % (PREFIX, k), BID, '【负责人】测试看板', PREFIX + 'col', '甲板块',
                    'ws_own', '【负责人】事项%d' % k, 'done', '已完成', 'seed', now))
-    for acct in (PREFIX + 'mgr', PREFIX + 'peer', PREFIX + 'out'):
+    for acct in (PREFIX + 'mgr', PREFIX + 'peer', PREFIX + 'out', PREFIX + 'board'):
         c.execute("INSERT INTO team_members (name,workgroups,account,created_at) VALUES (?,'',?,?)",
                   (PREFIX + acct, acct, now))
         mid = c.execute("SELECT id FROM team_members WHERE account=?", (acct,)).fetchone()[0]
@@ -142,6 +144,7 @@ def main():
 
 def run_tests(make_token):
     tok_mgr = make_token(PREFIX + 'mgr')
+    tok_board = make_token(PREFIX + 'board')
     tok_peer = make_token(PREFIX + 'peer')
     tok_out = make_token(PREFIX + 'out')
     tok_admin = make_token(ADMIN)
@@ -164,7 +167,7 @@ def run_tests(make_token):
               'attr': '日常', 'status': '启用', 'remark': ''})
     ok(r.get('__err') == 403, '非负责人被拒（实际 %s）' % r.get('__err'))
 
-    print('\n【用例3】负责人：可改已存在配置的看板')
+    print('\n【用例3】看板负责人：可改已存在配置的看板')
     cid = None
     for b in http('/api/boards', tok_admin).get('boards', []):
         if b['board_id'] == BID:
@@ -194,13 +197,14 @@ def run_tests(make_token):
     # 换回负责人
     http('/api/boards/%s/acl' % BID, tok_admin, 'PUT', {'owner': PREFIX + 'mgr'})
 
-    print('\n【用例6】板块负责人：可改该板块基本信息')
+    print('\n【用例6】板块负责人（peer）：可改该板块基本信息')
     colkey = BID + '::甲板块'
-    r = http('/api/columns', tok_mgr, 'PUT',
+    r = http('/api/columns', tok_peer, 'PUT',
              {'col_key': colkey, 'board_id': BID, 'column_name': '甲板块',
               'created_at': '2026-11-02', 'nature': '日常', 'year': '2026'})
     ok(r.get('ok') is True, '板块负责人可编辑板块（实际 %s）' % r.get('__err', 'ok'))
-    r = http('/api/columns', tok_peer, 'PUT',
+    # 非负责人（无任何身份）改板块 → 拒绝
+    r = http('/api/columns', tok_out, 'PUT',
              {'col_key': colkey, 'board_id': BID, 'column_name': '甲板块',
               'created_at': '2026-11-02', 'nature': '日常', 'year': '2026'})
     ok(r.get('__err') == 403, '非负责人改板块被拒（实际 %s）' % r.get('__err'))
@@ -213,9 +217,19 @@ def run_tests(make_token):
     print('\n【用例8】只有管理员能指定负责人')
     r = http('/api/boards/%s/acl' % BID, tok_mgr, 'PUT', {'owner': PREFIX + 'peer'})
     ok(r.get('__err') == 403, '负责人自己不能改负责人（实际 %s）' % r.get('__err'))
+    # ⚠️ 分级权限模型（2026-11-02）：**指派「负责人」是上级的权限** ——
+    #    看板负责人可指派板块负责人；板块负责人**不能**改板块负责人（那会自我授权）。
+    r = http('/api/columns/%s/acl' % urllib.parse.quote(colkey, safe=''), tok_peer, 'PUT',
+             {'owner': PREFIX + 'mgr'})
+    ok(r.get('__err') == 403,
+       '板块负责人自己不能改板块负责人（实际 %s）' % r.get('__err'))
+    # 但看板负责人（mgr）可以
     r = http('/api/columns/%s/acl' % urllib.parse.quote(colkey, safe=''), tok_mgr, 'PUT',
-             {'owner': PREFIX + 'peer'})
-    ok(r.get('__err') == 403, '负责人自己不能改板块负责人（实际 %s）' % r.get('__err'))
+             {'owner': PREFIX + 'mgr'})
+    ok(r.get('ok') is True, '看板负责人可指派板块负责人（实际 %s）' % r.get('__err', 'ok'))
+    # 还原
+    http('/api/columns/%s/acl' % urllib.parse.quote(colkey, safe=''), tok_admin, 'PUT',
+         {'owner': PREFIX + 'peer'})
 
     print('\n【用例9】参与人机制已下线：传入 participants 会被忽略并清空')
     r = http('/api/boards/%s/acl' % BID, tok_admin, 'PUT',

@@ -295,15 +295,31 @@ try:
     code, r = http('/api/cards?card_id=' + CARD_A, token=tok_a)
     w = (r.get('cards') or [{}])[0].get('week_no')
     ok(w == '2026年第44周', '周数按创建日期所在自然周：%s' % w)
+    # ⚠️ 分级权限模型（2026-11-02）：新建事项要求**板块负责人及以上**。
+    #    这里把 USR_A 设为该板块负责人 → 继续验证周数逻辑本身。
+    _c = db()
+    _c.execute("UPDATE board_columns SET owner=? WHERE board_id=? AND column_id='COL_A'",
+               (USR_A, BOARD_A))
+    _c.commit()
+    _c.close()
     code, r = http('/api/cards', 'POST', {
-        'board_id': BOARD_A, 'card_name': '【测试】周数事项', 'week_no': '2026-41'}, token=tok_a)
+        'board_id': BOARD_A, 'column_name': '【测试】板块A', 'column_id': 'COL_A',
+        'card_name': '【测试】周数事项', 'week_no': '2026-41'}, token=tok_a)
+    # 注：分级权限模型下「建卡」要求板块负责人及以上，上面已把 USR_A 设为 COL_A 负责人。
     ok(code == 200 and (r.get('card_id') or ''), '建卡可指定周数（2026-41 → 标准标签）')
     made = card_row(r.get('card_id') or '')
     ok(made is not None and made['week_no'] == '2026年第41周', '周数已归一化：%s'
        % (made or {}).get('week_no'))
     code, r = http('/api/cards', 'POST', {
-        'board_id': BOARD_A, 'card_name': '【测试】非法周数', 'week_no': '第41周'}, token=tok_a)
+        'board_id': BOARD_A, 'column_name': '【测试】板块A', 'column_id': 'COL_A',
+        'card_name': '【测试】非法周数', 'week_no': '第41周'}, token=tok_a)
     ok(code == 400, '非法周数格式 → 400（实际 %s）' % code)
+    # 还原夹具（板块负责人身份仅用于本用例）
+    _c = db()
+    _c.execute("UPDATE board_columns SET owner='' WHERE board_id=? AND column_id='COL_A'",
+               (BOARD_A,))
+    _c.commit()
+    _c.close()
     code, r = http('/api/cards?week=2026%E5%B9%B4%E7%AC%AC44%E5%91%A8', token=tok_a)
     ok(code == 200 and r.get('total', 0) >= 1, '周数筛选命中：%s 条' % r.get('total'))
     code, r = http('/api/cards?week=2026%E5%B9%B4%E7%AC%AC44%E5%91%A8,2026%E5%B9%B4%E7%AC%AC41%E5%91%A8', token=tok_a)

@@ -1011,6 +1011,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #28 | 2026-11-02 | **主设计师** | 后端 | **修复小组成员继承父部门看板**（苏春景可见全部 7 个看板的根因）：`_member_authority_nodes()` 把小组节点**向上提升**到部门祖先 → `_dept_stage_boards()` 再把 scope 里的 id 一律当部门查归属看板 → 费用组/税务组成员被当成核算部成员。修复：新增 `_member_appointed_nodes()`（原始任命节点）+ 第一层改用 `_node_bound_boards()` 按节点类型派生 + `_group_boards()` 不再沿父链收集。修复后苏春景/谭亚利 → 0 个看板，王伟娜/余河不受影响 | `src/app/app.py`、`ops/test_dept_group_scope.py`、`ops/test-board-perm.js`、`ops/ui_check_perm_entries.py` | `HANDOFF.md §七 #28` |
 | #29 | 2026-11-02 | **主设计师** | 界面调整 + 文档 | **平台改名**：「财务工作事项平台」→「**财务综合事务平台**」，并加英文首字母缩写 **FISP**（*Financial Integrated Service Platform*）。中文名后挂 `.abbr` 徽标（小号浅色 inline-block，同行不折行）；登录页补英文全称行；旧名称全站清零 | `src/static/index.html`、`src/static/login.html`、`src/app/app.py`、`ops/ui_check_brand.py`、`docs/调试指南.md`、`docs/UI问题排查清单.md`、`docs/交接记录文档管理方案.md`、`工作转移手册.md` | `HANDOFF.md §七 #29` |
 | #30 | 2026-11-02 | **主设计师** | 后端 + 界面调整 + 文档 | **权限来源收敛**（用户拍板）：①**看板负责人 = 管理权**（可改看板基本信息），**不再收窄可见性**；②**谁能看见看板统一由【架构管理】的看板绑定决定**；③**参与人机制整体下线**；④**板块负责人移入【板块编辑】**配置；⑤负责人选择改为**树状图单选**（复用筛选栏「👤 人员」的架构树），未开通账号的人置灰不可选 | `src/app/app.py`、`src/static/index.html`、`ops/test_owner_scope.py`、`ops/test_acl_scope.py`、`ops/ui_check_owner.py`、`docs/调试指南.md` | `HANDOFF.md §七 #30` |
+| #31 | 2026-11-03 | **主设计师** | 后端 + 流程建设 | **分级权限模型**（架构 > 看板 > 板块 > 事项）：新增 `src/app/perm.py` 权限内核（角色等级序 + 继承 + 资源链 + 统一错误体）；四层资源统一记录 `owner` + 参与人集合；16 个写接口接入分级校验；写接口粗闸门 `require_editor` → `require_writer`；管理员超脱但仅超管可配置管理员权限 | `src/app/perm.py`（新增）、`src/app/app.py`、`src/app/init_db.py`、`ops/test_perm_matrix.py`（新增）、`ops/test_owner_scope.py`、`ops/test_perm_scope.py`、`ops/test_copy_week.py`、`docs/调试指南.md` | `HANDOFF.md §七 #31` |
 
 ---
 
@@ -2564,6 +2565,140 @@ for nid in scope:
 - **建议更新 `docs/组织架构设计.md`**：其 §6.5 的三层判定流程需同步本次修订
   （该文件属设计文档，是否由我直接改需确认 —— 交接管家可能也管文档）。
 - **无新增待转交事项** —— 本轮改动全在主设计师职责内（后端权限 / 前端交互 / 测试脚本）。
+- `src/` 改动**待提交**；`ops/verify.py` 已在提交前跑过（7/7）。
+- `src/` 累计改动**仍未推送到服务器**（同步是用户的动作）。
+
+### #31 · 2026-11-03 · 主设计师 · 分级权限模型（架构 > 看板 > 板块 > 事项）
+
+**类型**：后端（权限内核 + 接口接入）+ 流程建设（模型与规范）
+
+**做了什么**
+
+用户要求设计并实现一套**分级权限模型**（角色权限矩阵 + 校验逻辑），
+层级 **架构 > 看板 > 板块 > 事项**，并明确：
+
+- 架构负责人 → 可在所属架构下增删改看板、��定/变更看板负责人
+- 看板负责人 → 可增删改自己负责的看板；可增删改其下板块，指派板块负责人与参与人
+- 板块负责人 → 可删改自己负责的板块并指定参与人；可增删改其下事项，指派事项负责人与参与人
+- 事项负责人 → 可删改自己负责的事项并指定事项参与人
+- 参与人 → 可修改自己参与的事项、板块的可见内容（**无增删与指派权**）
+- 约束：①权限自上而下继承 ②每个资源记录负责人与参与人集合
+  ③校验覆盖「是否负责人/参与人」+「是否具备角色等级」
+  ④明确越权返回形式与边界情形
+- 管理员超脱体系、拥有全部权限，但**无法配置管理员权限**；仅超级管理员可配置
+
+#### 数据模型
+
+| 资源 | 表 | 负责人 | 参与人 | 口径 |
+|---|---|---|---|---|
+| 架构 | `org_nodes` | `owner`（**新增**） | `participants`（**新增**） | 账号 |
+| 看板 | `boards` | `owner` | `participants` | 账号 |
+| 板块 | `board_columns` | `owner` | `participants` | 账号 |
+| 事项 | `cards` | `owner` | `cc` | ⚠️ **姓名**（历史存量） |
+
+**架构负责人的两个来源取并集**：① `org_nodes.owner`（本轮新增的显式配置）
+② `org_appointments` 的负责人岗位任命（历史机制：`center_head`/`gm`/`dept_head`/`group_leader`）。
+两者都表示「此人是该架构负责人」，取并集 → 已有配置立即生效。
+
+#### 权限内核（`src/app/perm.py`，新增）
+
+- **角色等级序**：`PARTICIPANT(1) < CARD_OWNER(2) < COLUMN_OWNER(3) < BOARD_OWNER(4) < ARCH_OWNER(5) < ADMIN(6) < SUPER(7)`
+- **继承的实现**：`effective_level()` 沿「事项→板块→看板→架构」回溯，
+  取命中身份的最高等级；等级高者自动覆盖低者 → **上级天然拥有下级全部权限**
+- **双口径身份匹配**：`identity_names(username)` = {登录账号, 绑定成员姓名}，
+  解决「事项层存姓名、其余层存账号」的历史不一致
+- **资源链**：`resource_chain()` 解析完整的架构→看板→板块→事项祖先链；
+  中间层缺失时**跳过该层但不放行**
+- **越权统一形式**：`PermError` → `@app.exception_handler` → **HTTP 403 + 固定错误体**
+  `{error, code, message, need_level, need_role, have_level, have_role, resource, op}`
+- **细分错误码**：`PERMISSION_DENIED` / `CROSS_SCOPE_DENIED` / `NOT_OWNER` /
+  `NOT_PARTICIPANT` / `LEVEL_INSUFFICIENT` / `ADMIN_ONLY` / `SELF_LOCK_DENIED`
+
+#### 接口接入（16 个写接口）
+
+| 接口 | 门槛 |
+|---|---|
+| `POST /api/boards` | 架构负责人 |
+| `PUT /api/board-config` / `/{cid}` / `DELETE /{cid}` | 看板负责人 |
+| `POST /api/columns` | 看板负责人 |
+| `PUT /api/columns` | 板块负责人 |
+| `POST/PUT /api/columns/{col_key}/acl` | 看板负责人 |
+| `PUT /api/boards/{id}/acl` | 架构负责人 |
+| `POST /api/cards` | 板块负责人 |
+| `PUT /api/cards/{id}` | 内容=参与人级；指派字段=负责人级 |
+| `DELETE /api/cards/{id}` | 事项负责人 |
+| `PUT /api/cards/{id}/participants` | 事项负责人 |
+| `PUT /api/boards/{id}/participants` | 看板负责人 |
+| `PUT /api/columns/{col_key}/participants` | 板块负责人 |
+| `POST /api/admin/users`（role=admin） | **仅超管** |
+
+**涉及文件**
+
+- 新增：`src/app/perm.py`（权限内核，约 480 行）
+- 修改：`src/app/app.py`（导入 + 异常处理器 + `perm_check`/`perm_chain`/`require_writer` + 16 个接口接入）
+- 修改：`src/app/init_db.py`（`org_nodes` 加 `owner`/`participants` + 增量迁移 + 索引）
+- 新增：`ops/test_perm_matrix.py`（**41 断言**）
+- 修改：`ops/test_owner_scope.py`（25 断言）、`ops/test_perm_scope.py`（28 断言）、`ops/test_copy_week.py`（36 断言）
+- 修改：`docs/调试指南.md`（新增 §五点二十四：角色表 / 权限矩阵 / 数据模型 / 核心实现 / 边界情形）
+
+**验证结果**
+
+| 项 | 结果 |
+|---|---|
+| `ops/test_perm_matrix.py`（新增） | **41 / 0** |
+| `ops/test_owner_scope.py` | 25 / 0 |
+| `ops/test_acl_scope.py` | 21 / 0 |
+| `ops/test_perm_scope.py` | 28 / 0 |
+| `ops/test_copy_week.py` | 36 / 0 |
+| Python 全量 11 组 | **271 / 0** |
+| JS 全量 12 组 | **1124 / 0** |
+| UI 全量 5 组 | **163 / 0** |
+| `ops/verify.py` 门禁 | **7 / 7** |
+
+**注意事项与约束**
+
+- 🔴 **`resource_level` 与 `min_level` 是两个维度，不能混用**：
+  `resource_level` = 目标资源在哪一层；`min_level` = 该操作所需最低角色等级。
+  混用会导致「架构负责人改一个事项」被误判成 `level_mismatch`（本项目踩过，
+  调试了近一小时）。`perm_check()` 因此把两者拆成独立参数。
+- 🔴 **权限内核必须先于可见性校验**：
+  `check_board_access()` 抛的 `HTTPException('无权访问该看板')` 会**掩盖**分级权限的真实原因，
+  错误体就不统一了。涉及 `update_card` / `delete_card` / `update_column` /
+  `create_column` / `create_card` / `move_card` 六处，顺序已调整。
+- 🔴 **写接口的粗闸门从 `require_editor` 换成 `require_writer`**（只要求已登录）：
+  否则「参与人」「板块负责人」这类细粒度身份在到达内核前就被挡掉。
+  `can_edit()` 仍保留给非分级的老接口（资料页 / 公告 / 导入）。
+- 🔴 **双重身份取高者**：既是负责人又是参与人时按**负责人**算。
+  实现上两处判断必须是**独立的 `if`** + `max()`，用 `elif` 会降级（本项目踩过）。
+- ⚠️ **「指派负责人」是上级的权限**：板块负责人不能改板块负责人（自我授权）；
+  看板负责人可指派板块负责人；架构负责人可指派看板负责人。
+- ⚠️ **权限判定每次实时查库（无缓存）** → 「被移除负责人后权限即时失效」天然成立
+  （实测：移除前 200 / 移除后 403）。
+- ⚠️ **存量数据影响面**：7 个生产看板与 227 个板块**都没有负责人** →
+  按新模型，这些资源的写权限归管理员/超管，普通成员只能读。
+  **需要业务方逐个指定负责人**才能恢复协作（与 #30 的遗留项一致）。
+- ⚠️ **本地服务重启有坑**：`ops/local-dev.sh restart` 曾多次**没杀掉旧进程**
+  （新进程因端口被占启动失败，但旧进程继续服务）→ 改代码后测试结果「完全不变」，
+  排查了很久。**改完后端代码务必确认进程真的换了**：
+  `netstat -ano | grep :8100` 看 PID 是否变化，或 `taskkill //F //IM python.exe` 后手工起。
+- 💡 事项层 `cards.owner/cc` 存**姓名**、其余层存**账号** —— 历史遗留。
+  内核用双口径匹配兜住，**不要**贸然迁移存量（1141 条事项，改口径风险高）。
+
+**遗留 / 待确认**
+
+- **7 个生产看板 + 227 个板块都没有负责人** → 新模型下普通成员对它们**只读**。
+  → **需要业务方指定负责人**（看板负责人在看板管理里配，板块负责人在板块编辑里配）。
+- **前端尚未接入新模型**：看板管理 / 板块编辑目前只有「负责人」单选（树状图），
+  **参与人**的选择入口与「我在这里是什么身份」的展示都还没做。
+  → 需补：①看板管理加参与人多选 ②板块编辑加参与人多选 ③事项参与人指派入口
+  ④顶栏/看板标题处显示当前用户的身份徽标。
+- **建议更新 摘要 A**：新增一条结论 ——
+  「权限已改为分级模型（架构>看板>板块>事项），角色等级序继承；
+  可见性由架构绑定决定，负责人=管理权；越权统一 HTTP 403 + 结构化错误体」。
+  （摘要 A 由交接管家独占写权限，此处仅提建议。）
+- **建议更新 `docs/组织架构设计.md`** §6.5（三层判定流程）—— 那是旧架构的可见性流程，
+  需补充分级权限模型的说明。
+- **无新增待转交事项**。
 - `src/` 改动**待提交**；`ops/verify.py` 已在提交前跑过（7/7）。
 - `src/` 累计改动**仍未推送到服务器**（同步是用户的动作）。
 

@@ -113,6 +113,12 @@ def setup():
     c.execute("""INSERT INTO board_config (board_id, dept, dept_node_id, attr, status, created_at)
                  VALUES (?,?,?,?,?,?)""",
               (TEST_BOARD2, '管理部', NODE_GUANLI, '日常', '启用', now))
+    # 两个板块元信息（板块级权限判定需要 board_columns 行才能读到 owner/participants）
+    for col in ('COL_X', 'COL_Y'):
+        c.execute("""INSERT INTO board_columns (col_key,column_id,board_id,column_name,
+                      created_at,creator,nature,year,pinned,owner,participants)
+                      VALUES (?,?,?,?,?,?,?,2026,0,'','')""",
+                  (TEST_BOARD + '::' + col, col, TEST_BOARD, '板块' + col, now, PREFIX + 'seed', '日常'))
     # 两个卡片，分处不同板块（用于板块级权限验证）
     for cid, col, name in ((CARD_X, 'COL_X', '【测试】X 板块事项'), (CARD_Y, 'COL_Y', '【测试】Y 板块事项')):
         c.execute("""INSERT INTO cards (card_id, board_id, board_name, column_id, column_name,
@@ -264,10 +270,29 @@ try:
         'board_id': TEST_BOARD, 'column_id': 'COL_Y', 'column_name': '板块COL_Y',
         'card_name': '【测试】写入不可见板块', 'fields': {'status': 'open'}}, token=tok_a)
     ok(code == 403, '往不可见板块写入被拒（实际 %s）' % code)
+    # ⚠️ 分级权限模型（2026-11-02）：**「能看见」不再等于「能写」**。
+    #    写操作要求板块负责人及以上；可见性只决定「能看见什么」。
+    #    这里把 USR_A 设为 COL_X 的板块负责人 → 验证「负责人可写入自己的板块」。
+    c = db()
+    c.execute("UPDATE board_columns SET owner=? WHERE board_id=? AND column_id='COL_X'",
+              (USR_A, TEST_BOARD))
+    c.commit()
+    c.close()
     code, r = http('/api/cards', 'POST', {
         'board_id': TEST_BOARD, 'column_id': 'COL_X', 'column_name': '板块COL_X',
         'card_name': '【测试】写入可见板块', 'fields': {'status': 'open'}}, token=tok_a)
-    ok(code == 200, '往可见板块写入被允许（实际 %s）' % code)
+    ok(code == 200, '板块负责人往自己的板块写入被允许（实际 %s）' % code)
+    # 非负责人（只是看得见）→ 写入被拒（403，级别不足）
+    code, r = http('/api/cards', 'POST', {
+        'board_id': TEST_BOARD, 'column_id': 'COL_Y', 'column_name': '板块COL_Y',
+        'card_name': '【测试】非负责人写入', 'fields': {'status': 'open'}}, token=tok_a)
+    ok(code == 403, '仅可见但非负责人的账号写入被拒（实际 %s）' % code)
+    # 还原夹具
+    c = db()
+    c.execute("UPDATE board_columns SET owner='' WHERE board_id=? AND column_id='COL_X'",
+              (TEST_BOARD,))
+    c.commit()
+    c.close()
     if r.get('card_id'):
         http('/api/cards/' + r['card_id'], 'DELETE', token=tok_a)
     c = db()
