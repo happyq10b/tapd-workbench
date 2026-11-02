@@ -127,8 +127,10 @@ sandbox.renderBoard = () => {};
     'ownerFilter 元素已从 HTML 移除');
   ok(/const OWNER_NONE='__no_owner__'/.test(htmlSrc),
     '前端定义 OWNER_NONE 特殊值');
-  ok(/data-pick-person="\$\{OWNER_NONE\}"/.test(htmlSrc),
-    '人员面板里有「无负责人」候选项（data-pick-person=OWNER_NONE）');
+  ok(/id="tp_opt_none"/.test(htmlSrc),
+    '「无负责人」选项在树弹窗的「显示选项」区（tp_opt_none）');
+  ok(/data-pick-person="\$\{OWNER_NONE\}"/.test(htmlSrc) === false,
+    '人员下拉面板里已无「无负责人」条目（改由树弹窗承载）');
   ok(/function personLabel\(v\)\{return v===OWNER_NONE\?'无负责人':v\}/.test(htmlSrc),
     'personLabel() 把特殊值翻译成「无负责人」文案');
   ok(/want_none = OWNER_NONE in pnames/.test(pySrc),

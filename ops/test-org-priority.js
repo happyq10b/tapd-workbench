@@ -79,7 +79,7 @@ ok(/function tpPersonUnder\(node\)/.test(htmlSrc), '提供节点下属人员收�
 ok(/function openPersonFilterPicker\(anchor\)/.test(htmlSrc), '卡片列表页提供「按人员筛选」入口');
 ok(/id="personFilterInput"/.test(htmlSrc) && /id="personFilterChips"/.test(htmlSrc),
    '人员筛选是可输入 + 多选控件（输入框 + chips）');
-ok(/PERSON_SEL=new Set\(persons\)/.test(htmlSrc), '架构选人结果写入独立的 PERSON_SEL 集合');
+ok(/PERSON_SEL=new Set\(persons/.test(htmlSrc), '架构选人结果写入独立的 PERSON_SEL 集合');
 ok(/function applyPersonFilter\(kind, persons\)/.test(htmlSrc), '套用逻辑 applyPersonFilter');
 // 人员筛选锚定在**负责人维度**：与 owner 条件同字段、两者取交集，不再改写负责人下拉
 ok(/ps\.set\('person'/.test(htmlSrc), 'reload 提交独立的 person 参数（与 owner 并存 → 交集）');

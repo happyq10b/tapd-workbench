@@ -211,19 +211,18 @@ async def main():
         ok(r.get('ownerFilterExists') is False, '筛选栏已无「全部负责人」下拉')
         ok(r.get('ownerWords') == 0, '页面上不再出现「全部负责人」文案')
 
-        # 人员面板里有「无负责人」候选项，且勾选后进入 PERSON_SEL
+        # 「无负责人」已从下拉面板移入【架构树】的「显示选项」→ 这里只验证下拉面板里没有它
         await ev("document.getElementById('personFilterInput').click();")
         await asyncio.sleep(1.2)
         r = await ev("""(function(){
-            var box=document.querySelector('#personFilterDrop [data-pick-person="__no_owner__"]');
-            if(!box)return {none:true};
-            box.click();
-            return {sel:[...PERSON_SEL], chips:(document.getElementById('personFilterChips')||{}).textContent||''};
+            var d=document.getElementById('personFilterDrop');
+            return {hasNone:!!d.querySelector('[data-pick-person="__no_owner__"]'),
+                    noneText:(d.innerText.match(/无负责人/g)||[]).length};
         })()""")
-        ok('__no_owner__' in (r.get('sel') or []), '「无负责人」并入人员筛选集合：%s' % (r.get('sel') or []))
-        ok('无负责人' in (r.get('chips') or ''), '「无负责人」在 chips 里显示为中文文案：%s' % (r.get('chips') or ''))
-        await ev("(function(){PERSON_SEL=new Set();paintFilterCombos();reload(1);})()")
-        await asyncio.sleep(1.2)
+        ok(r.get('hasNone') is False, '人员下拉面板里已无「无负责人」候选项（改由架构树承载）')
+        ok(r.get('noneText') == 0, '人员下拉面板文案不含「无负责人」：%s 处' % r.get('noneText'))
+        await ev("(function(){closeFilterCombo();})()")
+        await asyncio.sleep(0.5)
 
         # reload() 提交 person 参数；不再提交 owner 参数
         r = await ev("""(function(){

@@ -62,9 +62,11 @@ ok(/let PERSON_SEL=new Set\(\)/.test(htmlSrc), '人员筛选有独立状态集�
 ok(!/<select class="filter-select" id="ownerFilter"/.test(htmlSrc), '独立的「全部负责人」下拉已从 HTML 移除');
 ok(!/<option value="">全部负责人<\/option>/.test(htmlSrc), '「全部负责人」选项已移除');
 ok(/const OWNER_NONE='__no_owner__'/.test(htmlSrc), '前端定义 OWNER_NONE 特殊值');
-ok(/data-pick-person="\$\{OWNER_NONE\}"/.test(htmlSrc), '「无负责人」并入人员筛选面板');
+ok(/id="tp_opt_none"/.test(htmlSrc), '「无负责人」选项在树弹窗的「显示选项」区');
+ok(/data-pick-person="\$\{OWNER_NONE\}"/.test(htmlSrc) === false,
+   '人员下拉面板里已无「无负责人」条目（改由树弹窗承载）');
 ok(/want_none = OWNER_NONE in pnames/.test(pySrc), '后端 person 分支支持 __no_owner__');
-ok(/PERSON_SEL=new Set\(persons\)/.test(htmlSrc), '架构选人结果直接写入 PERSON_SEL');
+ok(/PERSON_SEL=new Set\(persons/.test(htmlSrc), '架构选人结果直接写入 PERSON_SEL');
 ok(/function syncFilterHint\(\)/.test(htmlSrc), '提供统一的筛选条件提示');
 ok(/parts\.push\('人员：'/.test(htmlSrc), '提示中展示人员条件');
 ok(/此处的筛选条件按「负责人」维度生效/.test(htmlSrc), '界面文案说明按负责人维度生效');
@@ -170,6 +172,45 @@ ok(/\.filter-date\{[^}]*width:122px/.test(htmlSrc), '日期输入框缩到 122px
 ok(/\.date-filter\{[^}]*flex:0 0 auto/.test(htmlSrc), '日期区间容器固定宽度（不参与压缩）');
 ok(/@media\(max-width:1024px\)\{\s*\.toolbar-left\{flex-wrap:wrap\}/.test(htmlSrc),
    '窄屏（≤1024px）恢复换行，避免溢出');
+
+// ============================================================
+// 用例 6：组织架构树状图的交互调整
+//   6.1 顶部工具栏：一键展开/折叠全部（多级批量，折叠保留顶层可见）
+//   6.2 「无负责人」从下拉面板移入树上的显示选项
+// ============================================================
+console.log('\n【用例6】树状图交互：展开/折叠全部 + 「无负责人」选项');
+// 6.1 展开/折叠按钮
+ok(/class="tp-toolbar"/.test(htmlSrc), '树弹窗有顶部工具栏 .tp-toolbar');
+ok(/onclick="tpExpandAll\(\)"/.test(htmlSrc) && /onclick="tpCollapseAll\(\)"/.test(htmlSrc),
+   '工具栏含「展开全部 / 折叠全部」两个按钮');
+ok(/function tpExpandAll\(\)/.test(htmlSrc), '提供 tpExpandAll()（多级批量展开）');
+ok(/function tpCollapseAll\(\)/.test(htmlSrc), '提供 tpCollapseAll()（多级批量折叠）');
+ok(/ids\.forEach\(id=>\{TREE_EXPANDED\.add\(id\);TREE_PICK\.expanded\.add\(id\);\}\)/.test(htmlSrc),
+   '展开全部递归收集所有层级节点 id 并写入展开集合');
+ok(/TREE_EXPANDED\.clear\(\);\s*TREE_PICK\.expanded\.clear\(\);/.test(htmlSrc),
+   '折叠全部清空展开集合（顶层节点行本身不收起 → 仍可见）');
+// 展开/折叠不得影响筛选条件
+ok(!/function tpExpandAll\(\)\{[\s\S]{0,400}selected/.test(htmlSrc),
+   'tpExpandAll 不修改 selected（展开状态与筛选条件互不影响）');
+ok(!/function tpCollapseAll\(\)\{[\s\S]{0,400}?TREE_PICK\.selected\s*[.\[]/.test(htmlSrc),
+   'tpCollapseAll 不修改 selected（展开状态与筛选条件互不影响）');
+// 6.2 「无负责人」选项
+ok(/showNoneOwner/.test(htmlSrc), '树弹窗支持 showNoneOwner（是否提供「无负责人」选项）');
+ok(/id="tp_opt_none"/.test(htmlSrc), '「显示选项」区有独立的「无负责人」复选框');
+ok(/class="tp-opts"/.test(htmlSrc) && /显示选项/.test(htmlSrc),
+   '「显示选项」区与现有筛选条件并列');
+ok(/class="tp-none-node"/.test(htmlSrc) && /tn-tag">无负责人/.test(htmlSrc),
+   '树上以「无负责人」标签/节点样式呈现（.tp-none-node + 标签）');
+ok(/function tpToggleNoneOwner\(\)/.test(htmlSrc), '提供 tpToggleNoneOwner()（独立启用开关）');
+ok(/showNoneOwner:true/.test(htmlSrc), '人员筛选的树弹窗启用了该选项');
+ok(/tree:ORG_TREE, showNoneOwner:true/.test(htmlSrc), '架构树入口传入 showNoneOwner');
+ok(/wantNone=!!\(meta&&meta\.none\)/.test(htmlSrc), '树弹窗确认时回传「无负责人」状态');
+ok(/if\(wantNone\)PERSON_SEL\.add\(OWNER_NONE\)/.test(htmlSrc),
+   '「无负责人」回填进 PERSON_SEL（与负责人维度同一集合）');
+// 下拉面板里不应再有「无负责人」条目（避免两处重复入口）
+ok(/data-pick-person="\$\{OWNER_NONE\}"/.test(htmlSrc) === false,
+   '人员下拉面板不再有「无负责人」条目（只在树上呈现）');
+ok(/id="ownerFilter"/.test(htmlSrc) === false, '独立的「全部负责人」下拉已移除');
 
 console.log('\n结果：%d 通过 / %d 失败', pass, fail);
 process.exit(fail ? 1 : 0);
