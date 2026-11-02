@@ -1005,6 +1005,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #24 | 2026-11-02 | **UI设计师** | 界面调整 | 已选项改为**计数徽标**（「已选 3」）—— 框内不再显示已选项文本，展示合并到**树节点勾选态**与**下方筛选明细行**；实测宽度恒定（field 85px / 徽标 49px） | `src/static/index.html`、`HANDOFF.md` |
 | #25 | 2026-11-02 | **主设计师** | 后端 + 功能逻辑 + 流程建设 | **术语纠正（看板 vs 板块）**：顶部「可选板块」带实际渲染的是 `boards` 表（=看板）→ 标题与相关文案全部改为「可选看板」，并统一 `ME.boards`/`curBoard`=看板、`board_columns`/`column_id`=板块的口径；**ACL 层**：看板与板块各加 `owner`+`participants`，仅负责人/参与人可见（与既有权限链取交集，未配置 ACL 的层级不额外收窄），覆盖列表/计数/搜索/部门页/筛选候选全部入口；**数据清理**：新增 `ops/cleanup_empty.py` + 运行时 `cleanup_empty_columns_and_boards()`，无事项的板块删除、空看板一并删除 | `src/app/app.py`、`src/app/init_db.py`、`src/static/index.html`、`ops/cleanup_empty.py`、`ops/test_acl_scope.py`、`ops/test-filter-ui.js`、`ops/ui_check_board_switch.py` | `HANDOFF.md §七 #25` |
 | #26 | 2026-11-02 | **UI设计师** | 界面调整 | 搜索框按实测字宽拉宽（167px，placeholder 完整可见）+ 「更多」去掉 ⋯ 前缀 + 备份/恢复/模板/导入/导出 独立成【导入导出】按钮（两菜单互斥）。连带同步工具栏锁定值 843→875 / 1172→1204 | `src/static/index.html`、`HANDOFF.md` |
+| #27 | 2026-11-02 | **UI设计师** | 界面调整 | 【导入导出】按钮双 emoji（📥📤）改单 emoji **🔄**（菜单内 📥 已被「恢复/导入」占用，🔄 与 5 项全不重复）；实测宽度 99px 排布整齐 | `src/static/index.html`、`HANDOFF.md` |
 
 ---
 
@@ -1668,6 +1669,67 @@ ok(r.get('persons', 0) == base_total, '拼音组合期间树上人员不消失�
 - `src/` 本轮**无代码改动**（只有 `ops/ui_check_tree.py` 与文档），无需重跑 `verify.py` 门禁
   （但已跑，全绿）。
 - `src/` 累计改动**仍未推送到服务器**（同步是用户的动作）。
+
+---
+
+### #27 · 2026-11-02 · UI设计师 · 【导入导出】按钮双 emoji 改单 emoji
+
+**类型**：界面调整 —— 一行 HTML 文案
+
+**做了什么**
+
+用户指出【导入导出】按钮上并排两个 emoji（`📥📤`）显得冗余，要求**只留一个**。
+
+**选哪个 emoji 的判断过程**（不是随手挑的）：
+
+先盘了**菜单内已用的 5 个 emoji**，避免与下拉项撞脸：
+
+| 菜单项 | emoji |
+|---|---|
+| 💾 备份 | 💾 |
+| 📥 恢复 | 📥 |
+| 📄 模板 | 📄 |
+| 📥 导入 | 📥 |
+| 📊 导出 | 📊 |
+
+→ **📥 已被「恢复」和「导入」两项占用**，若按钮也用 📥，
+用户看到三个 📥 会分不清哪个是哪个。
+→ 选 **🔄**（双向箭头）：语义正好是「数据进出」，
+且与菜单内 5 个 emoji **全不重复**。
+
+**改动**：`📥📤 导入导出` → `🔄 导入导出`（1 行）
+
+**涉及文件**
+
+- 修改：`src/static/index.html`（1 行 HTML 文案）
+- 修改：`HANDOFF.md`（§六 索引 + §七 本记录）
+- 追加：`.workbuddy/memory/2026-11-02.md`
+
+**注意事项与约束**
+
+- 💡 **emoji 也要做「去重」**：图标不是随便加的 —— 同一个图标在同一屏出现多次，
+  用户会误以为是同一个东西。选之前先扫一遍邻近区域已用的图标。
+- ⚠️ **按钮宽度**：双 emoji 时 117px，改单 emoji 后 99px，
+  但 `min-width:96px` 仍托住（实测 99px）→ **头部排布不塌、不抖**，
+  无需调整 CSS。
+
+**验证结果（headless Chrome 实测）**
+
+- 按钮文本 = `🔄 导入导出`（单个 emoji）✓
+- 宽度 99px（min-width 96px 生效，未塌陷）；【更多】按钮 52px，排布整齐 ✓
+- **截图人工复核**：🔄 渲染正常（蓝色双向箭头，非方框/乱码），
+  与相邻「更多」「退出」对齐 ✓
+- `ops/ui_check_filter.py` → **54 通过 / 0 失败** ✅
+- 回归：test-filter 43/43 · test-filter-ui 147/147 · test-subitem 222/222 ·
+  test-real-render 22/22 · test-org 97/97 · test-year-click 12/12 ✅
+- `ops/ui_audit_scan.py` → A/B/C/D/E/F **六项全 0** ✅
+- `ops/verify.py` → **7/7 通过** ✅（指纹 `220a9e166a80e9a2c54f0a976cd50b44`）
+
+**遗留 / 待确认**
+
+- **T-007 仍待认领** —— 「更多」菜单空置，待主设计师确认按钮去留。
+- `src/` 本轮改动**待提交**。
+- `src/` 累计改动**仍未推送到服务器** —— 同步是用户的权限。
 
 ---
 
