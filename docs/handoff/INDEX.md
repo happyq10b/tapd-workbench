@@ -28,25 +28,26 @@
 
 | 序号 | 日期 | 署名 | 类型 | 摘要 | 涉及文件 | 正文路径 | 归档状态 |
 |---|---|---|---|---|---|---|---|
-| #1 | 2026-11-02 | UI设计师 | 流程建设 | 建立多 Agent 共用交接机制：署名制 + 开工前必读 + 并发写入守则 | `HANDOFF.md` | `docs/handoff/records/R0001-2026-11-02-建立多 Agent 共用交接机制.md` | 待归档（P2） |
-| #2 | 2026-11-02 | UI设计师 | 流程建设 | 文档升级为多 Agent 共用：开工前必读五步、并发写入守则、跨角色禁令、附录 A | `HANDOFF.md` | `docs/handoff/records/R0002-2026-11-02-文档升级为多 Agent 共用格式.md` | 待归档（P2） |
-| #3 | 2026-11-02 | UI设计师 | 基线校准 | 同步期间检测到并发改动 `src/static/index.html`（+91 行）→ 全量复核并修正行号基线 | `HANDOFF.md` | `docs/handoff/records/R0003-2026-11-02-并发改动检出与行号基线校准.md` | 待归档（P2） |
-| #4 | 2026-11-02 | UI设计师 | 流程建设 | 新增「待转交事项」章节：范围外问题只登记不改动 + 处置纪律 | `HANDOFF.md` | `docs/handoff/records/R0004-2026-11-02-新增待转交事项章节.md` | 待归档（P2） |
-| #5 | 2026-11-02 | UI设计师 | 流程建设 | 新增「Agent 台账」章节：上线/下线登记 + 署名唯一性 | `HANDOFF.md` | `docs/handoff/records/R0005-2026-11-02-新增 Agent 台账章节.md` | 待归档（P2） |
-| #6 | 2026-11-02 | UI设计师 | 流程建设 | 新增「阅读分层」导航：必读/按需/增量三分 + 归档机制 | `HANDOFF.md`、`docs/handoff-archive.md` | `docs/handoff/records/R0006-2026-11-02-新增阅读分层导航.md` | 待归档（P2） |
-| #7 | 2026-11-02 | 主设计师 | 流程建设 | 上线登记 + 认领并闭环 T-001（署名留痕 / 门禁 7/7 / 补跑 5 组测试 / `OWNER_NONE` 语义边界） | `HANDOFF.md` | `docs/handoff/records/R0007-2026-11-02-上线登记与闭环 T-001.md` | 待归档（P2） |
-| #8 | 2026-11-02 | 主设计师 | 流程建设 | 新增 §0.3.1「主设计师 ↔ UI设计师 派工边界」：按活分类派工，分文件不分行 | `HANDOFF.md` | `docs/handoff/records/R0008-2026-11-02-新增主设计师与 UI设计师 派工边界.md` | 待归档（P2） |
-| #9 | 2026-11-02 | 主设计师 | 流程建设 | **规则修订**：「下线」= 被用户开除；**派工权归用户** | `HANDOFF.md` | `docs/handoff/records/R0009-2026-11-02-规则修订-下线等于开除与派工权归用户.md` | 待归档（P2） |
-| #10 | 2026-11-02 | UI设计师 | 界面调整 | 用户提 5 项 UI 修复全部完成：架构部门排序 / 可选板块两行+滚动 / 两带归一整体框 / 筛选 chips 折叠 / 窄屏布局锁定 | `src/static/index.html`、`docs/UI问题排查清单.md` | `docs/handoff/records/R0010-2026-11-02-5 项 UI 修复与问题排查清单.md` | 待归档（P2） |
-| #11 | 2026-11-02 | UI设计师 | 界面调整 | 排查清单中 UI 职责范围内的问题全部修复：焦点环 / 点击目标≥24px / 对比度≥AA / 字号 / aria-label | `src/static/index.html`、`ops/ui_audit_scan.py` | `docs/handoff/records/R0011-2026-11-02-UI 职责范围内问题全部修复.md` | 待归档（P2） |
-| #12 | 2026-11-02 | UI设计师 | 流程建设 | 固化「每次提交后同步工作日志」为硬性规矩（§0.2.1） | `HANDOFF.md`、`.workbuddy/memory/2026-11-02.md` | `docs/handoff/records/R0012-2026-11-02-固化提交后同步工作日志.md` | 待归档（P2） |
-| #13 | 2026-11-02 | UI设计师 | 流程记录 | 检出主设计师闭环 T-002 / T-003 → 交接机制首次完整跑通，UI 侧零改动 | `HANDOFF.md` | `docs/handoff/records/R0013-2026-11-02-检出主设计师闭环 T-002 T-003.md` | 待归档（P2） |
-| #14 | 2026-11-02 | 主设计师 | 功能逻辑+流程建设 | 闭环 T-002 / T-003 / T-004，新登记 T-005 | `src/static/index.html`、`ops/test-filter-ui.js`、`ops/ui_check_filter.py`、`src/.gitignore` | `docs/handoff/records/R0014-2026-11-02-闭环 T-002 T-003 T-004 新登记 T-005.md` | 待归档（P2） |
-| #15 | 2026-11-02 | UI设计师 | 界面调整 | 闭环 T-005：需求5 窄屏锁定补齐 gap/padding/列数/字号/order 五项收敛 | `src/static/index.html` | `docs/handoff/records/R0015-2026-11-02-闭环 T-005 窄屏 4px 缺口.md` | 待归档（P2） |
-| #16 | 2026-11-02 | 主设计师 | 功能逻辑 | 修复看板板块切换三处问题：切换联动 / 空状态提示 / 初始未选板块为空 | `src/static/index.html`、`src/app/app.py` | `docs/handoff/records/R0016-2026-11-02-修复看板板块切换三处问题.md` | 待归档（P2） |
-| #17 | 2026-11-02 | 主设计师 | 后端 + 功能逻辑 | 统计带严格按个人权限：`/api/me` 的部门清单改为按权限过滤；新增 `ops/test_overview_perm.py`（23 断言）覆盖统计隔离 | `src/app/app.py`、`ops/test_overview_perm.py`、`ops/test-board-perm.js` | `docs/handoff/records/R0017-2026-11-02-统计带严格按个人权限.md` | 待归档（P2） |
+| #1 | 2026-11-02 | UI设计师 | 流程建设 | 建立多 Agent 共用交接机制：署名制 + 开工前必读 + 并发写入守则 | `HANDOFF.md` | `docs/handoff/records/R0001-2026-11-02-建立多 Agent 共用交接机制.md` |  已归档（批次 1） 
+| #2 | 2026-11-02 | UI设计师 | 流程建设 | 文档升级为多 Agent 共用：开工前必读五步、并发写入守则、跨角色禁令、附录 A | `HANDOFF.md` | `docs/handoff/records/R0002-2026-11-02-文档升级为多 Agent 共用格式.md` |  已归档（批次 1） 
+| #3 | 2026-11-02 | UI设计师 | 基线校准 | 同步期间检测到并发改动 `src/static/index.html`（+91 行）→ 全量复核并修正行号基线 | `HANDOFF.md` | `docs/handoff/records/R0003-2026-11-02-并发改动检出与行号基线校准.md` |  已归档（批次 1） 
+| #4 | 2026-11-02 | UI设计师 | 流程建设 | 新增「待转交事项」章节：范围外问题只登记不改动 + 处置纪律 | `HANDOFF.md` | `docs/handoff/records/R0004-2026-11-02-新增待转交事项章节.md` |  已归档（批次 1） 
+| #5 | 2026-11-02 | UI设计师 | 流程建设 | 新增「Agent 台账」章节：上线/下线登记 + 署名唯一性 | `HANDOFF.md` | `docs/handoff/records/R0005-2026-11-02-新增 Agent 台账章节.md` |  已归档（批次 1） 
+| #6 | 2026-11-02 | UI设计师 | 流程建设 | 新增「阅读分层」导航：必读/按需/增量三分 + 归档机制 | `HANDOFF.md`、`docs/handoff-archive.md` | `docs/handoff/records/R0006-2026-11-02-新增阅读分层导航.md` |  已归档（批次 1） 
+| #7 | 2026-11-02 | 主设计师 | 流程建设 | 上线登记 + 认领并闭环 T-001（署名留痕 / 门禁 7/7 / 补跑 5 组测试 / `OWNER_NONE` 语义边界） | `HANDOFF.md` | `docs/handoff/records/R0007-2026-11-02-上线登记与闭环 T-001.md` |  已归档（批次 1） 
+| #8 | 2026-11-02 | 主设计师 | 流程建设 | 新增 §0.3.1「主设计师 ↔ UI设计师 派工边界」：按活分类派工，分文件不分行 | `HANDOFF.md` | `docs/handoff/records/R0008-2026-11-02-新增主设计师与 UI设计师 派工边界.md` |  已归档（批次 1） 
+| #9 | 2026-11-02 | 主设计师 | 流程建设 | **规则修订**：「下线」= 被用户开除；**派工权归用户** | `HANDOFF.md` | `docs/handoff/records/R0009-2026-11-02-规则修订-下线等于开除与派工权归用户.md` |  已归档（批次 1） 
+| #10 | 2026-11-02 | UI设计师 | 界面调整 | 用户提 5 项 UI 修复全部完成：架构部门排序 / 可选板块两行+滚动 / 两带归一整体框 / 筛选 chips 折叠 / 窄屏布局锁定 | `src/static/index.html`、`docs/UI问题排查清单.md` | `docs/handoff/records/R0010-2026-11-02-5 项 UI 修复与问题排查清单.md` |  已归档（批次 1） 
+| #11 | 2026-11-02 | UI设计师 | 界面调整 | 排查清单中 UI 职责范围内的问题全部修复：焦点环 / 点击目标≥24px / 对比度≥AA / 字号 / aria-label | `src/static/index.html`、`ops/ui_audit_scan.py` | `docs/handoff/records/R0011-2026-11-02-UI 职责范围内问题全部修复.md` |  已归档（批次 1） 
+| #12 | 2026-11-02 | UI设计师 | 流程建设 | 固化「每次提交后同步工作日志」为硬性规矩（§0.2.1） | `HANDOFF.md`、`.workbuddy/memory/2026-11-02.md` | `docs/handoff/records/R0012-2026-11-02-固化提交后同步工作日志.md` |  已归档（批次 1） 
+| #13 | 2026-11-02 | UI设计师 | 流程记录 | 检出主设计师闭环 T-002 / T-003 → 交接机制首次完整跑通，UI 侧零改动 | `HANDOFF.md` | `docs/handoff/records/R0013-2026-11-02-检出主设计师闭环 T-002 T-003.md` |  已归档（批次 1） 
+| #14 | 2026-11-02 | 主设计师 | 功能逻辑+流程建设 | 闭环 T-002 / T-003 / T-004，新登记 T-005 | `src/static/index.html`、`ops/test-filter-ui.js`、`ops/ui_check_filter.py`、`src/.gitignore` | `docs/handoff/records/R0014-2026-11-02-闭环 T-002 T-003 T-004 新登记 T-005.md` |  已归档（批次 1） 
+| #15 | 2026-11-02 | UI设计师 | 界面调整 | 闭环 T-005：需求5 窄屏锁定补齐 gap/padding/列数/字号/order 五项收敛 | `src/static/index.html` | `docs/handoff/records/R0015-2026-11-02-闭环 T-005 窄屏 4px 缺口.md` |  已归档（批次 1） 
+| #16 | 2026-11-02 | 主设计师 | 功能逻辑 | 修复看板板块切换三处问题：切换联动 / 空状态提示 / 初始未选板块为空 | `src/static/index.html`、`src/app/app.py` | `docs/handoff/records/R0016-2026-11-02-修复看板板块切换三处问题.md` |  已归档（批次 1） 
+| #17 | 2026-11-02 | 主设计师 | 后端 + 功能逻辑 | 统计带严格按个人权限：`/api/me` 的部门清单改为按权限过滤；新增 `ops/test_overview_perm.py`（23 断言）覆盖统计隔离 | `src/app/app.py`、`ops/test_overview_perm.py`、`ops/test-board-perm.js` | `docs/handoff/records/R0017-2026-11-02-统计带严格按个人权限.md` | 已归档（批次 1） |
 | #18 | 2026-11-02 | **交接管家** | 流程建设 | 交接文档升级为**三层披露结构**：★ 当前状态摘要结论层 + §0.5 管家职责与写权限矩阵 + §0.6 版本/日期标注 + 开工与交接检查项；§六 加「正文路径」列；建 `docs/handoff/` 索引与归档区；§3.1 基线数字按实跑校正（80→144、44→54） | `HANDOFF.md`、`docs/交接记录文档管理方案.md`、`docs/handoff/INDEX.md` | 正文在 `HANDOFF.md` §七 #18 | 正文在 `HANDOFF.md` §七 #18 |
 | #19 | 2026-11-02 | **交接管家** | 流程建设 | **交接管家上线登记**（§4.1）+ **权限边界写死**（§0.5.0：只管交接文档 + 根目录梳理，无权介入其他项目事项）；根目录盘点落 `docs/根目录梳理.md`；README 目录结构校准 | `HANDOFF.md`、`docs/根目录梳理.md`、`README.md` | 正文在 `HANDOFF.md` §七 #19 | 正文在 `HANDOFF.md` §七 #19 |
+| #20 | 2026-11-02 | **交接管家** | 流程建设 | **首次归档（第 1 批）**：#1–#16 拆入 `docs/handoff/records/`（一期一文件），主文档 2408 → **1335 行**，§七 只留 #17–#19，§六 19 行全保留且路径指向归档；`工作转移手册.md` 入库；`TAPD地址.txt` 按用户指示保留原位 | `HANDOFF.md`、`docs/handoff/INDEX.md`、`docs/handoff/records/`、`工作转移手册.md` | 正文在 `HANDOFF.md` §七 #20 | 正文在 `HANDOFF.md` §七 #20 |
 
 > 「归档状态」列两种取值：
 > **待归档（P2）** —— 正文仍在 `HANDOFF.md` §七，归档执行后本文件对应的 `records/R00NN-*.md` 才会生成；
@@ -58,7 +59,7 @@
 
 | 批次 | 归档日期 | 执行人 | 移出的序号区间 | 移出条数 | 归档后主文档保留 |
 |---|---|---|---|---|---|
-| （暂无） | — | — | — | 0 | 最近 3 条（#16–#18） |
+| 第 1 批 | 2026-11-02 | **交接管家** | #1 – #17 | 17 | 最近 3 条（#18–#20） |
 
 > **每批归档后必须回填本表**：批次号、日期、执行人、移出区间、归档后主文档保留条数。
 > **移出后 §六 仍保留指针行**（序号 + 摘要 + `→ docs/handoff/records/R00NN-*.md`），
