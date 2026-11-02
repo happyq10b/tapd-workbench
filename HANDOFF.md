@@ -833,6 +833,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | **T-004** | 2026-11-02 | **UI设计师** | `src/static/index.html.bak`（主设计师改前留的备份文件）**未被 `src/.gitignore` 忽略** → 执行 `git add .` 时会被误带入提交（`src/.gitignore` 当前无 `.bak` 规则，`git check-ignore` 确认未忽略）。顶层 `.gitignore` 只忽略了 `HANDOFF.md.bak`，管不到子仓库 | `src/.gitignore` | 主设计师（正在改 `src`，避免撞车） | ✅ 已处理 · **主设计师** · `src/.gitignore` 补 `*.bak` 规则，`git check-ignore` 已确认命中；工作区不再出现 `.bak` |
 | **T-005** | 2026-11-02 | **主设计师** | **需求5 的窄屏锁定有 4px 缺口**：`.topbar` 的 `column-gap` 在窄屏被 `@media(max-width:900px)` 的 `gap:10px` 改掉（14px→10px），而 `grid-template-columns` 被后声明的 `@media(max-width:1199px)` 覆盖回 2 栏 → **断点只覆盖了一半**。实测：视口 1200 时 `.topbar-main`=798px，视口 700 时=802px，部门栅格 768→772px —— 违反需求5「所有元素大小位置不变」。另 `@media(max-width:640px)` 的 `.topbar{padding:10px 12px 0}` 同理会改内边距（≤640px 时生效） | `src/static/index.html`（L208-213 `@media(max-width:900px)` 的 `.topbar{gap:10px}`；L214-219 `@media(max-width:640px)` 的 `.topbar{padding:10px 12px 0}`） | UI设计师（布局/尺寸属 UI 职责；主设计师只做测试断言，不改样式） | ✅ 已处理 · **UI设计师** · 补齐 gap/padding/列数/字号/order 五项收敛，10 视口 × 16 属性全一致 |
 | **T-006** | 2026-11-02 | **UI设计师** | **断言与新需求冲突**：`ops/test-filter-ui.js` 断言「窄屏兜底断点内整个工具栏不换行」（要求 `@media(max-width:1199px)` 内存在 `.toolbar{flex-wrap:nowrap}`）。该规则是 UI设计师 上一轮为防「双重变形」加的，但**与本轮新需求「筛选明细单独起一行」直接冲突** —— 明细行靠 `.toolbar` 的 `flex-wrap:wrap` 才能换到独立一行（`#filterHint` 用 `flex:1 0 100%` 强制换行）。已删除该规则（保留 `.toolbar-left{flex-wrap:nowrap}`）。测试结果 **143 通过 / 1 失败**，失败项即此条 | `ops/test-filter-ui.js`（断言 L217-218） | 主设计师（测试脚本归属） | ✅ 已处理 · **主设计师** · 断言翻转为校验现行策略（`.toolbar{flex-wrap:nowrap}` 已按「筛选明细独占一行」新需求删除 → 断言改为「不再强制 nowrap」+「明细行靠 `flex:1 0 100%` 独占一行」）；`test-filter-ui` 143/1 → **147/0** |
+| **T-007** | 2026-11-02 | **UI设计师** | **「更多」菜单已空置**：按用户需求，备份/恢复/模板/导入/导出 5 项已整体挪到独立的【导入导出】按钮下 → 原「更多」下拉**只剩空壳**（已暂显「（暂无更多操作）」占位，未直接删按钮 —— 删不删属产品决策）。请确认：① 「更多」按钮**保留**（等后续放新项）还是**直接移除**？② 若保留，是否需要往里放新的低频操作项？ | `src/static/index.html` | 主设计师（产品决策 + 后续可能要往里加项） | ⏳ 待认领 |
 
 ### 5.1.1 T-001 详情（已闭环 · 主设计师 认领）
 
@@ -1003,6 +1004,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #23 | 2026-11-02 | **UI设计师** | 界面调整 | 筛选明细（#filterHint）**独占一行**（原被 260px 限宽截断）+ 有选中项时**隐藏默认提示词**（:has() 检测 chip）；连带补齐需求5 遗漏的**工具栏宽度锁定**（.toolbar-left 843px / .toolbar 1172px） | `src/static/index.html`、`HANDOFF.md` |
 | #24 | 2026-11-02 | **UI设计师** | 界面调整 | 已选项改为**计数徽标**（「已选 3」）—— 框内不再显示已选项文本，展示合并到**树节点勾选态**与**下方筛选明细行**；实测宽度恒定（field 85px / 徽标 49px） | `src/static/index.html`、`HANDOFF.md` |
 | #25 | 2026-11-02 | **主设计师** | 后端 + 功能逻辑 + 流程建设 | **术语纠正（看板 vs 板块）**：顶部「可选板块」带实际渲染的是 `boards` 表（=看板）→ 标题与相关文案全部改为「可选看板」，并统一 `ME.boards`/`curBoard`=看板、`board_columns`/`column_id`=板块的口径；**ACL 层**：看板与板块各加 `owner`+`participants`，仅负责人/参与人可见（与既有权限链取交集，未配置 ACL 的层级不额外收窄），覆盖列表/计数/搜索/部门页/筛选候选全部入口；**数据清理**：新增 `ops/cleanup_empty.py` + 运行时 `cleanup_empty_columns_and_boards()`，无事项的板块删除、空看板一并删除 | `src/app/app.py`、`src/app/init_db.py`、`src/static/index.html`、`ops/cleanup_empty.py`、`ops/test_acl_scope.py`、`ops/test-filter-ui.js`、`ops/ui_check_board_switch.py` | `HANDOFF.md §七 #25` |
+| #26 | 2026-11-02 | **UI设计师** | 界面调整 | 搜索框按实测字宽拉宽（167px，placeholder 完整可见）+ 「更多」去掉 ⋯ 前缀 + 备份/恢复/模板/导入/导出 独立成【导入导出】按钮（两菜单互斥）。连带同步工具栏锁定值 843→875 / 1172→1204 | `src/static/index.html`、`HANDOFF.md` |
 
 ---
 
@@ -1666,6 +1668,102 @@ ok(r.get('persons', 0) == base_total, '拼音组合期间树上人员不消失�
 - `src/` 本轮**无代码改动**（只有 `ops/ui_check_tree.py` 与文档），无需重跑 `verify.py` 门禁
   （但已跑，全绿）。
 - `src/` 累计改动**仍未推送到服务器**（同步是用户的动作）。
+
+---
+
+### #26 · 2026-11-02 · UI设计师 · 搜索框拉宽 + 「更多」去前缀 + 新增独立【导入导出】按钮
+
+**类型**：界面调整 —— CSS 为主 + 展示层 HTML + 一处交互函数改造
+
+**做了什么**
+
+用户提 3 项（附截图）：
+
+#### 需求 1：搜索栏拉宽，保证提示词完整可见
+
+**原状**：`.search-input{min-width:100px;flex:1 1 150px;max-width:230px}`
+→ 实际只拿到 **135px**，placeholder「搜索事项 / 看板 / 板块…」**被截断**（截图可见「板块…」后面缺字）。
+
+**修法**：宽度**按实测的字宽定，不按拍脑袋**。
+用 canvas `measureText` 量得 placeholder 文本宽 **139px**，加 padding(12×2)+border(1×2)
+→ 需框宽 **167px**。改为 `min-width:167px;flex:1 1 170px;max-width:230px`。
+
+🔴 **连带同步**：`.toolbar-left` 与 `.toolbar` 的**锁定值必须一起调**
+（搜索框 +32px → 左侧 843→**875px**、工具栏 1172→**1204px**）。
+⚠️ 这是需求5 遗留的一个**隐性耦合**：左栏锁死后，改动任何一个子控件宽度，
+锁值就会失配 → 子控件被压回原状。已在 CSS 注释里写明这条联动关系。
+
+#### 需求 2：「更多」前缀去掉 ⋯
+
+`⋯ 更多` → `更多`。
+
+#### 需求 3：备份/恢复/模板/导入/导出 独立成【导入导出】按钮，与「更多」分开
+
+**关键发现**：原「更多」下拉里**只有这 5 项**，且**没有 JS 动态填充**
+（`grep headerMoreMenu.innerHTML` 无命中）→ 搬走后「更多」菜单成为**空壳**。
+
+**改动**：
+1. **HTML**：新增 `<div class="header-more" id="headerImportExport">`，
+   内含按钮 `📥📤 导入导出` + 自己的菜单 `#headerImportExportMenu`（含那 5 项）；
+   原「更多」菜单内容清空。
+2. **JS**：`toggleHeaderMore(ev, menuId)` 改为**按 id 定位菜单**，
+   并让两个菜单**互斥**（开一个时另一个自动收起）——
+   否则两个下拉可能同时展开、互相遮挡。
+   `closeHeaderMore()` 改为遍历所有 `.header-more-menu` 收起。
+   ⚠️ 外部点击的判定从 `#headerMore` 改为 `.header-more`（类选择器，覆盖两个容器）。
+3. **CSS**：`.header-more-empty` 空态文案样式 + `#headerImportExport>.header-btn{min-width:96px}`
+   （固定最小宽 → 头部按钮排布不抖动）。
+4. **权限**：写操作项的可见性由 `applyPermissionUI()` 按 **id** 控制
+   （`xlsxImportBtn` / `jsonImportBtn`）→ **移动 DOM 不影响权限逻辑**，已实测确认。
+
+**涉及文件**
+
+- 修改：`src/static/index.html`（CSS + 头部 HTML + `toggleHeaderMore`/`closeHeaderMore`）
+- 修改：`HANDOFF.md`（§五 新增 T-007 + §六 索引 + §七 本记录）
+- 追加：`.workbuddy/memory/2026-11-02.md`
+
+**注意事项与约束**
+
+- 🔴 **「更多」现在是空菜单 —— 已登记 T-007，不擅自删按钮**：
+  删不删「更多」属**产品决策**（可能后续要往里放新项），不是 UI 能定的。
+  → 暂显「（暂无更多操作）」占位，避免用户点开看到空白。
+- ⚠️ **两个下拉互斥是必须的**：改之前 `toggleHeaderMore` 写死 `headerMoreMenu`，
+  现在两个按钮共用一个函数 → 必须加互斥，否则会同时展开。
+- 💡 **搜索框宽度改为「按字宽定」是一次思路升级**：
+  之前的 `flex:1 1 150px` 是拍的，改完发现 135px < 167px → 必然截断。
+  → 以后遇到「placeholder 要完整显示」，一律先 `measureText` 量字宽再定值。
+- ⚠️ **锁值耦合**：`.toolbar-left{flex:0 0 875px}` / `.toolbar{min-width:1204px}`
+  与搜索框宽度**强耦合**。改任何左侧子控件的宽度，这两个值都要同步重算，
+  否则「宽度锁定」会反过来把控件压扁。已在 CSS 注释里标注。
+
+**验证结果（headless Chrome 实测）**
+
+- **需求1**：placeholder 文本宽 139px、需框宽 167px、**实际框宽 167px** → **完整可见** ✓
+- **需求2**：【更多】按钮文本 = `更多`（无 ⋯）✓
+- **需求3**：【导入导出】按钮独立存在（117px）、菜单含 **5 项**
+  （备份/恢复/模板/导入/导出）、与「更多」**互斥** ✓
+- **交互实测**：点【导入导出】→ 菜单展开、更更多菜单保持收起；
+  再点【更多】→ 导入导出**自动收起**、更多展开；
+  点页面外部 → **两个都收起** ✓
+- **权限实测**：`jsonImportBtn` / `xlsxImportBtn` / `xlsxTplBtn` 仍按 id 正常受控 ✓
+- 工具栏其余控件位置正常：状态 x=0、人员 x=402、周数 x=559、日期 x=718（无重叠）
+- `ops/ui_check_filter.py` → **54 通过 / 0 失败** ✅
+- 回归：test-filter 43/43 · test-subitem 222/222 · test-real-render 22/22 ·
+  test-org 97/97 · test-year-click 12/12 ✅
+- `node ops/test-filter-ui.js` → **147 通过 / 0 失败** ✅
+  （**T-006 已由主设计师闭环**，本轮全绿）
+- `ops/ui_audit_scan.py` → A/B/C/D/E/F **六项全 0** ✅
+- `ops/verify.py` → **7/7 通过** ✅（指纹 `877683e4d6f06c6fdf3e9289743ddea8`）
+- **headless 截图人工复核** → 搜索框提示词完整可见、头部两个按钮分列、
+  导入导出菜单五项清晰、工具栏排布整齐无重叠 ✓
+
+**遗留 / 待确认**
+
+- **T-007 待认领** —— 「更多」菜单空置，请主设计师确认按钮去留与后续内容。
+- **建议更新「摘要 A」**：顶栏新增【导入导出】独立按钮、「更多」去前缀、搜索框宽度基准
+  → 建议交接管家更新摘要层对应条目。
+- `src/` 本轮改动**待提交**。
+- `src/` 累计改动**仍未推送到服务器** —— 同步是用户的权限。
 
 ---
 
