@@ -6,40 +6,80 @@
 
 ## 目录结构
 
+> 行数为 2026-11-02 实测，**会随开发漂移** —— 以文件实际为准，不要当锚点。
+
 ```
 .
-├── 同步开关.bat            ← 双击触发「验证 + 同步」的开关
-├── 服务开关.bat            ← 双击切换两个环境的服务启停（本地 / 服务器）
-├── src/                  ← 唯一的代码编辑区（git 仓库）
-│   ├── app/                app.py（1569行主程序）+ init_db.py
-│   ├── static/             index.html（2744行单页）+ login.html
-│   ├── manage_users.py     账号管理 CLI
-│   └── requirements.txt
+├── README.md                 ← 本文件（工作空间说明书）
+├── HANDOFF.md                ← 交接文档（多 Agent 共用；先读「★ 当前状态摘要」）
+├── 同步开关.bat               ← 双击触发「验证 + 同步」的开关（用户的动作）
+├── 服务开关.bat               ← 双击切换两个环境的服务启停（用户的动作）
+├── 工作转移手册.md             ← 跨会话记忆点：产品决策 / 技术决策 / 红线
 │
-├── ops/                  ← 运维工具箱
-│   ├── sync.sh             同步脚本（本地 ↔ 服务器）
-│   ├── local-dev.sh        本地起服务（端口 8100）
-│   ├── deploy.sh           服务器端部署脚本（首次安装用）
-│   ├── tapd-tool.sh        服务器端命令工具箱
-│   ├── tapd-backup.sh      数据库备份
-│   ├── nginx-tapd.conf     nginx 反代配置
-│   ├── .localvenv/         本地 Python 虚拟环境
-│   └── secrets/            SSH 配置与私钥（**不进 git**）
+├── src/                     ← 唯一的代码编辑区（独立 git 仓库）
+│   ├── app/                 app.py（4647 行）+ init_db.py（883 行）
+│   ├── static/              index.html（7623 行单页）+ login.html（168 行）
+│   ├── manage_users.py      账号管理 CLI
+│   ├── requirements.txt
+│   └── app.db               本地副本（**真实库在服务器**）
 │
-├── docs/                 ← 全部文档
-│   ├── README.md            本文件
-│   ├── 调试指南.md            日常开发调试手册（主入口）
+├── ops/                     ← 运维工具箱
+│   ├── sync.sh              同步脚本（本地 ↔ 服务器）
+│   ├── local-dev.sh         本地起服务（端口 8100）
+│   ├── deploy.sh            服务器端部署脚本（首次安装用）
+│   ├── tapd-tool.sh         服务器端命令工具箱
+│   ├── tapd-backup.sh       数据库备份
+│   ├── nginx-tapd.conf      nginx 反代配置
+│   ├── verify.py            阶段一门禁（签发 .verify-stamp）
+│   ├── test-*.js / test_*.py / ui_check_*.py   回归测试与 UI 校验
+│   ├── .localvenv/          本地 Python 虚拟环境
+│   └── secrets/             SSH 配置与私钥（**不进 git**）
+│
+├── docs/                    ← 全部文档
+│   ├── handoff/             ← 交接机制：全量索引 + 归档正文区
+│   │   ├── INDEX.md           全部交接记录一行 + 正文路径
+│   │   └── records/           归档后的历史记录（一期一文件）
+│   ├── 交接记录文档管理方案.md   交接机制设计全文 + 与旧方案差异对照
+│   ├── 根目录梳理.md           根目录盘点与归位清单
+│   ├── handoff-archive.md    v1 归档机制遗留指引页
+│   ├── 交付流程规范.md          两阶段交付与门禁规范
+│   ├── 调试指南.md              日常开发调试手册（主入口）
+│   ├── 组织架构设计.md          组织架构与权限模型
+│   ├── UI问题排查清单.md        UI 侧问题与修复记录
 │   ├── 调试链路地图.md          旧 WSL 时代链路记录 + 安全红线 + 血泪坑
 │   ├── TAPD工作台迁移方案.md     2026-10-26 迁移方案
-│   ├── DEPLOY.md / LINUX_DEPLOY.md / ORG_TO_WORKGROUP_SUMMARY.md
+│   └── DEPLOY.md / LINUX_DEPLOY.md / ORG_TO_WORKGROUP_SUMMARY.md
 │
-├── archive/              ← 归档（只读，勿改）
-│   ├── packages/            部署包（tar.gz / 原始 zip）
-│   ├── backup/              数据库备份
+├── archive/                 ← 归档（只读，勿改）
+│   ├── packages/            部署包（tar.gz / 原始 zip）—— 不进 git
+│   ├── backup/              数据库备份 —— 不进 git
 │   └── legacy/              旧 Windows 脚本、旧源码备份
 │
-└── .workbuddy/memory/    ← 会话记忆（工作台自动维护）
+├── .workbuddy/memory/       ← 会话记忆与工作日志（入库）
+└── HANDOFF.md.bak           ← 交接文档写入前的过程备份（不入库，**固定位置别挪**）
 ```
+
+---
+
+## 交接文档怎么读（多 Agent 协作）
+
+本项目是**多 Agent 共用**的，交接载体是根目录 **`HANDOFF.md`**。
+它会持续增长，所以**别通读全文** —— 文档里已经标好三档阅读等级：
+
+| 档 | 内容 | 什么时候读 |
+|---|---|---|
+| 🟢 **必读摘要** | 「★ 当前状态摘要」A/B/C + §3.1 测试基线 + §四 台账 + §五 待转交 + §六 索引表 | **每次开工**（约 5 分钟，只看表格行） |
+| 🟡 **按需查阅历史** | §〇 共同约定 / §一 UI 基线 / §二 布局硬约束 / §三 验证流程 / §七 最近 3 条 / `docs/handoff/records/` | 改到哪块读哪块 |
+| 🔵 **索引与路径** | §六 索引表 → `docs/handoff/INDEX.md` → 单篇 `records/R00NN-*.md` | 查历史记录（**一次只读一篇**） |
+
+三条硬规矩：
+
+1. **动手前先上线登记**（§四.1 台账），**完工后在 §六 / §七 署名留痕**（§0.2 五要素）；
+2. **范围外的问题只登记不改动**（§五 待转交事项）—— 需要别人干活**先向用户汇报**，派工权在用户；
+3. **引用一律给路径**（如 `docs/调试指南.md` §6.3），**不要给链接**。
+
+机制全文见 `docs/交接记录文档管理方案.md`；
+管家职责与**权限边界**（只管交接文档 + 根目录梳理）见 `HANDOFF.md` §0.5 / §0.5.0。
 
 ---
 
