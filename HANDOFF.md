@@ -1002,6 +1002,7 @@ print('  （无输出 = 干净）' if not found else '  ↑ 有残留')
 | #21 | 2026-11-02 | **主设计师** | 后端 + 功能逻辑 | 统一看板/板块/统计三层权限过滤：`/api/boards` 的 card_count 与 col_years 改走 `filter_rows`（此前只做看板级过滤 → 板块白名单收窄后卡片数仍显示全量，实测 6 vs 2）；`/api/boards/{id}/columns` 的 counts 一并过滤。顶栏入口按权限隐藏：新增 `applyPermissionUI()`，「看板管理」（require_admin）与「更多」里的「恢复」「导入」（require_editor）无权限即不显示 | `src/app/app.py`、`src/static/index.html`、`ops/test_board_perm_matrix.py`、`ops/ui_check_perm_entries.py` | `HANDOFF.md §七 #21` |
 | #22 | 2026-11-02 | **主设计师** | 流程建设 | **立规 §3.3「测试夹具与基线纪律」**：一天内因临时数据污染导致测试假性失败三次（`__ui_`/`__pv_` 夹具没清干净 → `ui_check_tree.py` 的「仍 36 人」断言失败 → 误以为代码坏了）。三条纪律（夹具 `try/finally` 自清理 / 断言禁用绝对基线数字改相对基线 / 一次性实测数据测完立刻删）+ stash 诊断法；并把 `ui_check_tree.py` 的 `36` 改为实测基线 | `HANDOFF.md`、`ops/ui_check_tree.py` | `HANDOFF.md §七 #22` |
 | #23 | 2026-11-02 | **UI设计师** | 界面调整 | 筛选明细（#filterHint）**独占一行**（原被 260px 限宽截断）+ 有选中项时**隐藏默认提示词**（:has() 检测 chip）；连带补齐需求5 遗漏的**工具栏宽度锁定**（.toolbar-left 843px / .toolbar 1172px） | `src/static/index.html`、`HANDOFF.md` |
+| #24 | 2026-11-02 | **UI设计师** | 界面调整 | 已选项改为**计数徽标**（「已选 3」）—— 框内不再显示已选项文本，展示合并到**树节点勾选态**与**下方筛选明细行**；实测宽度恒定（field 85px / 徽标 49px） | `src/static/index.html`、`HANDOFF.md` |
 
 ---
 
@@ -1129,6 +1130,95 @@ print('  （无输出 = 干净）' if not found else '  ↑ 有残留')
 - **「★ B 当前基线」需持续维护** —— 任何改动基线的 Agent 都要向管家提「建议更新」，
   否则数字会再次悄悄过期。
 - 服务器同步仍未触发（同步是用户的动作）；本轮**未改动 `src/`**，不涉及门禁重跑与同步。
+
+---
+
+### #24 · 2026-11-02 · UI设计师 · 已选项改为计数徽标 —— 展示合并到树节点与筛选明细行
+
+**类型**：界面调整 —— CSS 为主 + 展示层 HTML + **仅写文本的最小 JS**
+
+**做了什么**
+
+用户需求：「不要在已选项目区域直接显示已选项文本，而是将已选项目的展示合并到
+**树状图节点**中以及**下方单独的筛选明细行**中呈现；修改后需确保界面宽度稳定不随内容变化，
+且不丢失已选项的可见性。」
+
+#### 三层可见性分工（全部实测通过）
+
+| 层 | 载体 | 现状 |
+|---|---|---|
+| ① 树状图节点 | `.tp-box.on` 勾选态 + 树底部「已选 N 项」（`#tp_count`） | **本来就存在**，无需改动 ✓ |
+| ② 下方筛选明细行 | `#filterHint`（`syncFilterHint()` 已汇总人员/周数/参与人） | **本来就存在**，上轮已改为独占一行 ✓ |
+| ③ 筛选框内 | ~~chip 文本~~ → **计数徽标**「已选 3」 | **本轮改动** |
+
+#### 改动明细
+
+1. **新增计数徽标**（HTML + CSS）：
+   ```html
+   <span class="cf-count" id="personFilterCount" onclick="openPersonFilterPicker(...)"></span>
+   <span class="cf-count" id="weekFilterCount"  onclick="openFilterCombo('week')"></span>
+   ```
+   样式：`min-width:44px` + `font-variant-numeric:tabular-nums` → **宽度恒定**（实测 49px）。
+2. **JS 最小改动**：`paintFilterCombos()` 里各加一行写文本
+   ```js
+   if(pCount)pCount.textContent=PERSON_SEL.size?('已选 '+PERSON_SEL.size):'';
+   ```
+   ⚠️ **只写展示层文本，不动 `PERSON_SEL` / `WEEK_SEL` 等数据与状态机**。
+3. **chip 文本视觉隐藏**：`.cf-field .cf-chips` 改 `position:absolute` + `clip-path:inset(50%)`
+   → **保留在 DOM**（`removeFilterChip()` 仍可调用、`title` 悬浮提示仍能给出完整清单作为兜底），
+   但**视觉上彻底不可见**（不是透明，避免被读屏软件读到、也被误点）。
+
+**涉及文件**
+
+- 修改：`src/static/index.html`（CSS + 2 处 HTML + `paintFilterCombos()` 内 2 行文本赋值）
+- 修改：`HANDOFF.md`（§六 索引 + §七 本记录）
+- 追加：`.workbuddy/memory/2026-11-02.md`
+
+**注意事项与约束**
+
+- 🔴 **计数无法用纯 CSS 实现（已实测）**：
+  试过 CSS counter（`.cf-chips` 上 `counter-reset`、`.cf-chip` 上 `counter-increment`、
+  在 `.cf-field::after` 里 `content:counter(cnt)`）——
+  **counter 不跨兄弟元素生效**，徽标宽度实测恒 55px、数字始终不解析。
+  → 所以必须有 JS 参与，但**只参与「写一个数字」这一件事**。
+- ⚠️ **边界说明（§0.3.1）**：本轮动到了 `paintFilterCombos()` 这个 JS 函数体。
+  判定依据：改的只是**它输出的展示文本**，**不改数据流、不改状态机、不改事件绑定**
+  （`removeFilterChip` / `openTreePick` / `PERSON_SEL` 全部原样保留），
+  属「视觉层 HTML 结构（纯展示容器）」一侧。若后续认为越界，可由主设计师接管这两行。
+- 💡 **徽标可点击**：`onclick` 分别调 `openPersonFilterPicker()` / `openFilterCombo('week')`
+  → 点徽标即可重新打开选择器，且树内已选状态回填（实测树内「已选 1 项」+ 1 个勾选框亮起）。
+- ⚠️ **`clip-path` 隐藏 vs `display:none`**：
+  用 `display:none` 会让 chip 的 `title` 悬浮提示也失效 → 失去「兜底可见性」。
+  用 `clip-path:inset(50%)` 保留盒模型与提示能力，同时视觉不可见、不可点。
+- ⚠️ **`.cf-field` 宽度恒定的保证来自两处**：① `.cf-field` 的 `flex:0 1 auto` + `width:104px`
+  （上一轮已锁）② 徽标 `min-width:44px` 固定。**去掉任一条宽度就会随已选人数漂移。**
+
+**验证结果（headless Chrome 实测）**
+
+- **宽度稳定性**：空 / 1人 / 3人(含长名「欧阳明月轩」) / 人3+周1 四种状态，
+  人员 `wrap` 恒 **149px**、`field` 恒 **85px**、徽标恒 **49px** → **完全稳定** ✓
+- **真实交互流程**（开树 → 勾选「余河」→ 确定）：
+  树内「已选 1 项」+ **1 个勾选框亮起** ✓；框内徽标「已选 1」✓；
+  chips 视觉隐藏（`clip-path:inset(50%)`）但 DOM 保留 ✓；
+  明细行「人员：余河」宽 1358px ✓；人员框 `active` 态 ✓
+- **点徽标重开树**：成功打开，树内已选状态回填 ✓
+- `ops/ui_check_filter.py` → **54 通过 / 0 失败** ✅
+- 回归：test-filter 43/43 · test-subitem 222/222 · test-real-render 22/22 ·
+  test-org 97/97 · test-year-click 12/12 ✅
+- `ops/ui_audit_scan.py` → A/B/C/D/E/F **六项全 0** ✅
+- `ops/verify.py` → **7/7 通过** ✅（指纹 `a6b2761db1180d67e1cc63b30754c3aa`）
+- `test-filter-ui` → **143 通过 / 1 失败** ⚠️ —— 仍是 **T-006** 那条已知失败，**未新增失败**
+- **headless 截图人工复核** → 人员框显示「已选 2」、周数框显示「已选 1」，
+  **框内无任何已选项姓名文本**；下方明细行「人员：余河、苏春景 | 周数：2026-41」完整可读；
+  两框宽度一致、无溢出错位 ✓
+
+**遗留 / 待确认**
+
+- **T-006 仍待认领**（`ops/test-filter-ui.js` 断言 L217-218 需按新策略更新）。
+- **建议更新「摘要 A」**：筛选框的已选项展示形态已变（chip 文本 → 计数徽标），
+  已选项清单由「树节点 + 筛选明细行」承担 → 建议交接管家更新摘要层对应条目。
+- `src/` 本轮改动**待提交**。
+- `src/` 累计改动**仍未推送到服务器** —— 同步是用户的权限。
 
 ---
 
