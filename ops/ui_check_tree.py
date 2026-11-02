@@ -130,7 +130,7 @@ async def main():
 
         # ---------- 用例 1：顶部工具栏 ----------
         print('\n【用例1】树弹窗顶部工具栏')
-        await ev("document.getElementById('personFilterTreeBtn').click();")
+        await ev("document.getElementById('personFilterInput').click();")
         await asyncio.sleep(2.5)
         r = await ev(STATE_JS)
         ok(r.get('toolBtns') == ['展开全部', '折叠全部'],
@@ -216,18 +216,60 @@ async def main():
         ok(r.get('rowCount', 0) > 0, '筛出 %s 条事项' % r.get('rowCount'))
         ok(r.get('allEmpty') is True, '筛出的事项负责人全部为空')
 
-        # ---------- 用例 7：下拉面板里不再有「无负责人」条目 ----------
-        print('\n【用例7】下拉面板不再有「无负责人」条目')
-        await ev("document.getElementById('personFilterInput').click();")
-        await asyncio.sleep(1.5)
+        # ---------- 用例 7：筛选栏人员控件 = 架构树单一入口 ----------
+        print('\n【用例7】筛选栏人员控件只有架构树一个入口')
+        await ev("closeTreePick();")
+        await asyncio.sleep(0.5)
         r = await ev("""(function(){
-            var d=document.getElementById('personFilterDrop');
-            return {hasNone:!!d.querySelector('[data-pick-person="__no_owner__"]'),
-                    noneText:(d.innerText.match(/无负责人/g)||[]).length,
-                    optCount:d.querySelectorAll('.cf-opt').length};
+            var w=document.getElementById('personFilterWrap');
+            var inp=document.getElementById('personFilterInput');
+            return {hasDrop:!!document.getElementById('personFilterDrop'),
+                    hasTreeBtn:!!document.getElementById('personFilterTreeBtn'),
+                    readonly:inp?inp.readOnly:null,
+                    noneText:(w.innerText.match(/无负责人/g)||[]).length,
+                    btnCount:w.querySelectorAll('button').length};
         })()""")
-        ok(r.get('hasNone') is False, '下拉面板中无「无负责人」勾选项')
-        ok(r.get('noneText') == 0, '下拉面板文案不含「无负责人」：%s 处' % r.get('noneText'))
+        ok(r.get('hasDrop') is False, '人员控件无候选下拉面板')
+        ok(r.get('hasTreeBtn') is False, '人员控件右侧无独立的 🌳 按钮')
+        ok(r.get('readonly') is True, '人员输入框为只读触发器（点击直接开树）')
+        ok(r.get('btnCount') == 0, '人员控件内无任何按钮')
+        # ⚠️ 用例6 刚勾选了「无负责人」，此时它会作为 chip 显示在人员控件里 ——
+        #    这是正确的（已选条件可见），不是"控件上出现该文案"的问题。
+        #    这里只验证：控件的**静态部分**（label / placeholder）不含该文案。
+        r2 = await ev("""(function(){
+            var w=document.getElementById('personFilterWrap');
+            var label=(w.querySelector('.cf-label')||{}).textContent||'';
+            var ph=document.getElementById('personFilterInput').placeholder||'';
+            return {label:label, ph:ph,
+                    chipCount:w.querySelectorAll('#personFilterChips .cf-chip').length};
+        })()""")
+        ok('无负责人' not in (r2.get('label') or '') and '无负责人' not in (r2.get('ph') or ''),
+           '人员控件的标签/占位符不含「无负责人」：%s / %s' % (r2.get('label'), r2.get('ph')))
+
+        # 点击输入框 → 树弹窗（含搜索框）
+        await ev("document.getElementById('personFilterInput').click();")
+        await asyncio.sleep(2.0)
+        r = await ev("""(function(){
+            var p=TREE_PICK&&TREE_PICK.panel;
+            return {opened:!!p, search:!!document.getElementById('tp_search'),
+                    persons:p?p.querySelectorAll('.tp-person').length:0};
+        })()""")
+        ok(r.get('opened') is True, '点击人员输入框 → 直接打开架构树')
+        ok(r.get('search') is True, '树内有搜索框（承接原下拉面板的输入匹配能力）')
+        ok(r.get('persons', 0) > 0, '树上渲染出末级人员：%s' % r.get('persons'))
+
+        # 树内搜索
+        await ev("(function(){var i=document.getElementById('tp_search');i.value='吴';tpSearch('吴');})()")
+        await asyncio.sleep(1.2)
+        r = await ev("""(function(){
+            var p=TREE_PICK.panel;
+            return {persons:p.querySelectorAll('.tp-person').length,
+                    names:[].slice.call(p.querySelectorAll('.tp-person')).map(function(e){
+                        return e.textContent.replace(/👤/g,'').trim().split('（')[0].trim();})};
+        })()""")
+        ok(r.get('persons', 0) > 0 and r.get('persons') < 36,
+           '搜索「吴」过滤出 %s 人（全部 %s 人）' % (r.get('persons'), 36))
+        ok(all('吴' in n for n in (r.get('names') or [])), '过滤结果均含关键字：%s' % (r.get('names') or []))
 
     print('\n=== 结果：%d 通过 / %d 失败 ===' % (PASS, FAIL))
     return 1 if FAIL else 0

@@ -148,8 +148,10 @@ async def main():
             var wd=document.getElementById('weekFilterDrop');
             return {
               pInput:!!pi, pType:pi?pi.tagName:'', pPlaceholder:pi?pi.placeholder:'',
+              pReadonly:pi?pi.readOnly:null,
               wInput:!!wi, wType:wi?wi.tagName:'', wPlaceholder:wi?wi.placeholder:'',
               pDrop:!!pd, wDrop:!!wd,
+              pTreeBtn:!!document.getElementById('personFilterTreeBtn'),
               pChips:!!document.getElementById('personFilterChips'),
               wChips:!!document.getElementById('weekFilterChips'),
               hasInputFilter:!!document.querySelector('.cf-input'),
@@ -159,38 +161,33 @@ async def main():
         })()""")
         ok(r.get('pInput') is True and r.get('pType') == 'INPUT', '人员筛选是可输入控件（input）')
         ok(r.get('wInput') is True and r.get('wType') == 'INPUT', '周数筛选是可输入控件（input）')
-        ok('姓名' in (r.get('pPlaceholder') or ''), '人员输入框提示支持输入：%s' % r.get('pPlaceholder'))
+        ok('架构树' in (r.get('pPlaceholder') or ''),
+           '人员输入框提示指向架构树：%s' % r.get('pPlaceholder'))
         ok('41' in (r.get('wPlaceholder') or ''), '周数输入框提示支持数字输入：%s' % r.get('wPlaceholder'))
-        ok(r.get('pDrop') is True and r.get('wDrop') is True, '两者都有候选下拉面板（多选）')
+        # 人员筛选的入口已转移到架构树：没有下拉面板、没有独立的 🌳 按钮
+        ok(r.get('pDrop') is False, '人员控件无候选下拉面板（入口=架构树）')
+        ok(r.get('pTreeBtn') is False, '人员控件右侧的 🌳 按钮已移除')
+        ok(r.get('pReadonly') is True, '人员输入框为只读触发器')
+        ok(r.get('wDrop') is True, '周数控件有候选下拉面板（多选）')
         ok(r.get('pChips') is True and r.get('wChips') is True, '两者都有已选 chips 展示（多选）')
         ok(r.get('oldPersonBtn') is False and r.get('oldWeekBtn') is False, '旧的纯下拉按钮已移除')
 
-        # 打开人员下拉 → 应列出候选（来自接口）
-        # 用 click() 而非 focus()：headless 下窗口未激活，focus() 不派发 focus 事件
+        # 点击人员输入框 → 直接打开架构树弹窗（含搜索框）
         await ev("document.getElementById('personFilterInput').click();")
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(2.0)
         r = await ev("""(function(){
-            var d=document.getElementById('personFilterDrop');
-            return {hidden:d?d.hidden:null, opts:d?d.querySelectorAll('.cf-opt').length:0,
-                    tip:d?(d.querySelector('.cf-tip')||{}).textContent||'':''};
+            var p=TREE_PICK&&TREE_PICK.panel;
+            return {opened:!!p,
+                    search:!!document.getElementById('tp_search'),
+                    persons:p?p.querySelectorAll('.tp-person').length:0,
+                    optsBar:p?!!p.querySelector('.tp-opts'):false};
         })()""")
-        ok(r.get('hidden') is False, '聚焦后人员候选面板展开')
-        ok(r.get('opts', 0) > 0, '人员候选有可勾选项：%s' % r.get('opts'))
-        ok('负责人' in (r.get('tip') or ''), '提示说明按「负责人」维度生效：%s' % (r.get('tip') or '')[:40])
-
-        # 输入过滤
-        await ev("(function(){var i=document.getElementById('personFilterInput');i.value='__不存在的名字__';i.dispatchEvent(new Event('input'));})()")
+        ok(r.get('opened') is True, '点击人员输入框直接打开架构树弹窗')
+        ok(r.get('search') is True, '树弹窗内有搜索框（按姓名筛选）')
+        ok(r.get('persons', 0) > 0, '树上渲染出末级人员：%s' % r.get('persons'))
+        ok(r.get('optsBar') is True, '树上有「显示选项」区（「无负责人」独立启用）')
+        await ev("closeTreePick();")
         await asyncio.sleep(0.6)
-        r = await ev("""(function(){
-            var d=document.getElementById('personFilterDrop');
-            return {opts:d?d.querySelectorAll('.cf-opt').length:0,
-                    empty:d?(d.querySelector('.cf-empty')||{}).textContent||'':''};
-        })()""")
-        ok(r.get('opts', 0) == 0 and '无匹配' in (r.get('empty') or ''),
-           '输入不存在的名字 → 候选清空并提示无匹配：%s' % (r.get('empty') or ''))
-        await ev("document.getElementById('personFilterInput').value='';")
-        await ev("document.getElementById('personFilterInput').dispatchEvent(new Event('input'));")
-        await asyncio.sleep(0.5)
 
         # 周数输入归一：41 → 2026年第41周
         r = await ev("(function(){return typeof normWeekInput==='function'?normWeekInput('41'):'__err__';})()")
@@ -211,18 +208,14 @@ async def main():
         ok(r.get('ownerFilterExists') is False, '筛选栏已无「全部负责人」下拉')
         ok(r.get('ownerWords') == 0, '页面上不再出现「全部负责人」文案')
 
-        # 「无负责人」已从下拉面板移入【架构树】的「显示选项」→ 这里只验证下拉面板里没有它
-        await ev("document.getElementById('personFilterInput').click();")
-        await asyncio.sleep(1.2)
+        # 「无负责人」在【架构树】的「显示选项」区 → 筛选栏本身不出现该文案
         r = await ev("""(function(){
-            var d=document.getElementById('personFilterDrop');
-            return {hasNone:!!d.querySelector('[data-pick-person="__no_owner__"]'),
-                    noneText:(d.innerText.match(/无负责人/g)||[]).length};
+            var w=document.getElementById('personFilterWrap');
+            return {noneText:(w.innerText.match(/无负责人/g)||[]).length,
+                    dropExists:!!document.getElementById('personFilterDrop')};
         })()""")
-        ok(r.get('hasNone') is False, '人员下拉面板里已无「无负责人」候选项（改由架构树承载）')
-        ok(r.get('noneText') == 0, '人员下拉面板文案不含「无负责人」：%s 处' % r.get('noneText'))
-        await ev("(function(){closeFilterCombo();})()")
-        await asyncio.sleep(0.5)
+        ok(r.get('noneText') == 0, '人员控件上不出现「无负责人」文案：%s 处' % r.get('noneText'))
+        ok(r.get('dropExists') is False, '人员控件已无候选下拉面板')
 
         # reload() 提交 person 参数；不再提交 owner 参数
         r = await ev("""(function(){
@@ -242,7 +235,7 @@ async def main():
 
         # ================= 用例 4：人员树状展开 =================
         print('\n【用例4】人员树状展开/收起与状态同步')
-        await ev("document.getElementById('personFilterTreeBtn').click();")
+        await ev("document.getElementById('personFilterInput').click();")
         await asyncio.sleep(1.5)
         r = await ev("""(function(){
             if(!TREE_PICK)return {none:true};
@@ -306,7 +299,7 @@ async def main():
         # 关闭再打开 → 展开状态应保持
         await ev("closeTreePick();")
         await asyncio.sleep(0.5)
-        await ev("document.getElementById('personFilterTreeBtn').click();")
+        await ev("document.getElementById('personFilterInput').click();")
         await asyncio.sleep(1.5)
         r = await ev("""(function(){
             if(!TREE_PICK)return {none:true};

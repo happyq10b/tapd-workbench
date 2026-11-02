@@ -27,16 +27,35 @@ ok(/id="weekFilterInput"/.test(htmlSrc), '周数筛选有文本输入框');
 ok(/class="cf-input"/.test(htmlSrc), '两个输入框共用 .cf-input 样式');
 ok(/id="personFilterChips"/.test(htmlSrc) && /id="weekFilterChips"/.test(htmlSrc),
    '两个控件都有已选 chips 区（多选可见）');
-ok(/id="personFilterDrop"/.test(htmlSrc) && /id="weekFilterDrop"/.test(htmlSrc),
-   '两个控件都有候选下拉面板（勾选式多选）');
+ok(/id="weekFilterDrop"/.test(htmlSrc),
+   '周数控件有候选下拉面板（勾选式多选）');
+ok(/id="personFilterDrop"/.test(htmlSrc) === false,
+   '人员控件无候选下拉面板（入口已转移到架构树）');
+ok(/id="personFilterTreeBtn"/.test(htmlSrc) === false,
+   '人员控件右侧的 🌳 按钮已移除（点击输入框直接开树）');
+ok(/id="personFilterInput"[^>]*readonly/.test(htmlSrc),
+   '人员输入框为只读触发器（点击打开架构树）');
+ok(/onclick="openPersonFilterPicker\(this\)"/.test(htmlSrc),
+   '点击人员输入框直接打开架构树弹窗');
 ok(/class="cf-opt"/.test(htmlSrc), '候选为勾选式（.cf-opt + checkbox）');
 ok(!/id="personFilterBtn"/.test(htmlSrc), '旧的「按人员筛选」按钮已移除');
 ok(!/id="weekFilterBtn"/.test(htmlSrc), '旧的「📅 周数」按钮已移除');
-// 输入匹配：人员按姓名模糊匹配、周数按数字/标签匹配
-ok(/PERSON_OPTIONS\.filter\(n=>!kw\|\|n\.toLowerCase\(\)\.includes\(kw\)\)/.test(htmlSrc),
-   '人员候选按输入文本模糊匹配');
+// 输入匹配：人员改为在**树内**搜索（tp_search），周数按数字/标签匹配
+ok(/id="tp_search"/.test(htmlSrc) && /oninput="tpSearch\(this\.value\)"/.test(htmlSrc),
+   '树弹窗内有搜索框（按姓名过滤人员）');
+ok(/function tpNodeMatches\(n,kw\)/.test(htmlSrc),
+   '提供 tpNodeMatches()（按姓名过滤节点与人员）');
 ok(/weekLabelOf\(w\)\.toLowerCase\(\)\.includes\(kw\)/.test(htmlSrc),
    '周数候选按输入文本匹配（支持 2026-41 形式）');
+// 周数排序：必须按 202601~202644 的组合整数序，不能用字符串序
+ok(/function weekSortKey\(v\)/.test(htmlSrc), '提供 weekSortKey()（组合整数排序键）');
+ok(/parseInt\(m\[1\],10\)\*100\+parseInt\(m\[2\],10\)/.test(htmlSrc),
+   'weekSortKey 把「2026年第41周」折成 202641 这样的组合整数');
+ok(/\.sort\(\(a,b\)=>weekSortKey\(a\)-weekSortKey\(b\)\)/.test(htmlSrc),
+   '周数候选按组合整数序排序（非字符串序）');
+ok(/def week_sort_key\(v\)/.test(pySrc), '后端提供 week_sort_key()（与前端同口径）');
+ok(/sorted\(weeks, key=week_sort_key\)/.test(pySrc), '后端候选接口按组合整数序返回周数');
+ok(/key=week_sort_key\)/.test(pySrc), '后端列表接口的周数选项按组合整数序排序');
 // 周数输入归一：41 / 2026-41 / 2026年第41周
 ok(/function normWeekInput\(raw\)/.test(htmlSrc), '提供周数归一函数 normWeekInput');
 ok(/\\d\{4\}\)\\s\*年\?\\\s\*第\\\s\*\(\\d\{1,2\}\)/.test(htmlSrc) ||
@@ -69,11 +88,13 @@ ok(/want_none = OWNER_NONE in pnames/.test(pySrc), '后端 person 分支支持 _
 ok(/PERSON_SEL=new Set\(persons/.test(htmlSrc), '架构选人结果直接写入 PERSON_SEL');
 ok(/function syncFilterHint\(\)/.test(htmlSrc), '提供统一的筛选条件提示');
 ok(/parts\.push\('人员：'/.test(htmlSrc), '提示中展示人员条件');
-ok(/此处的筛选条件按「负责人」维度生效/.test(htmlSrc), '界面文案说明按负责人维度生效');
+ok(/此处的筛选条件按「负责人」维度生效/.test(htmlSrc) === false,
+   '人员下拉面板已下线（原文案随之移除）');
+ok(/负责人为空的成员/.test(htmlSrc), '树上「无负责人」节点说明其语义（负责人为空的成员）');
 // 后端候选接口（权限过滤）
 ok(/@app\.get\('\/api\/filter-options'\)/.test(pySrc), '提供筛选候选接口 /api/filter-options');
-ok(/'people': sorted\(people\)/.test(pySrc) && /'weeks': sorted\(weeks\)/.test(pySrc),
-   '候选接口返回人员与周数名单');
+ok(/'people': sorted\(people\)/.test(pySrc) && /'weeks': sorted\(weeks, key=week_sort_key\)/.test(pySrc),
+   '候选接口返回人员与周数名单（周数按组合整数序）');
 ok(/rows = filter_rows\(dbq\('SELECT owner, week_no FROM cards WHERE deleted=0'\), boards, columns\)/.test(pySrc),
    '候选名单取自权限可见范围内的事项（越权数据不出现）');
 
@@ -83,7 +104,7 @@ ok(/rows = filter_rows\(dbq\('SELECT owner, week_no FROM cards WHERE deleted=0'\
 console.log('\n【用例3】人员树状展开/收起与状态同步');
 ok(/node_id': cur\}/.test(pySrc), '后端成员记录带 node_id（人员归属到实际任职节点）');
 ok(/m\.node_id===n\.id/.test(htmlSrc), '前端按 node_id 过滤，人员只挂在真正任职的那一层');
-ok(/const hasBody=hasCh\|\|members\.length>0/.test(htmlSrc),
+ok(/const hasBody=hasCh\|\|allMembers\.length>0/.test(htmlSrc),
    '有子节点或有直属人员 → 节点才可展开');
 ok(/<div id="tp_children_\$\{n\.id\}" style="display:\$\{exp\?'block':'none'\}">\$\{memberHtml\}/.test(htmlSrc),
    '人员条目渲染在可折叠容器内部（折叠时随父节点隐藏）');
@@ -203,7 +224,8 @@ ok(/class="tp-none-node"/.test(htmlSrc) && /tn-tag">无负责人/.test(htmlSrc),
    '树上以「无负责人」标签/节点样式呈现（.tp-none-node + 标签）');
 ok(/function tpToggleNoneOwner\(\)/.test(htmlSrc), '提供 tpToggleNoneOwner()（独立启用开关）');
 ok(/showNoneOwner:true/.test(htmlSrc), '人员筛选的树弹窗启用了该选项');
-ok(/tree:ORG_TREE, showNoneOwner:true/.test(htmlSrc), '架构树入口传入 showNoneOwner');
+ok(/tree:ORG_TREE,\s*\n?\s*showNoneOwner:true/.test(htmlSrc) || /tree:ORG_TREE, showNoneOwner:true/.test(htmlSrc),
+   '架构树入口传入 showNoneOwner');
 ok(/wantNone=!!\(meta&&meta\.none\)/.test(htmlSrc), '树弹窗确认时回传「无负责人」状态');
 ok(/if\(wantNone\)PERSON_SEL\.add\(OWNER_NONE\)/.test(htmlSrc),
    '「无负责人」回填进 PERSON_SEL（与负责人维度同一集合）');
