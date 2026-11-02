@@ -37,3 +37,6 @@ Thumbs.db
 # ── 本地服务运行时产物（不入库）──
 ops/.localdev.pid
 ops/.localdev.log
+
+# ── 交接文档写入前的过程备份（不入库）──
+HANDOFF.md.bak
