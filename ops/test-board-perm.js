@@ -124,7 +124,14 @@ ok(/_center_node_ids\(\)/.test(pySrc), '中心级部门单独识别（财务中�
 ok(/scope & centers/.test(pySrc), '挂靠中心的成员按管理层全范围处理');
 ok(/nid in centers/.test(pySrc), '中心归属的板块对全员展示');
 ok(/def _dept_order\(\)/.test(pySrc), '目录树部门顺序随架构层级动态变化');
-ok(/'depts': _dept_order\(\)/.test(pySrc), '/api/me 的部门清单改为动态');
+// ⚠️ 2026-11-02：/api/me 的部门清单改为**按权限过滤** —— 只含有可见看板的部门。
+//    原为 `'depts': _dept_order()`（架构里的全部部门）→ 普通用户目录树会列出
+//    自己无权访问的部门（既暴露组织信息，又让用户以为那里有事却点进去是空的）。
+ok(/'depts': dept_list/.test(pySrc), '/api/me 的部门清单按权限过滤（dept_list）');
+ok(/seen = \{item\.get\('dept'\) for item in boards_out if item\.get\('dept'\)\}/.test(pySrc),
+   '部门清单取自「有可见看板的部门」集合');
+ok(/if boards is None:\s*\n\s*dept_list = _dept_order\(\)/.test(pySrc),
+   '管理员（boards=None=全部）仍看到全部部门');
 ok(/if dept not in _dept_names\(\)/.test(pySrc), '部门校验改为按架构层级');
 ok(/ALLOWED_DEPTS/.test(pySrc) === false || /DEPT_ORDER = \[/.test(pySrc),
   '固定部门枚举退化为历史回退清单');
