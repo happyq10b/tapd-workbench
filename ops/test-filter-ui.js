@@ -48,23 +48,26 @@ ok(/toast\('周数格式应为 41 \/ 2026-41 \/ 2026年第41周'\)/.test(htmlSrc
    '非法周数给出明确提示');
 
 // ============================================================
-// 用例 2：人员筛选锚定负责人维度（取交集、互不覆盖）
+// 用例 2：人员筛选独占「负责人」维度（独立负责人下拉已下线）
 // ============================================================
-console.log('\n【用例2】人员筛选与负责人筛选解耦（交集语义）');
+console.log('\n【用例2】人员筛选独占负责人维度（「全部负责人」下拉已下线）');
 ok(/person: Optional\[str\] = None/.test(pySrc), '后端 /api/cards 支持 person 参数');
 ok(/if person:/.test(pySrc) && /r\.get\('owner'\)/.test(pySrc),
-   'person 条件作用在 owner 字段（与负责人条件同字段）');
+   'person 条件作用在 owner 字段（负责人维度）');
 ok(/ps\.set\('person',\[...PERSON_SEL\]\.join\(','\)\)/.test(htmlSrc),
-   'reload 提交 person 参数（与 owner 同时提交 → 服务端求交集）');
+   'reload 提交 person 参数');
+ok(/!captured\.includes\('owner='\)/.test(fs.readFileSync(path.join(__dirname, 'test-filter.js'), 'utf8')),
+   '前端不再提交 owner 参数（下拉下线后由 person 独占）');
 ok(/let PERSON_SEL=new Set\(\)/.test(htmlSrc), '人员筛选有独立状态集合 PERSON_SEL');
-ok(!/opt\.value=names; opt\.textContent='负责人：'/.test(htmlSrc),
-   '不再往负责人下拉注入自定义 option（旧实现的条件覆盖根源）');
-ok(/opt=sel\.querySelector\('option\[data-multi="1"\]'\)/.test(htmlSrc) === false,
-   '已移除 option[data-multi] 的注入逻辑');
+ok(!/<select class="filter-select" id="ownerFilter"/.test(htmlSrc), '独立的「全部负责人」下拉已从 HTML 移除');
+ok(!/<option value="">全部负责人<\/option>/.test(htmlSrc), '「全部负责人」选项已移除');
+ok(/const OWNER_NONE='__no_owner__'/.test(htmlSrc), '前端定义 OWNER_NONE 特殊值');
+ok(/data-pick-person="\$\{OWNER_NONE\}"/.test(htmlSrc), '「无负责人」并入人员筛选面板');
+ok(/want_none = OWNER_NONE in pnames/.test(pySrc), '后端 person 分支支持 __no_owner__');
 ok(/PERSON_SEL=new Set\(persons\)/.test(htmlSrc), '架构选人结果直接写入 PERSON_SEL');
 ok(/function syncFilterHint\(\)/.test(htmlSrc), '提供统一的筛选条件提示');
-ok(/parts\.push\('人员：'/.test(htmlSrc), '提示中区分「负责人」与「人员」两个条件');
-ok(/两者取交集/.test(htmlSrc), '界面文案说明与负责人条件取交集');
+ok(/parts\.push\('人员：'/.test(htmlSrc), '提示中展示人员条件');
+ok(/此处的筛选条件按「负责人」维度生效/.test(htmlSrc), '界面文案说明按负责人维度生效');
 // 后端候选接口（权限过滤）
 ok(/@app\.get\('\/api\/filter-options'\)/.test(pySrc), '提供筛选候选接口 /api/filter-options');
 ok(/'people': sorted\(people\)/.test(pySrc) && /'weeks': sorted\(weeks\)/.test(pySrc),
@@ -130,6 +133,43 @@ ok((htmlSrc.match(/class="stat-card"/g) || []).length >= 3, '统计带含 3 张�
 // 旧的 progress-overview 内嵌公告结构应已移除
 ok(!/<div class="notice-bar" id="noticeBar"><\/div>`\s*;\s*await renderNoticeBar/.test(htmlSrc),
    '统计带不再内嵌公告栏（公告已独立到右半）');
+
+// ============================================================
+// 用例 5：本次 UI 调整（圆点 / 标题 / 下拉下线 / 筛选栏同行）
+// ============================================================
+console.log('\n【用例5】UI 调整：去掉浮空圆点 / 标题加粗 / 下拉下线 / 筛选栏同行');
+
+// 5.1 浮空圆点：.my-status-bar 的 display:flex 覆盖了 [hidden] 的 UA 样式
+ok(/\.my-status-bar\[hidden\]\{display:none\}/.test(htmlSrc),
+   '个人状态栏有 [hidden] 兜底（否则状态圆点会孤零零浮在顶栏左上角）');
+ok(/bar\.hidden=!st/.test(htmlSrc), '状态文字为空时整条状态栏隐藏');
+
+// 5.2 三个标题加粗 + 放大
+ok(/\.tb-band-title\{font-size:13px;font-weight:700/.test(htmlSrc),
+   '带标题加粗（font-weight:700）且放大到 13px');
+ok(/<div class="tb-band-title">可选板块<\/div>/.test(htmlSrc),
+   '「板块」标题改为「可选板块」');
+ok(/<div class="tb-band-title">架构部门<\/div>/.test(htmlSrc), '「架构部门」标题保留');
+ok(/<div class="tb-band-title">统计概览<\/div>/.test(htmlSrc), '「统计概览」标题保留');
+
+// 5.3 「全部负责人」下拉下线
+ok(!/id="ownerFilter"/.test(htmlSrc), 'HTML 无 ownerFilter 元素');
+ok(!/<option value="">全部负责人<\/option>/.test(htmlSrc) && !/<option value="__no_owner__">/.test(htmlSrc),
+   'HTML 无「全部负责人 / 无负责人」下拉选项');
+ok(!/getElementById\('ownerFilter'\)/.test(htmlSrc), 'JS 不再引用 ownerFilter');
+ok(/const OWNER_NONE='__no_owner__'/.test(htmlSrc), 'OWNER_NONE 特殊值');
+ok(/function personLabel\(v\)/.test(htmlSrc), 'personLabel() 显示文案转换');
+
+// 5.4 筛选栏：缩小人员/周数输入框 + 日期区间同行
+ok(/\.cf-field\{[^}]*width:104px;max-width:220px/.test(htmlSrc),
+   '人员/周数输入区缩到 104px（上限 220px）');
+ok(/\.cf-input\{[^}]*min-width:52px/.test(htmlSrc), '输入框最小宽度缩到 52px');
+ok(/\.toolbar-left\{[^}]*flex-wrap:nowrap/.test(htmlSrc),
+   '筛选区不换行（日期区间与其它控件同一行）');
+ok(/\.filter-date\{[^}]*width:122px/.test(htmlSrc), '日期输入框缩到 122px');
+ok(/\.date-filter\{[^}]*flex:0 0 auto/.test(htmlSrc), '日期区间容器固定宽度（不参与压缩）');
+ok(/@media\(max-width:1024px\)\{\s*\.toolbar-left\{flex-wrap:wrap\}/.test(htmlSrc),
+   '窄屏（≤1024px）恢复换行，避免溢出');
 
 console.log('\n结果：%d 通过 / %d 失败', pass, fail);
 process.exit(fail ? 1 : 0);

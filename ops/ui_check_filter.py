@@ -176,7 +176,7 @@ async def main():
         })()""")
         ok(r.get('hidden') is False, '聚焦后人员候选面板展开')
         ok(r.get('opts', 0) > 0, '人员候选有可勾选项：%s' % r.get('opts'))
-        ok('交集' in (r.get('tip') or ''), '提示说明与负责人条件取交集：%s' % (r.get('tip') or '')[:40])
+        ok('负责人' in (r.get('tip') or ''), '提示说明按「负责人」维度生效：%s' % (r.get('tip') or '')[:40])
 
         # 输入过滤
         await ev("(function(){var i=document.getElementById('personFilterInput');i.value='__不存在的名字__';i.dispatchEvent(new Event('input'));})()")
@@ -202,44 +202,41 @@ async def main():
         r = await ev("(function(){return typeof normWeekInput==='function'?normWeekInput('第99周'):'__err__';})()")
         ok(r == '', '非法周数被拒绝：%r' % r)
 
-        # ================= 用例 3：人员 vs 负责人 互不覆盖 =================
-        print('\n【用例3】人员筛选与负责人筛选互不覆盖（取交集）')
+        # ================= 用例 3：独立的「全部负责人」下拉已下线 =================
+        print('\n【用例3】「全部负责人」下拉下线，人员筛选独占负责人维度')
         r = await ev("""(function(){
-            var sel=document.getElementById('ownerFilter');
-            var before=sel.value;
-            // 选一个负责人
-            var opt=null;
-            for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value){opt=sel.options[i];break;} }
-            if(opt)sel.value=opt.value;
-            var ownerVal=sel.value;
-            // 再选人员
-            PERSON_SEL=new Set(['__测试人员A__']);
-            reload(1);
-            return {ownerVal:ownerVal, selAfter:sel.value,
-                    personSel:[...PERSON_SEL],
-                    personParam:(function(){
-                        try{return 'ok';}catch(e){return 'err';}
-                    })()};
+            return {ownerFilterExists:!!document.getElementById('ownerFilter'),
+                    ownerWords:(document.body.innerText.match(/全部负责人/g)||[]).length};
         })()""")
-        await asyncio.sleep(1.2)
-        r2 = await ev("""(function(){
-            var sel=document.getElementById('ownerFilter');
-            return {selValue:sel.value, personSel:[...PERSON_SEL],
-                    multiOption:!!sel.querySelector('option[data-multi="1"]')};
-        })()""")
-        ok(r2.get('selValue') == r.get('ownerVal'), '选人员后负责人下拉的选中值不被覆盖：%s' % r2.get('selValue'))
-        ok(r2.get('multiOption') is False, '不再往负责人下拉里注入自定义 option（旧实现的覆盖根源）')
-        ok(len(r2.get('personSel') or []) == 1, '人员筛选集合独立维护：%s' % r2.get('personSel'))
+        ok(r.get('ownerFilterExists') is False, '筛选栏已无「全部负责人」下拉')
+        ok(r.get('ownerWords') == 0, '页面上不再出现「全部负责人」文案')
 
-        # 检查实际请求参数：owner 与 person 同时出现
-        await ev("(function(){window.__cap=[];var _f=window.fetch;})()")
+        # 人员面板里有「无负责人」候选项，且勾选后进入 PERSON_SEL
+        await ev("document.getElementById('personFilterInput').click();")
+        await asyncio.sleep(1.2)
+        r = await ev("""(function(){
+            var box=document.querySelector('#personFilterDrop [data-pick-person="__no_owner__"]');
+            if(!box)return {none:true};
+            box.click();
+            return {sel:[...PERSON_SEL], chips:(document.getElementById('personFilterChips')||{}).textContent||''};
+        })()""")
+        ok('__no_owner__' in (r.get('sel') or []), '「无负责人」并入人员筛选集合：%s' % (r.get('sel') or []))
+        ok('无负责人' in (r.get('chips') or ''), '「无负责人」在 chips 里显示为中文文案：%s' % (r.get('chips') or ''))
+        await ev("(function(){PERSON_SEL=new Set();paintFilterCombos();reload(1);})()")
+        await asyncio.sleep(1.2)
+
+        # reload() 提交 person 参数；不再提交 owner 参数
         r = await ev("""(function(){
             return {hasPerson:typeof PERSON_SEL!=='undefined',
                     src:(function(){
                         try{return String(reload).indexOf("ps.set('person'")>=0;}catch(e){return false;}
+                    })(),
+                    noOwner:(function(){
+                        try{return String(reload).indexOf("ps.set('owner'")<0;}catch(e){return false;}
                     })()};
         })()""")
-        ok(r.get('src') is True, 'reload() 提交 person 参数（与 owner 并存 → 服务端取交集）')
+        ok(r.get('src') is True, 'reload() 提交 person 参数（锚定 owner 字段）')
+        ok(r.get('noOwner') is True, 'reload() 不再提交 owner 参数（下拉已下线）')
 
         await ev("PERSON_SEL=new Set();reload(1);")
         await asyncio.sleep(0.8)

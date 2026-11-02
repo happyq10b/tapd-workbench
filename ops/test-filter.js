@@ -118,46 +118,36 @@ sandbox.renderBoard = () => {};
 
 (async () => {
   // ============================================================
-  // 用例 1：负责人下拉的「无负责人」选项
+  // 用例 1：「无负责人」并入人员筛选面板（独立的「全部负责人」下拉已下线）
   // ============================================================
-  console.log('\n【用例1】负责人「无负责人」选项');
-  ok(/<option value="__no_owner__">无负责人<\/option>/.test(htmlSrc),
-    'HTML 里存在静态「无负责人」选项（value=__no_owner__）');
-  ok(/<option value="">全部负责人<\/option>/.test(htmlSrc),
-    '「全部负责人」选项保留（空值语义不变）');
-  // 动态填充负责人时，不能把静态 option 冲掉：
-  // 原逻辑用 options.length<=1 判断，加了静态 option 后该判断恒不成立 → 负责人列表永远填不进去
-  ok(/os_\.dataset\.filled/.test(htmlSrc),
-    '负责人下拉改用 dataset.filled 标记（不再用 options.length 判断）');
-  ok(!/os_\.options\.length<=1/.test(htmlSrc),
-    '旧的 options.length<=1 判断已移除（否则负责人列表永远填不进去）');
-
-  // 行为验证：调 renderProgress 后，「无负责人」仍在，负责人也补上了
-  const os_ = getEl('ownerFilter');
-  os_.options.length = 0;
-  const mkOpt = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; return o; };
-  os_.options.push(mkOpt('', '全部负责人'));
-  os_.options.push(mkOpt('__no_owner__', '无负责人'));
-  os_.dataset = {};
-  await sandbox.renderProgress();
-  eq(os_.options.length, 4, '填充后选项数 = 全部负责人 + 无负责人 + 2 个负责人');
-  eq(os_.options[1].value, '__no_owner__', '「无负责人」仍在第 2 位（未被动态填充挤掉）');
-  eq(os_.options[1].textContent, '无负责人', '「无负责人」文案正确');
-  eq(os_.options[2].value, '吴婷婷', '负责人列表正常填充');
-  // 再调一次不应重复填充
-  await sandbox.renderProgress();
-  eq(os_.options.length, 4, '重复调用 renderProgress 不会重复追加选项');
+  console.log('\n【用例1】「无负责人」并入人员筛选面板');
+  ok(!/<option value="">全部负责人<\/option>/.test(htmlSrc),
+    '独立的「全部负责人」下拉已从 HTML 移除');
+  ok(!/id="ownerFilter"/.test(htmlSrc),
+    'ownerFilter 元素已从 HTML 移除');
+  ok(/const OWNER_NONE='__no_owner__'/.test(htmlSrc),
+    '前端定义 OWNER_NONE 特殊值');
+  ok(/data-pick-person="\$\{OWNER_NONE\}"/.test(htmlSrc),
+    '人员面板里有「无负责人」候选项（data-pick-person=OWNER_NONE）');
+  ok(/function personLabel\(v\)\{return v===OWNER_NONE\?'无负责人':v\}/.test(htmlSrc),
+    'personLabel() 把特殊值翻译成「无负责人」文案');
+  ok(/want_none = OWNER_NONE in pnames/.test(pySrc),
+    '后端 person 分支识别 __no_owner__（无负责人）');
+  ok(/want_none and not o\.strip\(\)/.test(pySrc),
+    '后端 person 分支：无负责人 = owner 为空或纯空白');
+  ok(!/os_\.dataset\.filled/.test(htmlSrc),
+    '旧的负责人下拉动态填充逻辑（dataset.filled）已移除');
 
   // ============================================================
   // 用例 2：reload() 组装查询参数（多条件组合）
   // ============================================================
   console.log('\n【用例2】查询参数组装与组合');
   setLet('curBoard', 'B1');
-  const st = getEl('statusFilter'), ow = getEl('ownerFilter'),
+  const st = getEl('statusFilter'),
         se = getEl('searchInput'), cs = getEl('createdStart'), ce = getEl('createdEnd');
 
   // 2.1 只有日期区间
-  st.value = ''; ow.value = ''; se.value = ''; cs.value = '2026-01-01'; ce.value = '2026-03-31';
+  st.value = ''; se.value = ''; cs.value = '2026-01-01'; ce.value = '2026-03-31';
   await sandbox.reload(1);
   ok(captured.includes('created_start=2026-01-01'), '带上了 created_start');
   ok(captured.includes('created_end=2026-03-31'), '带上了 created_end');
@@ -179,17 +169,21 @@ sandbox.renderBoard = () => {};
   ok(!captured.includes('created_start') && captured.includes('created_end=2026-06-30'),
     '只填止日期 → 只传 created_end（单边区间可用）');
 
-  // 2.4 与状态/负责人/搜索词组合
-  st.value = 'done'; ow.value = '__no_owner__'; se.value = '报表';
+  // 2.4 与状态/人员/搜索词组合
+  st.value = 'done'; se.value = '报表';
   cs.value = '2026-01-01'; ce.value = '2026-12-31';
+  setLet('PERSON_SEL', null);
+  vm.runInContext("PERSON_SEL=new Set(['__no_owner__']);", sandbox);
   await sandbox.reload(1);
   ok(captured.includes('status=done'), '与状态筛选组合');
-  ok(captured.includes('owner=__no_owner__'), '与「无负责人」组合');
+  ok(captured.includes('person=__no_owner__'), '与「无负责人」组合（走 person 参数）');
   ok(captured.includes('q='), '与搜索词组合');
   ok(captured.includes('created_start=2026-01-01') && captured.includes('created_end=2026-12-31'),
     '与创建日期区间组合（四个条件同时生效）');
   // 参数名不能与 TAPD 原始字段 created_from 混淆
   ok(!captured.includes('created_from'), '参数名用 created_start/end，不与 TAPD 原始字段 created_from 混淆');
+  ok(!captured.includes('owner='), '不再提交 owner 参数（下拉已下线，人员筛选独占负责人维度）');
+  vm.runInContext("PERSON_SEL=new Set();", sandbox);
 
   // ============================================================
   // 用例 3：创建日期区间的边界处理
@@ -225,8 +219,13 @@ sandbox.renderBoard = () => {};
   // 3.4 CSS：[hidden] 必须显式兜底，否则会被 inline-flex 覆盖导致按钮永远显示
   ok(/\.filter-clear\[hidden\]\{display:none\}/.test(htmlSrc),
     '[hidden] 有显式兜底样式（否则清除按钮会被 inline-flex 覆盖而常驻）');
-  ok(/\.search-input\{[^}]*max-width:280px/.test(htmlSrc),
+  ok(/\.search-input\{[^}]*max-width:230px/.test(htmlSrc),
     '搜索框已限宽（给日期区间腾出空间，工具栏不被撑成两行）');
+  // 筛选区整行不换行：日期区间必须与其它筛选控件同一行
+  ok(/\.toolbar-left\{[^}]*flex-wrap:nowrap/.test(htmlSrc),
+    '筛选区 flex-wrap:nowrap（搜索/状态/人员/周数/日期区间保持同一行）');
+  ok(/\.cf-field\{[^}]*max-width:220px/.test(htmlSrc),
+    '人员与周数输入区已限宽（max-width:220px）');
 
   // ============================================================
   // 用例 4：后端查询条件核对

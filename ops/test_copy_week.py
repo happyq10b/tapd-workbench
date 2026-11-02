@@ -25,7 +25,18 @@ DB = os.environ.get('TAPD_DB', os.path.join(ROOT, 'src', 'app.db'))
 
 sys.path.insert(0, os.path.join(ROOT, 'src'))
 os.environ.setdefault('APP_SECRET', 'local-dev-secret-not-for-production')
-from app.app import make_token, hash_pw   # noqa: E402
+from app.app import make_token, hash_pw, week_label   # noqa: E402
+
+
+def _now_week():
+    """副本的 created 由服务端取**当前**时间 → 副本周数 = 当前所在自然周。
+    不能写死具体周号（写死的那周过去后测试就会假性失败）。"""
+    import datetime
+    return week_label(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+
+NOW_WEEK = _now_week()
+FIX_WEEK = '2026年第44周'    # 夹具的固定周数（created = 2026-10-30）
 
 PREFIX = '__cw_'
 BOARD_A = PREFIX + 'board_a'        # 归属「资金部」（用户 A 可见）
@@ -103,6 +114,7 @@ def cleanup():
 def setup():
     cleanup()
     c = db()
+    # 夹具的创建日期固定（保证周数断言稳定：2026-10-30 = 第 44 周）
     now = "2026-10-30 12:00:00"
     for bid, bname, dept, node in ((BOARD_A, '【测试】资金部看板', '资金部', 5),
                                     (BOARD_B, '【测试】管理部看板', '管理部', 2)):
@@ -179,8 +191,9 @@ try:
     ok(row is not None and row['creator'] == USR_A, '副本创建人 = 当前账号')
     ok(row is not None and row['status'] == 'open', '副本状态重置为未完成')
     ok(row is not None and row['parent_id'] == '', '主事项副本仍是主事项')
-    ok(row is not None and row['week_no'] == '2026年第44周', '副本周数默认按创建日期：%s'
-       % (row or {}).get('week_no'))
+    ok(row is not None and row['week_no'] == NOW_WEEK,
+       '副本周数默认按创建日期（当前周 %s）：%s'
+       % (NOW_WEEK, (row or {}).get('week_no')))
     # 改副本不影响原记录
     http('/api/cards/' + new_id, 'PUT', {'fields': {'card_name': '改过的副本'}}, token=tok_a)
     src = card_row(CARD_A)
