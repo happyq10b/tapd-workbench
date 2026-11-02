@@ -258,18 +258,92 @@ async def main():
         ok(r.get('search') is True, '树内有搜索框（承接原下拉面板的输入匹配能力）')
         ok(r.get('persons', 0) > 0, '树上渲染出末级人员：%s' % r.get('persons'))
 
-        # 树内搜索
-        await ev("(function(){var i=document.getElementById('tp_search');i.value='吴';tpSearch('吴');})()")
+        # 树内搜索（走真实 input 事件，与用户打字路径一致）
+        await ev("""(function(){
+            var i=document.getElementById('tp_search');
+            i.focus(); i.value='吴';
+            i.dispatchEvent(new Event('input',{bubbles:true}));
+        })()""")
         await asyncio.sleep(1.2)
         r = await ev("""(function(){
             var p=TREE_PICK.panel;
             return {persons:p.querySelectorAll('.tp-person').length,
+                    nodeRows:p.querySelectorAll('.tp-node:not(.tp-person)').length,
                     names:[].slice.call(p.querySelectorAll('.tp-person')).map(function(e){
                         return e.textContent.replace(/👤/g,'').trim().split('（')[0].trim();})};
         })()""")
         ok(r.get('persons', 0) > 0 and r.get('persons') < 36,
            '搜索「吴」过滤出 %s 人（全部 %s 人）' % (r.get('persons'), 36))
         ok(all('吴' in n for n in (r.get('names') or [])), '过滤结果均含关键字：%s' % (r.get('names') or []))
+
+        # 无匹配 → 空态提示
+        await ev("""(function(){
+            var i=document.getElementById('tp_search');
+            i.focus(); i.value='不存在的名字';
+            i.dispatchEvent(new Event('input',{bubbles:true}));
+        })()""")
+        await asyncio.sleep(1.2)
+        r = await ev("""(function(){
+            var p=TREE_PICK.panel;
+            return {persons:p.querySelectorAll('.tp-person').length,
+                    nodeRows:p.querySelectorAll('.tp-node:not(.tp-person)').length,
+                    empty:(p.querySelector('.tp-empty')||{}).textContent||''};
+        })()""")
+        ok(r.get('persons') == 0, '无匹配时没有人员条目')
+        ok(r.get('nodeRows') == 0, '无匹配时不残留空节点行')
+        ok('未匹配到' in (r.get('empty') or ''), '无匹配时显示空态提示：%s' % (r.get('empty') or ''))
+
+        # ---------- 用例 8：中文输入法（IME）兼容 ----------
+        print('\n【用例8】搜索框支持中文输入法（IME）')
+        # 记录搜索框 DOM 节点，验证输入过程中节点不被替换
+        await ev("""(function(){
+            var i=document.getElementById('tp_search');
+            i.focus(); i.value='';
+            i.dispatchEvent(new Event('input',{bubbles:true}));
+            window.__tpNode=i;
+            window.__tpLog=[];
+            ['compositionstart','compositionend','input'].forEach(function(t){
+                i.addEventListener(t,function(e){
+                    window.__tpLog.push(t+':'+(e.isComposing===undefined?'':e.isComposing));
+                });
+            });
+        })()""")
+        await asyncio.sleep(0.8)
+        # 真实 IME 序列：imeSetComposition 建立拼音组合（不提交）→ insertText 上屏汉字
+        await send('Input.imeSetComposition', {'text': 'wuting', 'selectionStart': 6, 'selectionEnd': 6})
+        await asyncio.sleep(0.8)
+        r = await ev("""(function(){
+            var i=document.getElementById('tp_search');
+            return {value:i.value, keyword:TREE_PICK.keyword,
+                    persons:TREE_PICK.panel.querySelectorAll('.tp-person').length,
+                    sameNode:document.getElementById('tp_search')===window.__tpNode,
+                    focused:document.activeElement.id,
+                    log:window.__tpLog};
+        })()""")
+        ok(r.get('sameNode') is True, '拼音组合期间搜索框 DOM 节点未被替换')
+        ok(r.get('focused') == 'tp_search', '拼音组合期间输入框保持焦点')
+        ok(r.get('keyword') == '', '拼音组合期间不触发过滤（keyword 仍为空）')
+        ok(r.get('persons', 0) == 36, '拼音组合期间树上人员不消失（仍 %s 人）' % r.get('persons'))
+        # 上屏汉字 → 正常过滤
+        await send('Input.insertText', {'text': '吴婷婷'})
+        await asyncio.sleep(1.0)
+        r = await ev("""(function(){
+            var i=document.getElementById('tp_search');
+            return {value:i.value, keyword:TREE_PICK.keyword,
+                    persons:TREE_PICK.panel.querySelectorAll('.tp-person').length,
+                    names:[].slice.call(TREE_PICK.panel.querySelectorAll('.tp-person')).map(function(e){
+                        return e.textContent.replace(/👤/g,'').trim().split('（')[0].trim();}),
+                    sameNode:document.getElementById('tp_search')===window.__tpNode,
+                    focused:document.activeElement.id,
+                    log:window.__tpLog};
+        })()""")
+        ok(r.get('sameNode') is True, '上屏后搜索框 DOM 节点仍未被替换')
+        ok(r.get('focused') == 'tp_search', '上屏后输入框仍保持焦点')
+        ok('吴婷婷' in (r.get('value') or ''), '汉字已正常上屏：%s' % (r.get('value') or ''))
+        ok(r.get('keyword') == '吴婷婷', '上屏后按汉字过滤：%s' % (r.get('keyword') or ''))
+        ok(r.get('persons', 0) >= 1, '上屏后过滤出 %s 人' % r.get('persons'))
+        ok(all('吴婷婷' in n for n in (r.get('names') or [])),
+           '过滤结果均为该人员：%s' % (r.get('names') or []))
 
     print('\n=== 结果：%d 通过 / %d 失败 ===' % (PASS, FAIL))
     return 1 if FAIL else 0

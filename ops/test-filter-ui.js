@@ -41,10 +41,24 @@ ok(/class="cf-opt"/.test(htmlSrc), '候选为勾选式（.cf-opt + checkbox）')
 ok(!/id="personFilterBtn"/.test(htmlSrc), '旧的「按人员筛选」按钮已移除');
 ok(!/id="weekFilterBtn"/.test(htmlSrc), '旧的「📅 周数」按钮已移除');
 // 输入匹配：人员改为在**树内**搜索（tp_search），周数按数字/标签匹配
-ok(/id="tp_search"/.test(htmlSrc) && /oninput="tpSearch\(this\.value\)"/.test(htmlSrc),
+// ⚠️ 搜索事件用 addEventListener 绑定（不是内联属性）：顶层 let 变量不在 window 上，
+//    内联处理器访问不到 script scope → IME 组合标志位设不进去 → 打不出拼音
+ok(/id="tp_search"/.test(htmlSrc) && /function bindTpSearch\(\)/.test(htmlSrc),
    '树弹窗内有搜索框（按姓名过滤人员）');
+ok(/inp\.addEventListener\('compositionstart'/.test(htmlSrc) &&
+   /inp\.addEventListener\('compositionend'/.test(htmlSrc) &&
+   /inp\.addEventListener\('input'/.test(htmlSrc),
+   '搜索框绑定 compositionstart / compositionend / input（IME 兼容）');
+ok(/var TP_COMPOSING=false/.test(htmlSrc),
+   'IME 组合标志用 var 声明（挂到 window，内联/闭包都能访问）');
+ok(/if\(TP_COMPOSING\|\|\(e&&e\.isComposing\)\)return;/.test(htmlSrc),
+   '组合期间忽略 input 事件（拼音未上屏，不过滤）');
+ok(/function renderTreePickBody\(\)/.test(htmlSrc),
+   '提供 renderTreePickBody()（只刷内容区，不重建搜索框）');
 ok(/function tpNodeMatches\(n,kw\)/.test(htmlSrc),
    '提供 tpNodeMatches()（按姓名过滤节点与人员）');
+ok(/function tpSubtreeHasMatch\(n,kw\)/.test(htmlSrc),
+   '提供 tpSubtreeHasMatch()（搜索时自动展开到命中项路径）');
 ok(/weekLabelOf\(w\)\.toLowerCase\(\)\.includes\(kw\)/.test(htmlSrc),
    '周数候选按输入文本匹配（支持 2026-41 形式）');
 // 周数排序：必须按 202601~202644 的组合整数序，不能用字符串序
@@ -106,8 +120,8 @@ ok(/node_id': cur\}/.test(pySrc), '后端成员记录带 node_id（人员归属�
 ok(/m\.node_id===n\.id/.test(htmlSrc), '前端按 node_id 过滤，人员只挂在真正任职的那一层');
 ok(/const hasBody=hasCh\|\|allMembers\.length>0/.test(htmlSrc),
    '有子节点或有直属人员 → 节点才可展开');
-ok(/<div id="tp_children_\$\{n\.id\}" style="display:\$\{exp\?'block':'none'\}">\$\{memberHtml\}/.test(htmlSrc),
-   '人员条目渲染在可折叠容器内部（折叠时随父节点隐藏）');
+ok(/<div id="tp_children_\$\{n\.id\}" style="display:\$\{showBody\?'block':'none'\}">\$\{memberHtml\}/.test(htmlSrc),
+   '人员条目渲染在可折叠容器内部（折叠时随父节点隐藏；搜索时按 showBody 自动展开）');
 ok(/var TREE_EXPANDED=new Set\(\)/.test(htmlSrc), '展开状态用全局集合保存（跨弹窗保持）');
 ok(/TREE_EXPANDED\.add\(id\)/.test(htmlSrc) && /TREE_EXPANDED\.delete\(id\)/.test(htmlSrc),
    '展开/收起同步写入全局集合');
