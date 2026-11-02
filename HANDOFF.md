@@ -695,7 +695,7 @@ grep -n '^\.fcols{' src/static/index.html
 |---|---|---|
 | **1** | **测试夹具必须自清理** | 夹具建在**带专属前缀**的命名空间里（如 `__pm_`），<br>用 `try/finally` 保证**无论断言成功失败都清理干净**：<br>`try: ... finally: cleanup()`<br>cleanup 要删全：cards / board_columns / boards / board_config /<br>users / team_members / org_appointments |
 | **2** | **断言不得硬编码全局基线数字** | ❌ `ok(persons == 36, ...)`<br>✅ `ok(persons == base_total, ...)` —— 先**实测**出基线再比对。<br>**理由**：任何人往库里加一条数据（新建板块、导入、临时夹具）都会让它假性失败，<br>而那**与被测代码毫无关系**。 |
-| **3** | **一次性手动实测的临时数据，测完立刻删** | 手工跑 shell/python 造的夹具**不在测试文件里、没有 finally 保护** →<br>最容易漏删。**造完立刻删，或当场记下待删清单。** |
+| **3** | **一次性手动实测的临时数据，测完立刻删** | 手工跑 shell/python 造的夹具**不在测试文件里、没有 finally 保护** →<br>最容易漏删。**造完立刻删，或当场记下待删清单。**<br>⚠️ **2026-11-02 第四次踩坑的实例**：本轮手工实测 ACL 时建了 `__ac_` 前缀的<br>看板+板块+3 个账号，**测完忘删** → 提交前自查才发现（boards 8 而非 7）。<br>→ 提交前**必须**跑 `ops/check_residue.py`（见下），它会把所有 `__` 前缀残留一次列全。 |
 
 #### 诊断口诀：先分清「谁引入的失败」
 
@@ -718,23 +718,22 @@ git -C src stash pop -q
 #### 收尾自查（提交前必做）
 
 ```bash
-ops/.localvenv/Scripts/python.exe -c "
-import sqlite3; c=sqlite3.connect('src/app.db')
-found=False
-for t,col in (('cards','card_id'),('boards','board_id'),('users','username'),
-               ('team_members','account'),('board_columns','board_id'),('board_config','board_id')):
-    n=c.execute("SELECT COUNT(*) FROM %s WHERE %s LIKE ? ESCAPE '\\'"%(t,col),
-                ('__\_%',)).fetchone()[0]
-    if n: print(' ',t,n); found=True
-print('  （无输出 = 干净）' if not found else '  ↑ 有残留')
-"
+# ✅ 推荐：直接跑封装好的脚本（输出「（无输出 = 干净）」即通过）
+ops/.localvenv/Scripts/python.exe ops/check_residue.py
 ```
+
+> 🔴 **为什么推荐脚本而不是手敲 SQL**：`ESCAPE` 的反斜杠在
+> bash heredoc / Python `-c` 里会被**多层转义吃掉** → 变成空串 →
+> 报 `ESCAPE expression must be a single character`；
+> 而 `LIKE '__%'` 不带 ESCAPE 又会**匹配所有记录**（`_` 是单字符通配符），
+> 误报 1141 条残留。`check_residue.py` 用 `chr(92)` 构造反斜杠，绕开全部转义问题。
 
 > 🔴 **自查命令必须带 `ESCAPE`** —— SQL 的 `_` 是**单字符通配符**，
 > `LIKE '__%'` 会匹配**所有**以任意两字符开头的数据（实测把 1141 条 cards 全数报成残留），
 > 让人以为库里脏得没法看。正确写法：`LIKE ? ESCAPE '\'` + 参数 `'__\_%'`。
 >
 > 已用过的前缀（清理时一并检查）：`__ui_` `__pv_` `__pm_` `__pe_` `__ov_` `__pt_` `__poll_`
+> `__ac_` `__acl_`（2026-11-02 ACL 实测）
 > （均为 `__xx_` 形态 → 匹配时写成 `__\_%`）
 
 - **双仓库结构**：
