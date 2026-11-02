@@ -339,8 +339,14 @@ async def main():
         await asyncio.sleep(0.4)
 
         # ================= 用例 5：响应式断点 =================
-        print('\n【用例5】响应式断点')
-        for w, expect_cols, label in ((1440, 2, '宽屏 1440'), (1024, 2, '中屏 1024'), (700, 1, '窄屏 700')):
+        # ⚠️ 需求5（2026-11-02）已废除「窄屏改变布局形态」策略，改为
+        #    「窄屏锁定最小宽度 1200px + 横向滚动，所有元素大小位置不变」。
+        #    → 旧断言「窄屏 700 → 顶部栏 1 栏」失效（同 T-002 根因）。
+        #    → 现断言：**任何视口下顶部栏都保持 2 栏**（宽/中/窄一致）。
+        print('\n【用例5】响应式断点（需求5 后：窄屏锁定宽度，栏数不变）')
+        base_top = None
+        for w, expect_cols, label in ((1440, 2, '宽屏 1440'), (1024, 2, '中屏 1024'),
+                                       (700, 2, '窄屏 700'), (1600, 2, '宽屏 1600')):
             await send('Emulation.setDeviceMetricsOverride',
                        {'width': w, 'height': 900, 'deviceScaleFactor': 1, 'mobile': False})
             await asyncio.sleep(0.6)
@@ -349,10 +355,59 @@ async def main():
                 var cs=getComputedStyle(t);
                 var d=document.getElementById('tbDepts');
                 return {top:cs.gridTemplateColumns,
-                        dept:d?getComputedStyle(d).gridTemplateColumns:''};
+                        dept:d?getComputedStyle(d).gridTemplateColumns:'',
+                        minW:getComputedStyle(document.documentElement).minWidth};
             })()""")
             ncols = len((rr.get('top') or '').split())
             ok(ncols == expect_cols, '%s：顶部栏 %d 栏（实际 %s）' % (label, expect_cols, rr.get('top')))
+            if base_top is None:
+                base_top = rr.get('top')
+            if w < 1200:
+                ok(rr.get('minW') == '1200px',
+                   '%s：文档最小宽度锁定 1200px（实际 %s）' % (label, rr.get('minW')))
+        # 窄屏（≤1199px）必须与 1200px 基准**完全一致** ——
+        # 需求5 的核心诉求：窗口缩小后元素大小位置不变（不压缩、不变形）。
+        # ⚠️ 1440px 不能当基准 —— @media(max-width:1440px) 会把公告列收到 340px，
+        #    左栏因此比 1600px 时更宽（1023 vs 958），拿它做基准会误判。
+        # ⚠️ 1200px 也可能被污染：@media(max-width:900px) 的 `gap:10px` 与
+        #    @media(max-width:640px) 的 `padding:10px 12px 0` 会在更窄时生效，
+        #    却因断点声明顺序只覆盖了 grid-template-columns、漏掉 gap/padding
+        #    → 列宽算差 4px。这属于**布局/尺寸**问题，已登记 T-004 交 UI设计师。
+        #    故此处断言**直接检查 gap/padding 是否被窄屏断点改掉**（根因层面），
+        #    宽度一致性作为参考信息一并输出。
+        await send('Emulation.setDeviceMetricsOverride',
+                   {'width': 1200, 'height': 900, 'deviceScaleFactor': 1, 'mobile': False})
+        await asyncio.sleep(0.6)
+        base = await ev("""(function(){
+            var t=document.getElementById('topbar');
+            var cs=getComputedStyle(t);
+            return {top:cs.gridTemplateColumns, gap:cs.columnGap,
+                    padL:cs.paddingLeft, padR:cs.paddingRight,
+                    deptW:Math.round(document.getElementById('tbDepts').getBoundingClientRect().width)};
+        })()""")
+        for w, label in ((1000, '窄屏 1000'), (700, '窄屏 700')):
+            await send('Emulation.setDeviceMetricsOverride',
+                       {'width': w, 'height': 900, 'deviceScaleFactor': 1, 'mobile': False})
+            await asyncio.sleep(0.6)
+            rr = await ev("""(function(){
+                var t=document.getElementById('topbar');
+                var cs=getComputedStyle(t);
+                return {top:cs.gridTemplateColumns, gap:cs.columnGap,
+                        padL:cs.paddingLeft, padR:cs.paddingRight,
+                        deptW:Math.round(document.getElementById('tbDepts').getBoundingClientRect().width)};
+            })()""")
+            # 根因断言：列间距 / 内边距不得被窄屏断点改掉
+            ok(rr.get('gap') == base.get('gap'),
+               '%s：顶部栏列间距与 1200px 基准一致（实际 %s vs %s）'
+               % (label, rr.get('gap'), base.get('gap')))
+            ok(rr.get('padL') == base.get('padL') and rr.get('padR') == base.get('padR'),
+               '%s：顶部栏内边距与 1200px 基准一致（实际 %s/%s vs %s/%s）'
+               % (label, rr.get('padL'), rr.get('padR'), base.get('padL'), base.get('padR')))
+            # 参考信息：完整宽度一致性
+            same = (rr.get('top') == base.get('top') and rr.get('deptW') == base.get('deptW'))
+            print('     （参考）%s 顶部栏栏宽 %s（基准 %s）、部门栅格 %spx（基准 %spx）%s'
+                  % (label, rr.get('top'), base.get('top'), rr.get('deptW'), base.get('deptW'),
+                     '一致' if same else '不一致 → 见 T-004'))
         await send('Emulation.clearDeviceMetricsOverride')
         await asyncio.sleep(0.5)
 

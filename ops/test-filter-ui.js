@@ -205,8 +205,21 @@ ok(/\.toolbar-left\{[^}]*flex-wrap:nowrap/.test(htmlSrc),
    '筛选区不换行（日期区间与其它控件同一行）');
 ok(/\.filter-date\{[^}]*width:122px/.test(htmlSrc), '日期输入框缩到 122px');
 ok(/\.date-filter\{[^}]*flex:0 0 auto/.test(htmlSrc), '日期区间容器固定宽度（不参与压缩）');
-ok(/@media\(max-width:1024px\)\{\s*\.toolbar-left\{flex-wrap:wrap\}/.test(htmlSrc),
-   '窄屏（≤1024px）恢复换行，避免溢出');
+// 需求5（2026-11-02）已废除「窄屏恢复换行」策略，改为「窄屏锁定最小宽度 + 横向滚动」。
+// 旧断言要求存在 @media(max-width:1024px){.toolbar-left{flex-wrap:wrap}} —— 策略已变，断言失效（T-002）。
+// → 改为断言**现行策略**：
+ok(/html\{min-width:1200px;overflow-x:auto/.test(htmlSrc),
+   '窄屏锁定最小宽度 1200px（文档不再被压窄）');
+ok(/html\{min-width:1200px;overflow-x:auto[^}]*overflow-y:visible/.test(htmlSrc),
+   '窄屏横向滚动、纵向不滚动（overflow-y 不被误设）');
+ok(/@media\(max-width:1199px\)\{[\s\S]{0,400}?\.toolbar-left\{flex-wrap:nowrap\}/.test(htmlSrc),
+   '窄屏兜底断点（≤1199px）内筛选区仍 nowrap（不换行，避免双重变形）');
+ok(/@media\(max-width:1199px\)\{[\s\S]{0,400}?\.toolbar\{flex-wrap:nowrap\}/.test(htmlSrc),
+   '窄屏兜底断点内整个工具栏不换行');
+ok(/\.toolbar-left\{[^}]*flex-wrap:nowrap/.test(htmlSrc),
+   '筛选区基础规则即 nowrap（与窄屏兜底一致）');
+ok(!/@media\(max-width:1024px\)\{\s*\.toolbar-left\{flex-wrap:wrap\}/.test(htmlSrc),
+   '旧策略「≤1024px 恢复换行」已被需求5 废除，不再存在');
 
 // ============================================================
 // 用例 6：组织架构树状图的交互调整
@@ -247,6 +260,30 @@ ok(/if\(wantNone\)PERSON_SEL\.add\(OWNER_NONE\)/.test(htmlSrc),
 ok(/data-pick-person="\$\{OWNER_NONE\}"/.test(htmlSrc) === false,
    '人员下拉面板不再有「无负责人」条目（只在树上呈现）');
 ok(/id="ownerFilter"/.test(htmlSrc) === false, '独立的「全部负责人」下拉已移除');
+
+// ============================================================
+// 用例 7：架构部门排序改为「JS 按名排序」（T-003）
+//   原实现用纯 CSS order + :nth-child 映射，映射依赖后端 DOM 序号，
+//   后端顺序一变（新增部门追加到末尾）即失效 → 改为 JS 侧按部门名排序。
+// ============================================================
+console.log('\n【用例7】部门排序：JS 按名排序（不依赖后端 DOM 序号）');
+ok(/const DEPT_VISUAL_ORDER=\[/.test(htmlSrc), '前端有部门视觉顺序名录 DEPT_VISUAL_ORDER');
+ok(/function deptVisualRank\(name\)/.test(htmlSrc), '提供 deptVisualRank()（按名取位次）');
+ok(/function sortDeptsByName\(list\)/.test(htmlSrc), '提供 sortDeptsByName()（按名排序）');
+ok(/localeCompare\(String\(b\),'zh-Hans-CN'\)/.test(htmlSrc),
+   '名录外部门用中文拼音排序兜底（localeCompare zh-Hans-CN）');
+ok(/const ordered=sortDeptsByName\(depts\)/.test(htmlSrc) &&
+   /depts:ordered\.map\(d=>\(\{name:d,boards:map\[d\]\}\)\)/.test(htmlSrc),
+   'groupBoardsByDept() 用排序后的列表（顶部部门带 / 部门切换下拉 / 初始选中 三处同步生效）');
+// 旧实现必须已被移除
+ok(/tb-dept-band \.tb-grid>\*\{order/.test(htmlSrc) === false,
+   '已移除 CSS order 映射（.tb-dept-band .tb-grid>*{order:0}）');
+ok(/tree-dept:nth-child\(\d\)\}\{order/.test(htmlSrc) === false,
+   '已移除依赖 DOM 序号的 :nth-child → order 映射');
+ok(/nth-child\(6\)/.test(htmlSrc) === false, '不再有 nth-child(6) 之类的硬编码序号映射');
+// 需求1 的目标顺序仍在
+ok(/财务中心.*商务部.*核算部/.test(htmlSrc),
+   '视觉顺序名录保持需求1 指定值（财务中心/商务部/核算部…）');
 
 console.log('\n结果：%d 通过 / %d 失败', pass, fail);
 process.exit(fail ? 1 : 0);
