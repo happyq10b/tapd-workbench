@@ -833,6 +833,7 @@ print('  （无输出 = 干净）' if not found else '  ↑ 有残留')
 | **T-003** | 2026-11-02 | **UI设计师** | 架构部门排序当前用**纯 CSS `order` + `:nth-child`** 实现，映射依赖**后端 `_dept_order()` 返回的 DOM 序号**（实测序：财务中心/核算部/总账部/管理部/资金部/商务部）。CSS 无法按文本选中元素，纯 CSS 路径只能走 `:nth-child`。**若后端部门顺序变化，映射表即失效、视觉顺序会错乱**。若要「按部门名排序」需在 JS 侧按名排序 | `src/static/index.html` | 主设计师（需改 JS 排序逻辑） | ✅ 已处理 · **主设计师** · 改为 JS 按名排序（`DEPT_VISUAL_ORDER` + `deptVisualRank()` + `sortDeptsByName()`），CSS `order` 映射已移除（0 残留） |
 | **T-004** | 2026-11-02 | **UI设计师** | `src/static/index.html.bak`（主设计师改前留的备份文件）**未被 `src/.gitignore` 忽略** → 执行 `git add .` 时会被误带入提交（`src/.gitignore` 当前无 `.bak` 规则，`git check-ignore` 确认未忽略）。顶层 `.gitignore` 只忽略了 `HANDOFF.md.bak`，管不到子仓库 | `src/.gitignore` | 主设计师（正在改 `src`，避免撞车） | ✅ 已处理 · **主设计师** · `src/.gitignore` 补 `*.bak` 规则，`git check-ignore` 已确认命中；工作区不再出现 `.bak` |
 | **T-005** | 2026-11-02 | **主设计师** | **需求5 的窄屏锁定有 4px 缺口**：`.topbar` 的 `column-gap` 在窄屏被 `@media(max-width:900px)` 的 `gap:10px` 改掉（14px→10px），而 `grid-template-columns` 被后声明的 `@media(max-width:1199px)` 覆盖回 2 栏 → **断点只覆盖了一半**。实测：视口 1200 时 `.topbar-main`=798px，视口 700 时=802px，部门栅格 768→772px —— 违反需求5「所有元素大小位置不变」。另 `@media(max-width:640px)` 的 `.topbar{padding:10px 12px 0}` 同理会改内边距（≤640px 时生效） | `src/static/index.html`（L208-213 `@media(max-width:900px)` 的 `.topbar{gap:10px}`；L214-219 `@media(max-width:640px)` 的 `.topbar{padding:10px 12px 0}`） | UI设计师（布局/尺寸属 UI 职责；主设计师只做测试断言，不改样式） | ✅ 已处理 · **UI设计师** · 补齐 gap/padding/列数/字号/order 五项收敛，10 视口 × 16 属性全一致 |
+| **T-006** | 2026-11-02 | **UI设计师** | **断言与新需求冲突**：`ops/test-filter-ui.js` 断言「窄屏兜底断点内整个工具栏不换行」（要求 `@media(max-width:1199px)` 内存在 `.toolbar{flex-wrap:nowrap}`）。该规则是 UI设计师 上一轮为防「双重变形」加的，但**与本轮新需求「筛选明细单独起一行」直接冲突** —— 明细行靠 `.toolbar` 的 `flex-wrap:wrap` 才能换到独立一行（`#filterHint` 用 `flex:1 0 100%` 强制换行）。已删除该规则（保留 `.toolbar-left{flex-wrap:nowrap}`）。测试结果 **143 通过 / 1 失败**，失败项即此条 | `ops/test-filter-ui.js`（断言 L217-218） | 主设计师（测试脚本归属） | ⏳ 待认领 |
 
 ### 5.1.1 T-001 详情（已闭环 · 主设计师 认领）
 
@@ -1000,6 +1001,7 @@ print('  （无输出 = 干净）' if not found else '  ↑ 有残留')
 | #21 | 2026-11-02 | **主设计师** | 后端 + 功能逻辑 | 统一看板/板块/统计三层权限过滤：`/api/boards` 的 card_count 与 col_years 改走 `filter_rows`（此前只做看板级过滤 → 板块白名单收窄后卡片数仍显示全量，实测 6 vs 2）；`/api/boards/{id}/columns` 的 counts 一并过滤。顶栏入口按权限隐藏：新增 `applyPermissionUI()`，「看板管理」（require_admin）与「更多」里的「恢复」「导入」（require_editor）无权限即不显示 | `src/app/app.py`、`src/static/index.html`、`ops/test_board_perm_matrix.py`、`ops/ui_check_perm_entries.py` | `HANDOFF.md §七 #21` |
 | #21 | 2026-11-02 | **主设计师** | 后端 + 功能逻辑 | 统一看板/板块/统计三层权限过滤：`/api/boards` 的 card_count 与 col_years 改走 `filter_rows`（此前只做看板级过滤 → 板块白名单收窄后卡片数仍显示全量，实测 6 vs 2）；`/api/boards/{id}/columns` 的 counts 一并过滤。顶栏入口按权限隐藏：新增 `applyPermissionUI()`，「看板管理」（require_admin）与「更多」里的「恢复」「导入」（require_editor）无权限即不显示 | `src/app/app.py`、`src/static/index.html`、`ops/test_board_perm_matrix.py`、`ops/ui_check_perm_entries.py` | `HANDOFF.md §七 #21` |
 | #22 | 2026-11-02 | **主设计师** | 流程建设 | **立规 §3.3「测试夹具与基线纪律」**：一天内因临时数据污染导致测试假性失败三次（`__ui_`/`__pv_` 夹具没清干净 → `ui_check_tree.py` 的「仍 36 人」断言失败 → 误以为代码坏了）。三条纪律（夹具 `try/finally` 自清理 / 断言禁用绝对基线数字改相对基线 / 一次性实测数据测完立刻删）+ stash 诊断法；并把 `ui_check_tree.py` 的 `36` 改为实测基线 | `HANDOFF.md`、`ops/ui_check_tree.py` | `HANDOFF.md §七 #22` |
+| #23 | 2026-11-02 | **UI设计师** | 界面调整 | 筛选明细（#filterHint）**独占一行**（原被 260px 限宽截断）+ 有选中项时**隐藏默认提示词**（:has() 检测 chip）；连带补齐需求5 遗漏的**工具栏宽度锁定**（.toolbar-left 843px / .toolbar 1172px） | `src/static/index.html`、`HANDOFF.md` |
 
 ---
 
@@ -1127,6 +1129,111 @@ print('  （无输出 = 干净）' if not found else '  ↑ 有残留')
 - **「★ B 当前基线」需持续维护** —— 任何改动基线的 Agent 都要向管家提「建议更新」，
   否则数字会再次悄悄过期。
 - 服务器同步仍未触发（同步是用户的动作）；本轮**未改动 `src/`**，不涉及门禁重跑与同步。
+
+---
+
+### #23 · 2026-11-02 · UI设计师 · 筛选明细独占一行 + 有选中项时隐藏默认提示词
+
+**类型**：界面调整 —— **纯 CSS + 纯展示层 HTML，JS 业务逻辑零改动**
+
+**做了什么**
+
+用户提 2 项界面需求（截图实测为准）：
+
+#### 需求 1：筛选明细（`#filterHint`）单独起一行
+
+**原状**：明细「人员：王伟娜 | 周数：2026·第1...」夹在 `.toolbar-left` 内、
+与日期区间同行，且被 `max-width:260px` + `text-overflow:ellipsis` **截断**，后半截看不到。
+
+**改法**：
+1. **HTML**：把 `#filterHint` 从 `.toolbar-left` 里**移出**，成为 `.toolbar` 的直接子项
+   （原本内联 style 一并搬进 CSS 类 `.filter-hint`）。
+2. **CSS**：`flex:1 0 100%` + `order:10` → **强制换行独占一行**；
+   宽度不再受限（实测 1358px），`white-space:nowrap` 保留但**不再截断**；
+   `:empty{display:none}` → 无筛选条件时不占空白行。
+
+**实测**：明细 y=538（在 toolbar-left 底部 528 之下）→ **独占一行** ✓；
+与日期区间**不再同行** ✓；`scrollWidth == clientWidth` → **未截断** ✓。
+
+#### 需求 2：有选中项时不显示默认提示词
+
+**原状**：选中人员/周数后，chips 与输入框同行，输入框里的 placeholder
+（「点击从架构树选择」/「41 或 2026-41」）仍占着位置 → 内容被挤窄
+（截图实测：「点击从架」被切一半）。
+
+**改法（纯 CSS）**：用 `:has()` 检测同容器内是否有 chip：
+
+```css
+.cf-field:has(.cf-chip) .cf-input::placeholder{color:transparent}
+.cf-field:has(.cf-chip) .cf-input{flex:0 1 24px;min-width:24px}
+```
+
+**实测**：placeholder `rgb(115,117,122)` → `rgba(0,0,0,0)`（透明）；
+输入框 52px → **24px**，chips 拿到 76px 空间。
+
+#### 连带修复：需求5 遗漏了工具栏（T-005 的同类漏洞）
+
+需求1/2 的验证暴露出：**T-005 只锁了顶部栏三兄弟，漏了工具栏**。
+`.toolbar-left` 是 `flex:1` 弹性列 → 视口变窄时整体被压窄
+（实测 1200px 时 w=1118px、1100px 时 w=823px，差 295px），
+左侧控件位置全部左移 → 违反需求5「所有元素大小位置不变」。
+
+**修法**（按**内容固有宽度**锁，而非某视口下的偶然值）：
+
+| 元素 | 锁定值 | 依据 |
+|---|---|---|
+| `.toolbar-left` | `flex:0 0 843px` | 实测内容需求 843px（搜索 135 + 状态 98 + 人员 149 + 周数 151 + 日期 278 + 4×gap 32） |
+| `.toolbar-right` | `flex:0 0 287px` | 展开/折叠按钮组实测宽 |
+| `.toolbar` | `min-width:1172px` | 843 + 287 + gap 10 + padding 32 |
+
+**同时删除** `@media(max-width:1199px)` 里的 `.toolbar{flex-wrap:nowrap}` ——
+它与需求1 直接冲突：明细行靠 `.toolbar` 的 `flex-wrap:wrap` 才能换到独立一行。
+（保留 `.toolbar-left{flex-wrap:nowrap}`，那是筛选控件内部不换行，与明细行无关。）
+
+**涉及文件**
+
+- 修改：`src/static/index.html`（CSS 为主 + `#filterHint` 的 HTML 位置调整，**JS 逻辑零改动**）
+- 修改：`HANDOFF.md`（§五 新增 T-006 + 本记录 + 索引表）
+- 追加：`.workbuddy/memory/2026-11-02.md`
+
+**注意事项与约束**
+
+- 🔴 **`:has()` 有浏览器门槛**：Chrome 105+ / Safari 15.4+ / Firefox 121+。
+  本项目验证环境 Chrome 155，实测通过。
+  ⚠️ 若需兼容更老浏览器，替代方案是给 `.combo-filter` 加 `.has-chip` 类（需改 JS 渲染）。
+  → **已在代码注释里写明这条**，避免后人误以为零门槛。
+- 🔴 **基准值必须来自「内容固有宽度」，不是「某视口下的观测值」**：
+  我第一次锁 `.toolbar-left` 时取了 1200px 视口下的 1118px —— 那是 flex 撑满的结果，
+  不是内容需求 → 窄屏反而被 min-width 压到 823px，与基准不一致。
+  → 改用逐项测量子控件宽度求和（843px），一次到位。
+- ⚠️ **`.toolbar` 的 flex-wrap 是需求1 的前提**，不能为了「窄屏不换行」把它改回 nowrap。
+  这与 T-005 时代的结论相反 —— 当时 nowrap 是为了防「双重变形」，
+  现在明细行必须能换行 → **保留 `.toolbar-left` 的 nowrap（控件内部），放开 `.toolbar` 的 wrap（行之间）**。
+- 💡 **T-006 是我主动登记的断言冲突**：删除 `.toolbar{flex-wrap:nowrap}` 后，
+  `ops/test-filter-ui.js` 的断言「窄屏兜底断点内整个工具栏不换行」失效 → 143 通过 / 1 失败。
+  **测试脚本归属主设计师，UI侧不自行改** → 登记 T-006。
+
+**验证结果（headless Chrome 实测）**
+
+- **全视口一致性**：1200 / 1100 / 1000 / 900 / 800 / 700 / 600 / 500 八个视口，
+  13 个元素（toolbar / toolbar-left / toolbar-right / hint / search / person / week /
+  date / 人员input / 人员chips / topbar / main / dept）的 x·y·w·h **全部一致，0 差异**
+- **明细独占一行**：八个视口全部 True ✓
+- **明细不截断**：八个视口全部 False（=不截断）✓
+- `ops/ui_check_filter.py` → **54 通过 / 0 失败** ✅
+- 回归：test-filter 43/43 · test-subitem 222/222 · test-real-render 22/22 ·
+  test-org 97/97 · test-year-click 12/12 ✅
+- `ops/ui_audit_scan.py` → A/B/C/D/E/F **六项全 0** ✅
+- `ops/verify.py` → **7/7 通过** ✅（指纹 `4f07072705b2d55dca21e76e39e12a1c`）
+- `test-filter-ui` → **143 通过 / 1 失败** ⚠️ —— 失败项即 **T-006**（断言与新需求冲突，属预期）
+
+**遗留 / 待确认**
+
+- **T-006 待认领** —— `ops/test-filter-ui.js` 断言 L217-218 需按新策略更新（属主设计师职责）。
+- **建议更新「摘要 A」**：本轮把筛选明细从「工具栏内的一行截断文本」改为「独占一行的完整明细」，
+  以及「有选中项时隐藏默认提示词」两条行为变化 → 建议交接管家更新摘要层对应条目。
+- `src/` 本轮改动**待提交**。
+- `src/` 累计改动**仍未推送到服务器** —— 同步是用户的权限。
 
 ---
 
