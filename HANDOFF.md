@@ -1007,6 +1007,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #26 | 2026-11-02 | **UI设计师** | 界面调整 | 搜索框按实测字宽拉宽（167px，placeholder 完整可见）+ 「更多」去掉 ⋯ 前缀 + 备份/恢复/模板/导入/导出 独立成【导入导出】按钮（两菜单互斥）。连带同步工具栏锁定值 843→875 / 1172→1204 | `src/static/index.html`、`HANDOFF.md` |
 | #27 | 2026-11-02 | **UI设计师** | 界面调整 | 【导入导出】按钮双 emoji（📥📤）改单 emoji **🔄**（菜单内 📥 已被「恢复/导入」占用，🔄 与 5 项全不重复）；实测宽度 99px 排布整齐 | `src/static/index.html`、`HANDOFF.md` |
 | #28 | 2026-11-02 | **UI设计师** | 界面调整 | 登录页图标 📊 emoji → **FISP 字母标**（白字+品牌蓝底+700字重）；字体整体调商务（标题 600 字重+字距 / 英文行全大写+1.1px 字距 / 控件 font-family:inherit）；顺带移除标题旁重复的 FISP 徽标 | `src/static/login.html`、`HANDOFF.md` |
+| #28a | 2026-11-02 | **UI设计师** | 界面调整 | **#28 续**：FISP 字母标字号加大 15px/700 → **18px/800**（文字占 32→40px，边距 12→8px，垂直居中偏移 0）—— 按实测边距定值，不只放大 | `src/static/login.html`、`HANDOFF.md` |
 | #28 | 2026-11-02 | **主设计师** | 后端 | **修复小组成员继承父部门看板**（苏春景可见全部 7 个看板的根因）：`_member_authority_nodes()` 把小组节点**向上提升**到部门祖先 → `_dept_stage_boards()` 再把 scope 里的 id 一律当部门查归属看板 → 费用组/税务组成员被当成核算部成员。修复：新增 `_member_appointed_nodes()`（原始任命节点）+ 第一层改用 `_node_bound_boards()` 按节点类型派生 + `_group_boards()` 不再沿父链收集。修复后苏春景/谭亚利 → 0 个看板，王伟娜/余河不受影响 | `src/app/app.py`、`ops/test_dept_group_scope.py`、`ops/test-board-perm.js`、`ops/ui_check_perm_entries.py` | `HANDOFF.md §七 #28` |
 | #29 | 2026-11-02 | **主设计师** | 界面调整 + 文档 | **平台改名**：「财务工作事项平台」→「**财务综合事务平台**」，并加英文首字母缩写 **FISP**（*Financial Integrated Service Platform*）。中文名后挂 `.abbr` 徽标（小号浅色 inline-block，同行不折行）；登录页补英文全称行；旧名称全站清零 | `src/static/index.html`、`src/static/login.html`、`src/app/app.py`、`ops/ui_check_brand.py`、`docs/调试指南.md`、`docs/UI问题排查清单.md`、`docs/交接记录文档管理方案.md`、`工作转移手册.md` | `HANDOFF.md §七 #29` |
 
@@ -1761,6 +1762,27 @@ ok(r.get('persons', 0) == base_total, '拼音组合期间树上人员不消失�
   标题旁徽标移除 → 建议交接管家更新摘要层对应条目。
 - `src/` 本轮改动**待提交**。
 - `src/` 累计改动**仍未推送到服务器** —— 同步是用户的权限。
+
+#### #28 续 · 字母标字号加大（用户追加要求「大一点、饱满一点」）
+
+**改动**：`.logo .icon` 的 `font-size:15px → 18px`、`font-weight:700 → 800`（1 行 CSS）。
+
+**实测依据**（不是拍脑袋放大）：
+
+| 字号/字重 | 文字实占宽 | 方块 56px 剩余边距 | 取舍 |
+|---|---|---|---|
+| 15px / 700（原） | 32px | 左右各 12px | 偏小、不饱满 ← 用户指出的问题 |
+| **18px / 800** | **40px** | **左右各 8px** | **✅ 采用** |
+| 19~20px / 800 | 43~45px | 仅 6~5px | 显得挤；且不同字体渲染差异可能溢出 → 不取 |
+
+**验证**：文字占 40×24px、左右各余 8px、上下各余 16px、**溢出 False**；
+**垂直中心偏移 0px**（完全居中）；4 倍放大截图确认笔画饱满、锐利、不贴边不裁切；
+`ops/verify.py` 7/7（指纹 `7ed9c2dc45c3cb98d60176ec58344bfb`）。
+提交：`src` `0ac457f`。
+
+> 💡 **小尺寸标识里的文字，「饱满」和「不溢出」是一对矛盾** ——
+> 字越大越饱满，但边距越少、越容易在别的字体环境下溢出。
+> 所以不能只放大，得**同时量边距**再定最终值。
 
 ---
 
