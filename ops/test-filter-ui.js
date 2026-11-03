@@ -109,8 +109,10 @@ ok(/负责人为空的成员/.test(htmlSrc), '树上「无负责人」节点说�
 ok(/@app\.get\('\/api\/filter-options'\)/.test(pySrc), '提供筛选候选接口 /api/filter-options');
 ok(/'people': sorted\(people\)/.test(pySrc) && /'weeks': sorted\(weeks, key=week_sort_key\)/.test(pySrc),
    '候选接口返回人员与周数名单（周数按组合整数序）');
-ok(/rows = filter_rows\(dbq\('SELECT owner, week_no FROM cards WHERE deleted=0'\), boards, columns\)/.test(pySrc),
-   '候选名单取自权限可见范围内的事项（越权数据不出现）');
+// ⚠️ 2026-11-03：SQL 补上 board_id / column_id 两列 ——
+//    perm_pass() 要用它们做两级过滤，只 SELECT owner/week_no 会抛 KeyError（非管理员 500）。
+ok(/rows = filter_rows\(dbq\('SELECT owner, week_no, board_id, column_id FROM cards WHERE deleted=0'\)/.test(pySrc),
+   '候选名单取自权限可见范围内的事项（越权数据不出现；board_id/column_id 必带）');
 
 // ============================================================
 // 用例 3：人员树状展开
@@ -191,7 +193,9 @@ ok(/<div class="tb-band-title">可选看板<\/div>/.test(htmlSrc),
 ok(!/<div class="tb-band-title">可选板块<\/div>/.test(htmlSrc),
    '旧标题「可选板块」已不存在（术语混用已纠正）');
 ok(/<div class="tb-band-title">架构部门<\/div>/.test(htmlSrc), '「架构部门」标题保留');
-ok(/<div class="tb-band-title">统计概览<\/div>/.test(htmlSrc), '「统计概览」标题保留');
+// ⚠️ 2026-11-03：「统计概览」标题已按用户要求去掉（三张卡自带标签），统计带移到公告栏下方。
+ok(!/<div class="tb-band-title">统计概览<\/div>/.test(htmlSrc), '「统计概览」标题已移除（卡片自带标签）');
+ok(/class="tb-band tb-stat-band"/.test(htmlSrc), '统计带仍存在（已移到公告栏下方）');
 
 // 5.3 「全部负责人」下拉下线
 ok(!/id="ownerFilter"/.test(htmlSrc), 'HTML 无 ownerFilter 元素');

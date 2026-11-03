@@ -116,7 +116,7 @@ async def main():
               deptCols:dc?dc.gridTemplateColumns:'',
               boardCols:bc?bc.gridTemplateColumns:'',
               statCols:sc?sc.gridTemplateColumns:'',
-              bands:document.querySelectorAll('.tb-band').length,
+              navBands:document.querySelectorAll('.tb-navgroup .tb-band').length,
               statCards:document.querySelectorAll('#progressOverview .stat-card').length,
               noticeExists:!!document.getElementById('noticeBar'),
               noticeInAside:!!(aside&&document.getElementById('noticeBar')&&aside.contains(document.getElementById('noticeBar'))),
@@ -132,7 +132,9 @@ async def main():
         # ⚠️ 2026-11-03（菜单顺序调整）：左半由三带变五带 ——
         #    架构部门 / 架构管理 / 可选看板 / 看板管理 / 统计概览
         #    （两个管理入口带插在各自内容带之后）
-        ok(r.get('bands') == 5, '左半五「带」（部门/架构管理/看板/看板管理/统计）：%s' % r.get('bands'))
+        # ⚠️ 2026-11-03：管理入口已并入各带的**标题行右侧**（.tb-band-head-entry），
+        #    统计带已移到公告栏下方 → .tb-navgroup 内只有 2 条带（架构部门 / 可选看板）。
+        ok(r.get('navBands') == 2, '导航区内两「带」（架构部门/可选看板）：%s' % r.get('navBands'))
         ok(len((r.get('mainCols') or '').split()) == 3, '左半主区为三列：%s' % r.get('mainCols'))
         ok(len((r.get('deptCols') or '').split()) == 3, '部门带为三列：%s' % r.get('deptCols'))
         ok(len((r.get('boardCols') or '').split()) == 3, '板块带为三列：%s' % r.get('boardCols'))
@@ -158,15 +160,24 @@ async def main():
               pChips:!!document.getElementById('personFilterChips'),
               wChips:!!document.getElementById('weekFilterChips'),
               hasInputFilter:!!document.querySelector('.cf-input'),
+              pTitle:(document.getElementById('personFilterInput')||{}).title||'',
+              pAria:(document.getElementById('personFilterInput')||{}).getAttribute
+                     ?document.getElementById('personFilterInput').getAttribute('aria-label')||'':'',
+              wTitle:(document.getElementById('weekFilterInput')||{}).title||'',
+              wAria:(document.getElementById('weekFilterInput')||{}).getAttribute
+                     ?document.getElementById('weekFilterInput').getAttribute('aria-label')||'':'',
               oldPersonBtn:!!document.getElementById('personFilterBtn'),
               oldWeekBtn:!!document.getElementById('weekFilterBtn'),
             };
         })()""")
         ok(r.get('pInput') is True and r.get('pType') == 'INPUT', '人员筛选是可输入控件（input）')
         ok(r.get('wInput') is True and r.get('wType') == 'INPUT', '周数筛选是可输入控件（input）')
-        ok('架构树' in (r.get('pPlaceholder') or ''),
-           '人员输入框提示指向架构树：%s' % r.get('pPlaceholder'))
-        ok('41' in (r.get('wPlaceholder') or ''), '周数输入框提示支持数字输入：%s' % r.get('wPlaceholder'))
+        # ⚠️ 2026-11-03：placeholder 已清空（界面精简），提示改由 title / aria-label 承载
+        ok('架构树' in ((r.get('pPlaceholder') or '') + (r.get('pTitle') or '') + (r.get('pAria') or '')),
+           '人员输入框提示指向架构树：%s' % ((r.get('pTitle') or r.get('pPlaceholder') or '')))
+        # ⚠️ 2026-11-03：周数提示由 aria-label 承载（placeholder/title 已清空）
+        ok('数字' in ((r.get('wAria') or '') + (r.get('wTitle') or '') + (r.get('wPlaceholder') or '')),
+           '周数输入框提示支持数字输入：%s' % ((r.get('wAria') or r.get('wTitle') or '')))
         # 人员筛选的入口已转移到架构树：没有下拉面板、没有独立的 🌳 按钮
         ok(r.get('pDrop') is False, '人员控件无候选下拉面板（入口=架构树）')
         ok(r.get('pTreeBtn') is False, '人员控件右侧的 🌳 按钮已移除')

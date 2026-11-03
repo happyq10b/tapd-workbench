@@ -1107,6 +1107,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #38 | 2026-11-03 | **UI设计师** | 界面调整 | **对齐基准修正**：统计卡底由对齐「可选看板带底」改为对齐左侧**白底卡片底**（margin 抵消法 → grid stretch **天然对齐**，差值 0px）；顶部区紧凑化（`.topbar-main` 空行 gap −20px / navgroup padding-bottom −5px / wrap padding-top −4px，topbar 329→304px，统计卡下方空隙 50→12px） | `src/static/index.html`、`ops/ui_check_layout_align.py`、`HANDOFF.md` | `HANDOFF.md §七 #38` |
 | #39 | 2026-11-03 | **UI设计师** | 界面调整 | 删除两个管理入口旁的**权限范围说明文字**（架构负责人 · 可配置 N 个节点… / 可配置 N 个看板）——由「仅管理员隐藏」改为**所有角色一律不显示**（代码层面移除渲染入口 + 清掉无引用 CSS）；实测管理员与架构负责人两种视角均无说明，权限逻辑不受影响 | `src/static/index.html`、`ops/ui_check_entry_pos.py`、`HANDOFF.md` | `HANDOFF.md §七 #39` |
 | #40 | 2026-11-03 | **UI设计师** | 界面调整 | 看板管理：列表**恢复滚动**（`setBcListScroll` 的 `overflow:hidden`→`auto`，恰好 7 个看板时中招） + 去中心节点「（全部看板 · 对全员展示）」附注 + 归属部门筛选**按权限过滤** + **新增负责人筛选**（管理员走树弹窗选人／受限用户降级为 owner 账号下拉，因 `/api/team` 对非管理员清空 account） | `src/static/index.html`、`HANDOFF.md` | `HANDOFF.md §七 #40` |
+| #42 | 2026-11-03 | **主设计师** | 前端 + 后端 | **四项功能 + 三项 UI 调整**：①板块绑定放开到「本部门架构下所有看板」（部门长/组长可给子组绑定）；②板块编辑/新建补参与人字段；③事项行内复制按钮；④看板整套复制（deep，连带板块+事项+子事项）；⑤筛选后无事项的板块整块隐藏；⑥看板负责人说明文字删除；⑦看板管理筛选区对齐。顺带修 3 个既有 bug（cards 无 id 列 / filter-options KeyError / 参与人字符串入参） | `src/app/app.py`、`src/static/index.html`、`ops/test_new_features.py`（新增）、`ops/test-filter-ui.js`、`ops/ui_check_filter.py`、`ops/ui_check_perm_render.py` | `HANDOFF.md §七 #42` |
 | #41 | 2026-11-03 | **UI设计师** | 界面调整 | 看板列表：数量由「事项数」改为**板块数**（实测与数据库真值 36/32/32/33/31/33/30 完全一致；⚠️ `col_years.length` 不可用 —— 年份去重，差 36 倍）+ 去 **WS 编码** + 去 **「编辑 ›」**（点击卡片本身即进配置，功能不丢） | `src/static/index.html`、`HANDOFF.md` | `HANDOFF.md §七 #41` |
 | #42 | 2026-11-02 | **UI设计师** | 界面调整 | 登录页图标 📊 emoji → **FISP 字母标**（白字+品牌蓝底+700字重）；字体整体调商务（标题 600 字重+字距 / 英文行全大写+1.1px 字距 / 控件 font-family:inherit）；顺带移除标题旁重复的 FISP 徽标（原 #28，与主设计师 #28 撞号 → 2026-11-03 交接管家改为 #42） | `src/static/login.html`、`HANDOFF.md` | `HANDOFF.md §七 #42` |
 | #42a | 2026-11-02 | **UI设计师** | 界面调整 | **#42 续**（原 #28 续）：FISP 字母标字号加大 15px/700 → **18px/800**（文字占 32→40px，边距 12→8px，垂直居中偏移 0）—— 按实测边距定值，不只放大 | `src/static/login.html`、`HANDOFF.md` | `HANDOFF.md §七 #42` |
@@ -1169,6 +1170,88 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #42 · 2026-11-03 · 主设计师 · 四项功能 + 三项 UI 调整
+
+#### 需求（用户分两批提出，共 7 项）
+
+第一批：
+1. 部门长及组长，在板块绑定时可以看到本部门架构下所有看板，并操作绑定部门内的看板
+2. 编辑板块与新建板块里没有负责人与参与人，请补上
+3. 事项缺少复制按钮
+4. 看板管理里追加复制按钮，复制整个看板（整套看板），包括看板下的板块、事项
+
+第二批：
+5. 当筛选后，若板块无事项，则整个板块不显示
+6. 看板负责人还是回归看板管理里面配置，下面那一大段说明删除了
+7. 看板管理的这几个筛选项目不齐整，调整一下
+
+#### 实现
+
+**① 板块绑定范围放开**（后端 `_node_arch_boards` + `/api/org/tree` 的
+`arch_boards` / `bindable_boards`；前端 `nodeBoardScope` / `parentBoardLimit` 改用
+`bindable_boards`；`/api/workgroups` 的 all_boards 补管辖范围内看板）。
+根因：勾选池原来取父部门的**归属**看板（owned_boards）→ 部门下小组永远
+「未绑定板块」且勾不到任何东西。
+
+**② 板块参与人**（`ColumnCreate/Update.participants`；前端弹窗参与人多选区，
+复用架构树 pickMode:'person'，requireAccount 置灰无账号者；
+None=不改 / 空串=清空 / 列表=覆盖；指派权=板块负责人及以上）。
+
+**③ 事项行复制**（主/子事项行 `slot-copy` 槽位 + `copyCardFromRow()`，
+详情走 `/api/cards?card_id=` 精确取——**没有** GET /api/cards/{id}）。
+
+**④ 看板整套复制**（`POST /api/boards/{id}/copy` 加 `deep` 参数；
+`_deep_copy_board_content()`：板块 col_key 换新 board_id 前缀、
+事项先主后子保证 parent_id 指向新主事项、业务字段随附 / 运行时状态重置、
+copy_from 溯源；复制弹窗「整套复制」勾选默认勾上）。
+
+**⑤ 筛选后空板块隐藏**（`filtersActive()`：状态/搜索/参与/日期/周数/人员/年份
+任一激活即视为筛选态 → 筛后无事项的板块整块隐藏；全空 → 「没有符合条件的工作事项」；
+**无筛选时空板块照常显示**——刚建的板块要能看见）。
+
+**⑥ 负责人说明删除**：`renderAclSection` 的整段 bc-hint 删除。
+
+**⑦ 筛选区对齐**：`.bc-filter-row select` 与 `#bcf_owner_box` 撑满所在列
+（width:100%），四控件实测等宽 186px。
+
+#### 顺带修的 3 个既有 bug
+
+- `_deep_copy_board_content` 里 `ORDER BY id` → **cards 表没有 id 列**（主键 card_id）
+  → `no such column: id` → 改 `ORDER BY card_id`。
+- `/api/filter-options` 的 SQL 只 SELECT owner/week_no，但 `perm_pass()` 要用
+  board_id/column_id 做两级过滤 → **非管理员调用直接 500（KeyError）**。
+  → SQL 补两列。
+- `_norm_acl_participants` 按列表迭代，收到**字符串**时逐字符迭代
+  → 「参与人账号「_」不存在」。→ 先按分隔符拆成列表。
+
+#### 🔴 踩到的坑
+
+- **evaluate 表达式里裸 `await` 是语法错误**：`ev("WEEK_SEL=...;await reload(1)")`
+  整条不执行（连赋值都没有）→ 测试「筛选赋值无效」假象。
+  → 含 await 必须包 async IIFE + awaitPromise。
+- **页面的「2026 年」chip 是默认激活的**（`curYears=new Set([YEAR_DEFAULT])`）
+  → 测试「无筛选」场景必须先 `curYears=new Set()`，否则空板块一直被隐藏
+  （那其实是**正确行为**——年份筛选激活 = 筛选态）。
+- **复制产物的夹具污染**：deep copy 生成 `BCP*` 新看板，cleanup 漏删 →
+  可见性断言挂 6 条（dept_group_scope）。→ cleanup 按 `copy_from` 溯源连带删除。
+- **测试造板块后 UI 不刷新**：造板块后页面渲染链路是
+  `/api/cards` 的 columns 字段（visible_columns 全表扫描，含空板块）→
+  数据没问题，是测试时序 + 上面两条所致。
+
+#### 验证
+
+- 新增 `ops/test_new_features.py` **24/0**（deep 复制字段口径 / 浅复制回归 /
+  参与人写读清 / 复制权限）
+- UI 实测（临时脚本）：空板块三场景（无筛选显示 / 年份筛选隐藏 / 周数筛选隐藏+空提示）、
+  负责人说明删除、筛选区四控件等宽 186px
+- Python 全量 13 组 **328/0**、JS 全量 12 组 **1128/0**、UI 全量 7 组 **201/0**、
+  `verify.py` **7/7**
+
+#### 遗留
+
+- `src/` 已提交但**未推服务器**（同步是用户的动作）。
+- 生产 7 个看板仍无负责人。
 
 ### #41 · 2026-11-03 · UI设计师 · 看板列表：数量改板块数 + 去 WS 编码 + 去「编辑 ›」
 

@@ -148,6 +148,8 @@ PROBE = r"""
     wgBtn:vis('wgBtn'),boardCfgBtn:vis('boardConfigBtn'),
     hdrHasWg:hdrIds.indexOf('wgBtn')>=0,
     hdrHasBoardCfg:hdrIds.indexOf('boardConfigBtn')>=0,
+    archInDeptHead:!!(document.querySelector('.tb-dept-band .tb-band-head #archEntryBand')),
+    boardInBoardHead:!!(document.querySelector('.tb-board-band .tb-band-head #boardEntryBand')),
     roNodes:document.querySelectorAll('.org-node-ro').length,
     allNodes:document.querySelectorAll('.org-node-row').length,
     role:(document.getElementById('roleTag')||{}).textContent||''
@@ -222,8 +224,11 @@ async def main():
             ok(d.get('user') == U_ADMIN, '登录身份正确：%s' % d.get('user'))
             titles = d.get('bandTitles') or []
             print('  导航带顺序：%s' % ' → '.join(titles))
-            ok(titles[:2] == ['架构部门', '架构管理'], '架构管理带紧随架构部门带之后')
-            ok(titles[2:4] == ['可选看板', '看板管理'], '看板管理带紧随可选看板带之后')
+            # ⚠️ 2026-11-03：两个管理入口已并入各带的**标题行右侧**（.tb-band-head-entry），
+            #    不再是独立带 → 断言改为「入口在对应带的标题行内」。
+            ok(titles[:2] == ['架构部门', '可选看板'], '导航带顺序：架构部门 → 可选看板')
+            ok(d.get('archInDeptHead') is True, '架构管理入口在【架构部门】带的标题行内')
+            ok(d.get('boardInBoardHead') is True, '看板管理入口在【可选看板】带的标题行内')
             ok(d.get('hdrHasWg') is False, '顶栏已无【架构管理】按钮（已移至导航带）')
             ok(d.get('hdrHasBoardCfg') is False, '顶栏已无【看板管理】按钮（已移至导航带）')
             ok(d.get('archBand') == 'V', '管理员：架构管理入口带可见')
@@ -266,8 +271,17 @@ async def main():
             })()""")
             ok(isinstance(bc, dict) and bc.get('count', 0) == 1,
                '看板管理只列可配置的看板（%s 个）' % (bc.get('count') if isinstance(bc, dict) else '?'))
-            ok(isinstance(bc, dict) and any('架构负责人' in x for x in (bc.get('roles') or [])),
-               '列表显示身份徽标（架构负责人）：%s' % (bc.get('roles') if isinstance(bc, dict) else '?'))
+            # ⚠️ 2026-11-03：列表内的**身份徽标已被 #41 移除**（界面精简，用户要求）→
+            #    改为验证**后端能力位**仍正确返回 perm_role（数据层不变）。
+            permRole = await ev(r"""(async function(){
+              var tk=localStorage.getItem('tk')||'';
+              var r=await fetch('/api/boards',{headers:{'Authorization':'Bearer '+tk}});
+              var d=await r.json();
+              for(var i=0;i<(d.boards||[]).length;i++){ if(d.boards[i].can_edit) return d.boards[i].perm_role||''; }
+              return '';
+            })()""", aw=True)
+            ok(permRole == '架构负责人',
+               '后端返回 perm_role=架构负责人：%s' % permRole)
             # 选中 → 保存负责人按钮应可用（架构负责人可指派）
             await ev("(function(){var it=document.querySelector('#bcList .bc-item');if(it)it.click();})()")
             await asyncio.sleep(1.5)
