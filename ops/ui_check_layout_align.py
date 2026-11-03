@@ -1,15 +1,19 @@
-"""四项布局需求验证（2026-11-03）
-1. 主页按钮靠右（部门块右缘）
-2. 统计卡底边 == 可选看板带底边
-3. 公告标题字体 == 架构部门标题字体
-4. 搜索栏加宽、导入导出右侧无多余空白
+"""布局对齐守卫（2026-11-03）
+固化四项需求 + 两轮追加：
+  ① 主页按钮靠右（部门块右缘）
+  ② 统计**卡片**底边 == 左侧**白底卡片**（.tb-navgroup）底边
+     —— 不是「可选看板带」底、也不是「带 + 间隔」底
+  ③ 公告标题字体 == 架构部门标题字体
+  ④ 搜索栏加宽、导入导出右侧无多余空白
+  ⑤ 窄屏一致性（需求5：1200→500 锁定区间几何不变）
+
 只读工具，不修改任何文件。
 """
 import asyncio, json, os, shutil, subprocess, time, urllib.request
 
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-PORT = 9511
-prof = os.path.join(os.environ.get('TEMP', '.'), 'cdp_la%d' % PORT)
+PORT = 9529
+prof = os.path.join(os.environ.get('TEMP', '.'), 'cdp_la2%d' % PORT)
 shutil.rmtree(prof, ignore_errors=True)
 subprocess.Popen([CHROME, '--headless=new', '--disable-gpu', '--remote-debugging-port=%d' % PORT,
                   '--user-data-dir=' + prof, 'about:blank'],
@@ -30,43 +34,55 @@ PROBE = r"""
     if(!e)return null;var b=e.getBoundingClientRect();
     return {x:Math.round(b.x),y:Math.round(b.y),w:Math.round(b.width),h:Math.round(b.height),
             right:Math.round(b.right),bottom:Math.round(b.bottom)};}
-  function fs(el){var c=getComputedStyle(el);
-    return c.fontSize+'/'+c.fontWeight+'/'+c.color+'/'+c.letterSpacing;}
   var out={};
-  // 1) 主页按钮右对齐
   var gaps=[];
   Array.prototype.slice.call(document.querySelectorAll('.tb-dept-band .tree-dept'),0,6).forEach(function(d){
     var hb=d.querySelector('.dept-home');
     if(hb)gaps.push(Math.round(d.getBoundingClientRect().right-hb.getBoundingClientRect().right));
   });
   out.homeGaps=gaps;
-  // 2) 高度对齐
-  var stat=document.querySelector('.tb-stat-band');
-  var boardBand=document.querySelector('.tb-board-band');
-  var boardGrid=document.getElementById('tbBoards');
-  out.stat=bx('.tb-stat-band'); out.boardBand=bx('.tb-board-band'); out.boardGrid=bx('#tbBoards');
-  out.statVsBand=(stat&&boardBand)?Math.round(stat.getBoundingClientRect().bottom-boardBand.getBoundingClientRect().bottom):null;
-  out.statVsGrid=(stat&&boardGrid)?Math.round(stat.getBoundingClientRect().bottom-boardGrid.getBoundingClientRect().bottom):null;
-  out.statW=(stat&&boardBand)?Math.round(stat.getBoundingClientRect().width-document.querySelector('.notice-bar').getBoundingClientRect().width):null;
-  out.notice=bx('.notice-bar');
-  // 3) 字体对比
+  var nav=document.querySelector('.tb-navgroup');
+  var band=document.querySelector('.tb-board-band');
+  var grid=document.getElementById('tbBoards');
+  var statBand=document.querySelector('.tb-stat-band');
+  var topbar=document.getElementById('topbar');
+  var cards=document.querySelectorAll('.tb-stat-band .stat-card');
+  var cardBottoms=[],cardTops=[];
+  Array.prototype.forEach.call(cards,function(c){
+    var b=c.getBoundingClientRect();
+    cardBottoms.push(Math.round(b.bottom)); cardTops.push(Math.round(b.top));});
+  out.cardBottoms=cardBottoms; out.cardTops=cardTops; out.cardCount=cards.length;
+  out.nav=bx('.tb-navgroup'); out.band=bx('.tb-board-band'); out.grid=bx('#tbBoards');
+  out.statBand=bx('.tb-stat-band'); out.topbar=bx('#topbar'); out.notice=bx('.notice-bar');
+  var ov=document.querySelector('.tb-stat-band .progress-overview');
+  var ovcs=ov?getComputedStyle(ov):null;
+  out.ovMargin=ovcs?ovcs.margin:null;
+  out.bandPad=statBand?getComputedStyle(statBand).padding:null;
+  out.navPadBottom=nav?getComputedStyle(nav).paddingBottom:null;
+  out.navBorderBottom=nav?getComputedStyle(nav).borderBottomWidth:null;
   var bandTitle=document.querySelector('.tb-dept-band .tb-band-title');
   var noticeT=document.querySelector('.notice-head .t');
+  function fs(el){var c=getComputedStyle(el);
+    return c.fontSize+'/'+c.fontWeight+'/'+c.color+'/'+c.letterSpacing;}
   out.bandFont=bandTitle?fs(bandTitle):null;
   out.noticeFont=noticeT?fs(noticeT):null;
-  out.bandText=bandTitle?(bandTitle.textContent||'').trim():null;
-  out.noticeText=noticeT?(noticeT.textContent||'').trim():null;
-  // 4) 工具栏
   var tb=document.querySelector('.toolbar');
   var tbcs=getComputedStyle(tb);
   var ie=document.getElementById('headerImportExport');
   var si=document.getElementById('searchInput');
-  out.toolbar=bx('.toolbar'); out.tl=bx('.toolbar-left'); out.tr=bx('.toolbar-right');
   out.search=si?Math.round(si.getBoundingClientRect().width):null;
   out.searchTrunc=si?si.scrollWidth>si.clientWidth+1:null;
   out.blankAfterIE=(ie&&tb)?Math.round(tb.getBoundingClientRect().right-parseFloat(tbcs.paddingRight)-ie.getBoundingClientRect().right):null;
-  out.ieRight=ie?Math.round(ie.getBoundingClientRect().right):null;
-  out.tbInnerRight=tb?Math.round(tb.getBoundingClientRect().right-parseFloat(tbcs.paddingRight)):null;
+  out.toolbar=bx('.toolbar');
+  var nb=(nav?nav.getBoundingClientRect().bottom:0);
+  var tb0=(topbar?topbar.getBoundingClientRect().bottom:0);
+  var cb=cardBottoms.length?cardBottoms[cardBottoms.length-1]:null;
+  out.navBottom=Math.round(nb); out.topbarBottom=Math.round(tb0); out.cardBottom=cb;
+  out.cardVsNav=(cb!==null)?cb-Math.round(nb):null;
+  out.cardVsTopbar=(cb!==null)?cb-Math.round(tb0):null;
+  out.statBandVsNav=Math.round(statBand.getBoundingClientRect().bottom-nb);
+  out.cardVsBand=(cb!==null)?cb-Math.round(band.getBoundingClientRect().bottom):null;
+  out.navPadGap=(cb!==null)?Math.round(nb-cb):null;
   return JSON.stringify(out);
 })()
 """
@@ -97,7 +113,6 @@ async def m():
             if r.get('exceptionDetails'):
                 return {'__error__': str(r['exceptionDetails'])[:300]}
             return r.get('result', {}).get('value')
-
         await send('Page.enable'); await send('Runtime.enable')
         await send('Emulation.setDeviceMetricsOverride',
                    {'width': 1600, 'height': 1000, 'deviceScaleFactor': 1, 'mobile': False})
@@ -109,6 +124,8 @@ async def m():
             if await ev("!!document.getElementById('tbDepts')"):
                 break
         await asyncio.sleep(2.5)
+        await ev("(function(){var t=document.querySelector('#tbBoards .tab-btn');if(t)t.click();})();")
+        await asyncio.sleep(3)
 
         print('【用例1】主页按钮靠右')
         d = json.loads(await ev(PROBE))
@@ -117,11 +134,22 @@ async def m():
         ok(all(0 <= g <= 24 for g in gaps),
            '主页按钮距部门块右缘 %s px（应 ≤24，即紧贴右缘）' % gaps)
 
-        print('\n【用例2】统计卡底边 == 可选看板带底边')
-        ok(d['statVsBand'] == 0, '统计带底 - 可选看板带底 = %s px（应为 0）' % d['statVsBand'])
-        ok(d['statVsGrid'] == 0, '统计带底 - 可选看板网格底 = %s px（应为 0）' % d['statVsGrid'])
-        # 宽度基准：统计带与公告栏同属右半一列 → 宽度必须相等（不超出公告栏）
-        ok(d['statW'] == 0, '统计带宽 - 公告栏宽 = %s px（应为 0，不超出公告栏）' % d['statW'])
+        print('\n【用例2】统计**卡片**底边 == 左侧**白底卡片**底边（用户明确要求的基准）')
+        ok(d['cardCount'] == 3, '取到 %d 张统计卡片' % d['cardCount'])
+        ok(d['cardVsNav'] == 0,
+           '★ 卡片底(%s) − 白卡底(%s) = %s px（应为 0）' % (d['cardBottom'], d['navBottom'], d['cardVsNav']))
+        ok(len(set(d['cardBottoms'])) == 1, '三张卡片底边彼此齐平：%s' % d['cardBottoms'])
+        ok(d['cardVsTopbar'] == 0, '卡片底 − topbar 底 = %s px（应为 0）' % d['cardVsTopbar'])
+        ok(d['statBandVsNav'] == 0, '统计带底 − 白卡底 = %s px（应为 0）' % d['statBandVsNav'])
+        exp_gap = int(float((d['navPadBottom'] or '0px').replace('px', ''))) + \
+            int(float((d['navBorderBottom'] or '0px').replace('px', '')))
+        ok(d['navPadGap'] == 0,
+           '白卡底 − 卡片底 = %s px（应为 0：卡片底与白卡底齐平）' % d['navPadGap'])
+        ok(d['ovMargin'] == '0px', 'overview margin=%s（须为 0）' % d['ovMargin'])
+        ok(d['bandPad'] == '0px', '统计带 padding=%s（须为 0）' % d['bandPad'])
+        ok(d['cardVsBand'] == exp_gap,
+           '卡片底 − 可选看板带底 = %s px（= 白卡下留白 %s，说明对齐的是白卡而非带）'
+           % (d['cardVsBand'], exp_gap))
 
         print('\n【用例3】公告标题字体 == 架构部门标题字体')
         ok(d['bandFont'] == d['noticeFont'],
@@ -134,7 +162,7 @@ async def m():
         ok(d['searchTrunc'] is False, '搜索框文字未被截断')
         ok(d['blankAfterIE'] <= 2, '导入导出右侧空白 %s px（应 ≤2）' % d['blankAfterIE'])
 
-        # 5a 锁定区间 1200→500：几何必须完全一致（需求5 的既定范围）
+        print('\n【用例5】窄屏一致性（需求5：1200→500 锁定区间几何不变）')
         bad = 0
         base = None
         for w in (1200, 1100, 1000, 900, 800, 700, 600, 500):
@@ -143,16 +171,19 @@ async def m():
             await asyncio.sleep(0.7)
             r = json.loads(await ev(PROBE))
             if base is None:
-                base = r          # 1200 为基准
+                base = r
                 print('  视口 %-5d 基准' % w)
                 continue
             diff = []
-            for k in ('stat', 'boardBand', 'boardGrid', 'notice'):
+            for k in ('nav', 'band', 'grid', 'statBand', 'notice'):
                 for f in ('x', 'y', 'w', 'h'):
                     if r[k][f] != base[k][f]:
                         diff.append(k + '.' + f)
-            if r['statVsBand'] != 0:
-                diff.append('statVsBand=%s' % r['statVsBand'])
+            for key in ('cardVsNav', 'cardVsTopbar', 'navPadGap', 'cardVsBand'):
+                if r[key] != base[key]:
+                    diff.append('%s %s→%s' % (key, base[key], r[key]))
+            if r['cardBottoms'] != base['cardBottoms']:
+                diff.append('cardBottoms')
             if diff:
                 bad += 1
                 print('  视口 %-5d 差异: %s' % (w, ','.join(diff)))
@@ -160,21 +191,20 @@ async def m():
                 print('  视口 %-5d 一致 ✓' % w)
         ok(bad == 0, '锁定区间 1200→500 共 8 个视口，几何与对齐关系全部一致')
 
-        # 5b 宽屏（>1440 时 .wrap 的 max-width 生效，容器本就会展开 → 宽度变化是设计使然）
-        #     这里只校验「对齐关系不破」+「导入导出右侧仍无空白」
+        print('\n【用例6】宽屏（>1440 容器 max-width 生效，宽度本就会展开）→ 只校验对齐不破')
         wide_bad = []
         for w in (1600, 1440):
             await send('Emulation.setDeviceMetricsOverride',
                        {'width': w, 'height': 900, 'deviceScaleFactor': 1, 'mobile': False})
             await asyncio.sleep(0.7)
             r = json.loads(await ev(PROBE))
-            if r['statVsBand'] != 0:
-                wide_bad.append('视口%d statVsBand=%s' % (w, r['statVsBand']))
+            if r['cardVsNav'] != 0:
+                wide_bad.append('视口%d 卡片底−白卡底=%s' % (w, r['cardVsNav']))
             if r['blankAfterIE'] > 2:
                 wide_bad.append('视口%d 导入导出后空白=%s' % (w, r['blankAfterIE']))
-            print('  宽屏 %-5d 底边对齐差=%s 导入导出后空白=%s 搜索框=%s'
-                  % (w, r['statVsBand'], r['blankAfterIE'], r['search']))
-        ok(not wide_bad, '宽屏 1600/1440：底边对齐与导入导出后无空白仍成立')
+            print('  宽屏 %-5d 卡片底−白卡底=%s 导入导出后空白=%s 搜索框=%s'
+                  % (w, r['cardVsNav'], r['blankAfterIE'], r['search']))
+        ok(not wide_bad, '宽屏 1600/1440：卡片与白卡底对齐、导入导出后无空白仍成立')
 
 
 asyncio.run(m())
@@ -182,7 +212,7 @@ asyncio.run(m())
 out = subprocess.run(['wmic', 'process', 'where', "name='chrome.exe'", 'get', 'ProcessId,CommandLine', '/FORMAT:CSV'],
                      capture_output=True, text=True).stdout
 for l in out.splitlines():
-    if 'cdp_la%d' % PORT in l:
+    if 'cdp_la2%d' % PORT in l:
         pid = l.strip().split(',')[-1].strip()
         if pid.isdigit():
             subprocess.run(['taskkill', '/PID', pid, '/F'], capture_output=True)
