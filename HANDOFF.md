@@ -1107,6 +1107,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #38 | 2026-11-03 | **UI设计师** | 界面调整 | **对齐基准修正**：统计卡底由对齐「可选看板带底」改为对齐左侧**白底卡片底**（margin 抵消法 → grid stretch **天然对齐**，差值 0px）；顶部区紧凑化（`.topbar-main` 空行 gap −20px / navgroup padding-bottom −5px / wrap padding-top −4px，topbar 329→304px，统计卡下方空隙 50→12px） | `src/static/index.html`、`ops/ui_check_layout_align.py`、`HANDOFF.md` | `HANDOFF.md §七 #38` |
 | #39 | 2026-11-03 | **UI设计师** | 界面调整 | 删除两个管理入口旁的**权限范围说明文字**（架构负责人 · 可配置 N 个节点… / 可配置 N 个看板）——由「仅管理员隐藏」改为**所有角色一律不显示**（代码层面移除渲染入口 + 清掉无引用 CSS）；实测管理员与架构负责人两种视角均无说明，权限逻辑不受影响 | `src/static/index.html`、`ops/ui_check_entry_pos.py`、`HANDOFF.md` | `HANDOFF.md §七 #39` |
 | #40 | 2026-11-03 | **UI设计师** | 界面调整 | 看板管理：列表**恢复滚动**（`setBcListScroll` 的 `overflow:hidden`→`auto`，恰好 7 个看板时中招） + 去中心节点「（全部看板 · 对全员展示）」附注 + 归属部门筛选**按权限过滤** + **新增负责人筛选**（管理员走树弹窗选人／受限用户降级为 owner 账号下拉，因 `/api/team` 对非管理员清空 account） | `src/static/index.html`、`HANDOFF.md` | `HANDOFF.md §七 #40` |
+| #43 | 2026-11-03 | **主设计师** | 前端 | **「选择负责人」按钮口径修复**：看板负责人区块的「🌳 选择负责人」按钮原来写死 `ME.is_admin`，而页脚「保存负责人」用的是后端能力位 `can_assign_owner`（架构负责人及以上）→ 架构负责人看得到「保存」却看不到「选择」，没地方指定负责人。两处口径统一为 `b.can_assign_owner` | `src/static/index.html`、`ops/ui_check_owner_btn.py`（新增） | `HANDOFF.md §七 #43` |
 | #42 | 2026-11-03 | **主设计师** | 前端 + 后端 | **四项功能 + 三项 UI 调整**：①板块绑定放开到「本部门架构下所有看板」（部门长/组长可给子组绑定）；②板块编辑/新建补参与人字段；③事项行内复制按钮；④看板整套复制（deep，连带板块+事项+子事项）；⑤筛选后无事项的板块整块隐藏；⑥看板负责人说明文字删除；⑦看板管理筛选区对齐。顺带修 3 个既有 bug（cards 无 id 列 / filter-options KeyError / 参与人字符串入参） | `src/app/app.py`、`src/static/index.html`、`ops/test_new_features.py`（新增）、`ops/test-filter-ui.js`、`ops/ui_check_filter.py`、`ops/ui_check_perm_render.py` | `HANDOFF.md §七 #42` |
 | #41 | 2026-11-03 | **UI设计师** | 界面调整 | 看板列表：数量由「事项数」改为**板块数**（实测与数据库真值 36/32/32/33/31/33/30 完全一致；⚠️ `col_years.length` 不可用 —— 年份去重，差 36 倍）+ 去 **WS 编码** + 去 **「编辑 ›」**（点击卡片本身即进配置，功能不丢） | `src/static/index.html`、`HANDOFF.md` | `HANDOFF.md §七 #41` |
 | #42 | 2026-11-02 | **UI设计师** | 界面调整 | 登录页图标 📊 emoji → **FISP 字母标**（白字+品牌蓝底+700字重）；字体整体调商务（标题 600 字重+字距 / 英文行全大写+1.1px 字距 / 控件 font-family:inherit）；顺带移除标题旁重复的 FISP 徽标（原 #28，与主设计师 #28 撞号 → 2026-11-03 交接管家改为 #42） | `src/static/login.html`、`HANDOFF.md` | `HANDOFF.md §七 #42` |
@@ -1170,6 +1171,22 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #43 · 2026-11-03 · 主设计师 · 「选择负责人」按钮口径修复
+
+**用户反馈**：看板管理编辑区「看板负责人」区块只显示「未指定」，没有选择入口
+（截图：身份行显示"架构负责人 · 可改基本信息并指定负责人"，页脚有「保存负责人」）。
+
+**根因**：`renderAclSection()` 里「🌳 选择负责人」按钮的门槛写死 `ME.is_admin`，
+而页脚「保存负责人」在 #32 改造时已用后端能力位 `can_assign_owner`
+（架构负责人及以上）→ 同一个权限两处口径不一致：
+架构负责人看得到「保存」却看不到「选择」。
+
+**修法**：`canSetOwner = !!b.can_assign_owner`（与页脚同一能力位）。
+
+**验证**：新增 `ops/ui_check_owner_btn.py` **6/0**
+（架构负责人：身份行/页脚保存/选择按钮全可见；只读：两按钮均不可见）。
+相关回归 `test-board-perm` 123/0、`ui_check_owner` 22/0、`ui_check_perm_render` 32/0。
 
 ### #42 · 2026-11-03 · 主设计师 · 四项功能 + 三项 UI 调整
 
