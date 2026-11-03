@@ -206,8 +206,15 @@ ok(/async function bcAfterDelete\(\)\{[\s\S]*?await loadBoardConfig\(\);/.test(h
 ok(/async function bcAfterDelete\(\)\{[\s\S]*?renderBoardList\(\);[\s\S]*?renderEditArea\(\);/.test(htmlSrc),
   '删除后重绘列表与编辑区');
 ok(!/class="bc-item-del"/.test(htmlSrc), '列表行内不再有删除按钮（已移入编辑区）');
-ok(/if\(isEdit\)\{footer\+='<button class="btn-secondary bc-del-single" onclick="bcDeleteOne\(/.test(htmlSrc),
-  '编辑区页脚提供单个看板的删除按钮');
+// 删除按钮受**后端能力位**控制（2026-11-03）：can_delete 为真才显示。
+ok(/if\(isEdit&&canDelete\)footer\+='<button class="btn-secondary bc-del-single"/.test(htmlSrc),
+  '编辑区页脚提供单个看板的删除按钮（按 can_delete 权限渲染）');
+ok(/const canEdit=!!b\.can_edit, canDelete=!!b\.can_delete, canAssign=!!b\.can_assign_owner;/.test(htmlSrc),
+  '编辑区按后端能力位（can_edit/can_delete/can_assign_owner）控制可配置范围');
+ok(/if\(canAssign\)footer\+='<button class="btn-secondary" onclick="saveBoardAcl\(\)"/.test(htmlSrc),
+  '「保存负责人」按 can_assign_owner 权限渲染（架构负责人及以上）');
+ok(/if\(canEdit\)footer\+='<button class="btn-primary" onclick="submitBoardConfigForm\(\)"/.test(htmlSrc),
+  '「保存配置」按 can_edit 权限渲染');
 ok(/id="bcDelBtn"/.test(htmlSrc) && /onclick="bcDeleteSelected\(\)"/.test(htmlSrc),
   '批量删除按钮与全选按钮同排');
 // 删除按钮不带个数：个数统一由右侧「已选 N 个」显示，避免同一信息重复两处

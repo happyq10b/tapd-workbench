@@ -1011,6 +1011,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #28 | 2026-11-02 | **主设计师** | 后端 | **修复小组成员继承父部门看板**（苏春景可见全部 7 个看板的根因）：`_member_authority_nodes()` 把小组节点**向上提升**到部门祖先 → `_dept_stage_boards()` 再把 scope 里的 id 一律当部门查归属看板 → 费用组/税务组成员被当成核算部成员。修复：新增 `_member_appointed_nodes()`（原始任命节点）+ 第一层改用 `_node_bound_boards()` 按节点类型派生 + `_group_boards()` 不再沿父链收集。修复后苏春景/谭亚利 → 0 个看板，王伟娜/余河不受影响 | `src/app/app.py`、`ops/test_dept_group_scope.py`、`ops/test-board-perm.js`、`ops/ui_check_perm_entries.py` | `HANDOFF.md §七 #28` |
 | #29 | 2026-11-02 | **主设计师** | 界面调整 + 文档 | **平台改名**：「财务工作事项平台」→「**财务综合事务平台**」，并加英文首字母缩写 **FISP**（*Financial Integrated Service Platform*）。中文名后挂 `.abbr` 徽标（小号浅色 inline-block，同行不折行）；登录页补英文全称行；旧名称全站清零 | `src/static/index.html`、`src/static/login.html`、`src/app/app.py`、`ops/ui_check_brand.py`、`docs/调试指南.md`、`docs/UI问题排查清单.md`、`docs/交接记录文档管理方案.md`、`工作转移手册.md` | `HANDOFF.md §七 #29` |
 | #30 | 2026-11-02 | **主设计师** | 后端 + 界面调整 + 文档 | **权限来源收敛**（用户拍板）：①**看板负责人 = 管理权**（可改看板基本信息），**不再收窄可见性**；②**谁能看见看板统一由【架构管理】的看板绑定决定**；③**参与人机制整体下线**；④**板块负责人移入【板块编辑】**配置；⑤负责人选择改为**树状图单选**（复用筛选栏「👤 人员」的架构树），未开通账号的人置灰不可选 | `src/app/app.py`、`src/static/index.html`、`ops/test_owner_scope.py`、`ops/test_acl_scope.py`、`ops/ui_check_owner.py`、`docs/调试指南.md` | `HANDOFF.md §七 #30` |
+| #32 | 2026-11-03 | **主设计师** | 前端 + 后端 | **菜单顺序与权限动态渲染**：【架构管理】入口移到【架构部门】带之后、【看板管理】入口移到【可选看板】带之后；两个管理页面按当前成员权限**动态渲染可配置范围**（入口按权限隐藏、条目按权限置灰、按钮按权限不渲染）；后端 `/api/me`、`/api/boards`、`/api/org/tree` 暴露能力位，前端只消费不推断 | `src/app/app.py`、`src/static/index.html`、`ops/test_perm_backend.py`（新增）、`ops/ui_check_perm_render.py`（新增）、`ops/test-board-perm.js`、`ops/ui_check_filter.py`、`ops/ui_check_perm_entries.py`、`docs/调试指南.md` | `HANDOFF.md §七 #32` |
 | #31 | 2026-11-03 | **主设计师** | 后端 + 流程建设 | **分级权限模型**（架构 > 看板 > 板块 > 事项）：新增 `src/app/perm.py` 权限内核（角色等级序 + 继承 + 资源链 + 统一错误体）；四层资源统一记录 `owner` + 参与人集合；16 个写接口接入分级校验；写接口粗闸门 `require_editor` → `require_writer`；管理员超脱但仅超管可配置管理员权限 | `src/app/perm.py`（新增）、`src/app/app.py`、`src/app/init_db.py`、`ops/test_perm_matrix.py`（新增）、`ops/test_owner_scope.py`、`ops/test_perm_scope.py`、`ops/test_copy_week.py`、`docs/调试指南.md` | `HANDOFF.md §七 #31` |
 
 ---
@@ -2567,6 +2568,70 @@ for nid in scope:
 - **无新增待转交事项** —— 本轮改动全在主设计师职责内（后端权限 / 前端交互 / 测试脚本）。
 - `src/` 改动**待提交**；`ops/verify.py` 已在提交前跑过（7/7）。
 - `src/` 累计改动**仍未推送到服务器**（同步是用户的动作）。
+
+### #32 · 2026-11-03 · 主设计师 · 菜单顺序与权限动态渲染
+
+#### 需求
+
+1. 【看板管理】菜单项移动到【可选看板】之后。
+2. 【架构管理】菜单项移动到【架构部门】之后。
+3. 在【看板管理】与【架构管理】下，依据当前成员所拥有的权限动态渲染可配置范围：
+   无权限的条目应隐藏或置灰不可点击，不允许越权访问对应页面与接口。
+4. 保持现有菜单结构、数据结构与权限模型不变，仅调整顺序并补充权限过滤逻辑。
+
+#### 改了什么
+
+**菜单顺序**：两个管理入口从顶栏 `.header-actions` 移到顶部导航区 `.tb-navgroup`，
+分别紧随【架构部门】带、【可选看板】带之后。最终顺序：
+
+```
+架构部门 → 架构管理 → 可选看板 → 看板管理 → 统计概览
+```
+
+**权限动态渲染**（本轮核心）：把 §#31 的分级权限模型接到前端两个管理页面。
+判定**只在后端**做，前端只消费能力位 —— 避免两套口径漂移。
+
+- 后端新增能力位：
+  - `/api/me` → `arch_leader_nodes` / `arch_scope` / `is_arch_owner` / `editable_boards`
+  - `/api/boards` → 每看板 `can_edit` / `can_assign_owner` / `can_delete` / `perm_role` / `perm_level`
+  - `/api/org/tree` → 每节点 `can_config_bind` / `can_manage_node` / `in_my_scope` / `is_leader`
+- 后端新增 `perm_check_pass()`：布尔版判定（不抛错），供前端渲染，
+  与写接口的 `perm_check()` **共用 perm.py 的 can_do**。
+- 前端新增 `renderPermissionEntries()` / `myPermProfile()`：
+  - 入口带按权限显示/隐藏（无权限 → 整带隐藏）
+  - 看板管理：列表按 `can_edit` 过滤；编辑区按 `can_edit` / `can_delete` / `can_assign_owner` 渲染按钮；
+    无权看板显示身份徽标（`perm_role`）
+  - 架构管理：管辖范围外的节点**置灰不可点**（`.org-node-ro`）；
+    节点结构增删改与岗位任命仍限管理员（`can_manage_node`）
+- 后端修 `/api/boards`：返回集合 = 可见看板 ∪ **可管理看板**
+  （负责人 = 管理权但不放大可见性 → 不补的话看板负责人看不到自己负责的看板）。
+
+#### 🔴 踩到的坑
+
+- **入口渲染不能依赖前端列表**（`BC_BOARDS` 要打开看板管理才加载 → 首屏空 → 误判无权限）
+  → 改用后端 `/api/me` 的 `editable_boards`。
+- **UI 测试就绪判据不能用静态 DOM**：`tbDepts` 在登录页就存在 → 登录失败也「就绪」
+  → 断言全挂。改用 `typeof ME!=='undefined' && !!ME`。
+- **token 键名是 `tk`**（`login.html`），不是 `token`。
+- **sqlite3 嵌套 execute 互相干扰**：`INSERT ... VALUES(?,(SELECT ...))` 导致任命行没插进去
+  → 夹具身份不生效 → 被误判成「功能坏了」。先查出来再单独执行 + 加夹具自检断言。
+- **越权测试要用真实 id**：假 id 先撞 404/422，把真正的 403 掩盖。
+  （`/api/board-config/{cid}` 的 cid 是整数，用 board_id 会 422。）
+- **补丁脚本断言失败会丢改动**：写文件放在**所有断言之后**，
+  否则中途失败 → 前面的 edit 全没落盘（本轮丢过一次 8 处）。
+
+#### 验证
+
+- 新增 `ops/test_perm_backend.py` **31/0**（能力位输出 / 四角色差异 / 越权 403 + 统一错误体）
+- 新增 `ops/ui_check_perm_render.py` **31/0**（真实 Chrome + CDP：菜单顺序 / 入口显隐 /
+  范围置灰 / 身份徽标 / 只读接口 403）
+- Python 全量 12 组 **304/0**、JS 全量 12 组 **1127/0**、UI 全量 8 组 **196/0**、`verify.py` **7/7**
+
+#### 遗留
+
+- `ui_check_brand.py` 的登录页 h1 缩写断言**在本轮之前就已失败**（与本次改动无关，未修）。
+- 生产环境 7 个看板仍**没有负责人** → 除管理员外无人可配置（需业务方指定）。
+- `src/` 已提交但**未推服务器**（同步是用户的动作）。
 
 ### #31 · 2026-11-03 · 主设计师 · 分级权限模型（架构 > 看板 > 板块 > 事项）
 

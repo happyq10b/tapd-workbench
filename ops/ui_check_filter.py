@@ -129,7 +129,10 @@ async def main():
             print('  （诊断）' + r['__error__'])
         cols = (r.get('topCols') or '').split()
         ok(len(cols) == 2, '顶部栏为左右两栏：%s' % r.get('topCols'))
-        ok(r.get('bands') == 3, '左半三「带」（部门/板块/统计）：%s' % r.get('bands'))
+        # ⚠️ 2026-11-03（菜单顺序调整）：左半由三带变五带 ——
+        #    架构部门 / 架构管理 / 可选看板 / 看板管理 / 统计概览
+        #    （两个管理入口带插在各自内容带之后）
+        ok(r.get('bands') == 5, '左半五「带」（部门/架构管理/看板/看板管理/统计）：%s' % r.get('bands'))
         ok(len((r.get('mainCols') or '').split()) == 3, '左半主区为三列：%s' % r.get('mainCols'))
         ok(len((r.get('deptCols') or '').split()) == 3, '部门带为三列：%s' % r.get('deptCols'))
         ok(len((r.get('boardCols') or '').split()) == 3, '板块带为三列：%s' % r.get('boardCols'))

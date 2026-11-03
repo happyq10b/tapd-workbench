@@ -127,7 +127,11 @@ async def main():
                 items[t]=(b.style.display==='none'||getComputedStyle(b).display==='none')?'H':'V';});
             return {role:(document.getElementById('roleTag')||{}).textContent,
                     team:vis('teamBtn'),wg:vis('wgBtn'),boardCfg:vis('boardConfigBtn'),
-                    audit:vis('auditBtn'),newCol:vis('newBtn'),items:items};
+                    audit:vis('auditBtn'),newCol:vis('newBtn'),items:items,
+                    // ⚠️ 2026-11-03（菜单顺序调整）：【架构管理】/【看板管理】入口
+                    //    已从顶栏移到顶部导航带（架构部门之后 / 可选看板之后）。
+                    //    无权限时**整带隐藏**（按钮从 DOM 移除）→ 取带的可见性。
+                    archBand:vis('archEntryBand'),boardBand:vis('boardEntryBand')};
         })()"""
 
         try:
@@ -147,8 +151,10 @@ async def main():
             print('\n【用例1】管理员：全部入口可见')
             r = results[U_ADMIN]
             ok(r.get('team') == 'V', '成员与账号管理：%s' % r.get('team'))
-            ok(r.get('wg') == 'V', '架构管理：%s' % r.get('wg'))
-            ok(r.get('boardCfg') == 'V', '看板管理：%s' % r.get('boardCfg'))
+            ok(r.get('archBand') == 'V', '架构管理入口带（架构部门之后）：%s' % r.get('archBand'))
+            ok(r.get('wg') == 'V', '架构管理按钮：%s' % r.get('wg'))
+            ok(r.get('boardBand') == 'V', '看板管理入口带（可选看板之后）：%s' % r.get('boardBand'))
+            ok(r.get('boardCfg') == 'V', '看板管理按钮：%s' % r.get('boardCfg'))
             ok(r.get('audit') == 'V', '操作日志：%s' % r.get('audit'))
             ok(r.get('newCol') == 'V', '新建板块：%s' % r.get('newCol'))
             ok(all(v == 'V' for v in (r.get('items') or {}).values()),
@@ -157,8 +163,11 @@ async def main():
             print('\n【用例2】可编辑：管理员专属入口隐藏，其余可见')
             r = results[U_EDITOR]
             ok(r.get('team') == 'H', '成员与账号管理隐藏：%s' % r.get('team'))
-            ok(r.get('wg') == 'H', '架构管理隐藏：%s' % r.get('wg'))
-            ok(r.get('boardCfg') == 'H', '看板管理隐藏：%s' % r.get('boardCfg'))
+            # ⚠️ 2026-11-03：入口移到导航带后，无权限时**整带隐藏**（按钮从 DOM 移除）
+            ok(r.get('archBand') == 'H', '架构管理入口带隐藏：%s' % r.get('archBand'))
+            ok(r.get('wg') in ('H', 'MISSING'), '架构管理按钮隐藏：%s' % r.get('wg'))
+            ok(r.get('boardBand') == 'H', '看板管理入口带隐藏：%s' % r.get('boardBand'))
+            ok(r.get('boardCfg') in ('H', 'MISSING'), '看板管理按钮隐藏：%s' % r.get('boardCfg'))
             ok(r.get('audit') == 'H', '操作日志隐藏：%s' % r.get('audit'))
             ok(r.get('newCol') == 'V', '新建板块可见：%s' % r.get('newCol'))
             ok(all(v == 'V' for v in (r.get('items') or {}).values()),
@@ -167,8 +176,10 @@ async def main():
             print('\n【用例3】只读：写操作入口隐藏，只读可用的保留')
             r = results[U_VIEWER]
             ok(r.get('team') == 'H', '成员与账号管理隐藏：%s' % r.get('team'))
-            ok(r.get('wg') == 'H', '架构管理隐藏：%s' % r.get('wg'))
-            ok(r.get('boardCfg') == 'H', '看板管理隐藏：%s' % r.get('boardCfg'))
+            ok(r.get('archBand') == 'H', '架构管理入口带隐藏：%s' % r.get('archBand'))
+            ok(r.get('wg') in ('H', 'MISSING'), '架构管理按钮隐藏：%s' % r.get('wg'))
+            ok(r.get('boardBand') == 'H', '看板管理入口带隐藏：%s' % r.get('boardBand'))
+            ok(r.get('boardCfg') in ('H', 'MISSING'), '看板管理按钮隐藏：%s' % r.get('boardCfg'))
             ok(r.get('audit') == 'H', '操作日志隐藏：%s' % r.get('audit'))
             ok(r.get('newCol') == 'H', '新建板块隐藏：%s' % r.get('newCol'))
             it = r.get('items') or {}
