@@ -86,7 +86,9 @@ PROBE = r"""
     cfgInBand:bx('#boardConfigBtn')&&bx('.tb-board-band')
         ? (bx('#boardConfigBtn').right<=bx('.tb-board-band').right+1 && bx('#boardConfigBtn').x>=bx('.tb-board-band').x-1) : false,
     archNote:(document.querySelector('#archEntryRow .tb-entry-note')||{}).textContent||'',
-    boardNote:(document.querySelector('#boardEntryRow .tb-entry-note')||{}).textContent||''
+    boardNote:(document.querySelector('#boardEntryRow .tb-entry-note')||{}).textContent||'',
+    archNoteAbsent:!document.querySelector('#archEntryRow .tb-entry-note'),
+    boardNoteAbsent:!document.querySelector('#boardEntryRow .tb-entry-note')
   });
 })()
 """
@@ -172,9 +174,11 @@ def main():
     ok('打开' not in (d.get('wgText') or ''), '架构管理按钮无「打开」：%r' % d.get('wgText'))
     ok('打开' not in (d.get('cfgText') or ''), '看板管理按钮无「打开」：%r' % d.get('cfgText'))
 
-    print('\n【用例3】权限说明文字仍在（信息不丢失）')
-    ok(bool(d.get('archNote')), '架构管理说明文字保留：%r' % d.get('archNote'))
-    ok(bool(d.get('boardNote')), '看板管理说明文字保留：%r' % d.get('boardNote'))
+    print('\n【用例3】管理员视角不显示权限说明（无信息量的废话已删）')
+    ok(not (d.get('archNote') or '').strip(), '架构管理旁无说明文字：%r' % d.get('archNote'))
+    ok(not (d.get('boardNote') or '').strip(), '看板管理旁无说明文字：%r' % d.get('boardNote'))
+    ok(d.get('archNoteAbsent') is True, '架构管理未渲染 .tb-entry-note 节点')
+    ok(d.get('boardNoteAbsent') is True, '看板管理未渲染 .tb-entry-note 节点')
 
     print('\n【结果】%s' % ('全部通过' if not FAILED else '失败 %d 项' % len(FAILED)))
     for f in FAILED:
