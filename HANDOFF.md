@@ -834,6 +834,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | **T-005** | 2026-11-02 | **主设计师** | **需求5 的窄屏锁定有 4px 缺口**：`.topbar` 的 `column-gap` 在窄屏被 `@media(max-width:900px)` 的 `gap:10px` 改掉（14px→10px），而 `grid-template-columns` 被后声明的 `@media(max-width:1199px)` 覆盖回 2 栏 → **断点只覆盖了一半**。实测：视口 1200 时 `.topbar-main`=798px，视口 700 时=802px，部门栅格 768→772px —— 违反需求5「所有元素大小位置不变」。另 `@media(max-width:640px)` 的 `.topbar{padding:10px 12px 0}` 同理会改内边距（≤640px 时生效） | `src/static/index.html`（L208-213 `@media(max-width:900px)` 的 `.topbar{gap:10px}`；L214-219 `@media(max-width:640px)` 的 `.topbar{padding:10px 12px 0}`） | UI设计师（布局/尺寸属 UI 职责；主设计师只做测试断言，不改样式） | ✅ 已处理 · **UI设计师** · 补齐 gap/padding/列数/字号/order 五项收敛，10 视口 × 16 属性全一致 |
 | **T-006** | 2026-11-02 | **UI设计师** | **断言与新需求冲突**：`ops/test-filter-ui.js` 断言「窄屏兜底断点内整个工具栏不换行」（要求 `@media(max-width:1199px)` 内存在 `.toolbar{flex-wrap:nowrap}`）。该规则是 UI设计师 上一轮为防「双重变形」加的，但**与本轮新需求「筛选明细单独起一行」直接冲突** —— 明细行靠 `.toolbar` 的 `flex-wrap:wrap` 才能换到独立一行（`#filterHint` 用 `flex:1 0 100%` 强制换行）。已删除该规则（保留 `.toolbar-left{flex-wrap:nowrap}`）。测试结果 **143 通过 / 1 失败**，失败项即此条 | `ops/test-filter-ui.js`（断言 L217-218） | 主设计师（测试脚本归属） | ✅ 已处理 · **主设计师** · 断言翻转为校验现行策略（`.toolbar{flex-wrap:nowrap}` 已按「筛选明细独占一行」新需求删除 → 断言改为「不再强制 nowrap」+「明细行靠 `flex:1 0 100%` 独占一行」）；`test-filter-ui` 143/1 → **147/0** |
 | **T-007** | 2026-11-02 | **UI设计师** | **「更多」菜单已空置**：按用户需求，备份/恢复/模板/导入/导出 5 项已整体挪到独立的【导入导出】按钮下 → 原「更多」下拉**只剩空壳**（已暂显「（暂无更多操作）」占位，未直接删按钮 —— 删不删属产品决策）。请确认：① 「更多」按钮**保留**（等后续放新项）还是**直接移除**？② 若保留，是否需要往里放新的低频操作项？ | `src/static/index.html` | 主设计师（产品决策 + 后续可能要往里加项） | ⏳ 待认领 |
+| **T-008** | 2026-11-03 | **UI设计师** | 用户要求把两个管理入口**并入所属带的标题行右侧**（架构管理 → 架构部门带标题行；看板管理 → 可选看板带标题行）→ 导航区由四带收为两带。由此**两个旧断言失效**（编码的是旧结构，非功能回归）：① `ops/ui_check_perm_render.py` L225-226「架构管理带紧随架构部门带之后 / 看板管理带紧随可选看板带之后」—— 现在入口不再是独立带 ② `ops/ui_check_filter.py` L135「左半五带」—— 现为三带（部门/看板/统计） | `ops/ui_check_perm_render.py`、`ops/ui_check_filter.py` | 主设计师（`ops/` 测试脚本归属） | ⏳ 待认领 |
 
 ### 5.1.1 T-001 详情（已闭环 · 主设计师 认领）
 
@@ -1011,8 +1012,9 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #28 | 2026-11-02 | **主设计师** | 后端 | **修复小组成员继承父部门看板**（苏春景可见全部 7 个看板的根因）：`_member_authority_nodes()` 把小组节点**向上提升**到部门祖先 → `_dept_stage_boards()` 再把 scope 里的 id 一律当部门查归属看板 → 费用组/税务组成员被当成核算部成员。修复：新增 `_member_appointed_nodes()`（原始任命节点）+ 第一层改用 `_node_bound_boards()` 按节点类型派生 + `_group_boards()` 不再沿父链收集。修复后苏春景/谭亚利 → 0 个看板，王伟娜/余河不受影响 | `src/app/app.py`、`ops/test_dept_group_scope.py`、`ops/test-board-perm.js`、`ops/ui_check_perm_entries.py` | `HANDOFF.md §七 #28` |
 | #29 | 2026-11-02 | **主设计师** | 界面调整 + 文档 | **平台改名**：「财务工作事项平台」→「**财务综合事务平台**」，并加英文首字母缩写 **FISP**（*Financial Integrated Service Platform*）。中文名后挂 `.abbr` 徽标（小号浅色 inline-block，同行不折行）；登录页补英文全称行；旧名称全站清零 | `src/static/index.html`、`src/static/login.html`、`src/app/app.py`、`ops/ui_check_brand.py`、`docs/调试指南.md`、`docs/UI问题排查清单.md`、`docs/交接记录文档管理方案.md`、`工作转移手册.md` | `HANDOFF.md §七 #29` |
 | #30 | 2026-11-02 | **主设计师** | 后端 + 界面调整 + 文档 | **权限来源收敛**（用户拍板）：①**看板负责人 = 管理权**（可改看板基本信息），**不再收窄可见性**；②**谁能看见看板统一由【架构管理】的看板绑定决定**；③**参与人机制整体下线**；④**板块负责人移入【板块编辑】**配置；⑤负责人选择改为**树状图单选**（复用筛选栏「👤 人员」的架构树），未开通账号的人置灰不可选 | `src/app/app.py`、`src/static/index.html`、`ops/test_owner_scope.py`、`ops/test_acl_scope.py`、`ops/ui_check_owner.py`、`docs/调试指南.md` | `HANDOFF.md §七 #30` |
-| #32 | 2026-11-03 | **主设计师** | 前端 + 后端 | **菜单顺序与权限动态渲染**：【架构管理】入口移到【架构部门】带之后、【看板管理】入口移到【可选看板】带之后；两个管理页面按当前成员权限**动态渲染可配置范围**（入口按权限隐藏、条目按权限置灰、按钮按权限不渲染）；后端 `/api/me`、`/api/boards`、`/api/org/tree` 暴露能力位，前端只消费不推断 | `src/app/app.py`、`src/static/index.html`、`ops/test_perm_backend.py`（新增）、`ops/ui_check_perm_render.py`（新增）、`ops/test-board-perm.js`、`ops/ui_check_filter.py`、`ops/ui_check_perm_entries.py`、`docs/调试指南.md` | `HANDOFF.md §七 #32` |
 | #31 | 2026-11-03 | **主设计师** | 后端 + 流程建设 | **分级权限模型**（架构 > 看板 > 板块 > 事项）：新增 `src/app/perm.py` 权限内核（角色等级序 + 继承 + 资源链 + 统一错误体）；四层资源统一记录 `owner` + 参与人集合；16 个写接口接入分级校验；写接口粗闸门 `require_editor` → `require_writer`；管理员超脱但仅超管可配置管理员权限 | `src/app/perm.py`（新增）、`src/app/app.py`、`src/app/init_db.py`、`ops/test_perm_matrix.py`（新增）、`ops/test_owner_scope.py`、`ops/test_perm_scope.py`、`ops/test_copy_week.py`、`docs/调试指南.md` | `HANDOFF.md §七 #31` |
+| #32 | 2026-11-03 | **主设计师** | 前端 + 后端 | **菜单顺序与权限动态渲染**：【架构管理】入口移到【架构部门】带之后、【看板管理】入口移到【可选看板】带之后；两个管理页面按当前成员权限**动态渲染可配置范围**（入口按权限隐藏、条目按权限置灰、按钮按权限不渲染）；后端 `/api/me`、`/api/boards`、`/api/org/tree` 暴露能力位，前端只消费不推断 | `src/app/app.py`、`src/static/index.html`、`ops/test_perm_backend.py`（新增）、`ops/ui_check_perm_render.py`（新增）、`ops/test-board-perm.js`、`ops/ui_check_filter.py`、`ops/ui_check_perm_entries.py`、`docs/调试指南.md` | `HANDOFF.md §七 #32` |
+| #33 | 2026-11-03 | **UI设计师** | 界面调整 | 两个管理入口**并入所属带的标题行右侧**（架构管理→架构部门带 / 看板管理→可选看板带），导航区四带收为两带、topbar 559→416px；按钮文字**去掉「打开」**。uid=197609(admin) gid=197121 groups=197121 保持不变 → 权限逻辑零改动 | `src/static/index.html`、`ops/ui_check_entry_pos.py`、`HANDOFF.md` |
 
 ---
 
@@ -2568,6 +2570,80 @@ for nid in scope:
 - **无新增待转交事项** —— 本轮改动全在主设计师职责内（后端权限 / 前端交互 / 测试脚本）。
 - `src/` 改动**待提交**；`ops/verify.py` 已在提交前跑过（7/7）。
 - `src/` 累计改动**仍未推送到服务器**（同步是用户的动作）。
+
+### #33 · 2026-11-03 · UI设计师 · 管理入口并入所属带的标题行 + 按钮去掉「打开」
+
+#### 需求
+
+用户提 2 项（附截图标注）：
+
+1. **调整按钮位置** —— 【打开架构管理】从独立带移到【架构部门】带的**标题行右侧**；
+   【打开看板管理】移到【可选看板】带的**标题行右侧**。
+   截图用红框 + 箭头标注了目标位置。
+2. **按钮不要追加「打开」两个字** —— 用户原话「纯纯废话」。
+
+#### 改了什么
+
+| 项 | 改前 | 改后 |
+|---|---|---|
+| 架构管理入口 | 独立的 `.tb-entry-band`（带标题「架构管理」） | 【架构部门】带标题行右侧的 `.tb-band-head-entry` |
+| 看板管理入口 | 独立的 `.tb-entry-band`（带标题「看板管理」） | 【可选看板】带标题行右侧的 `.tb-band-head-entry` |
+| 导航区带数 | 4 带（部门/架构管理/看板/看板管理） | **2 带**（部门/看板） |
+| 按钮文字 | 🏗️ 打开架构管理 / 📊 打开看板管理 | 🏗️ 架构管理 / 📊 看板管理 |
+| topbar 高度 | 559px | **416px**（省 143px） |
+
+**关键做法：`id` 保持不变 → 权限逻辑零改动。**
+
+`archEntryBand` / `boardEntryBand` 这两个 id 原指「入口带」，现改指「标题行内的入口槽」。
+`renderPermissionEntries()` 里那句 `archBand.style.display='none'` 现在作用在入口槽上，
+效果仍是「按钮消失」——**JS 函数体一行未改**，仅更新了注释。
+
+> 这也是当初主设计师把 id 命名为 `archEntryBand` 而非 `archEntryBtn` 的价值：
+> 语义容器可以换，id 不换，调用方就不用动。
+
+#### 顺带的样式调整
+
+- `.tb-band-title` 的 `margin-bottom:7px` 在 `.tb-band-head` 内改为由父级统一控制
+  （`.tb-band-head>.tb-band-title{margin-bottom:0}`）—— 否则标题与网格之间会多出一段空隙。
+- `.tb-entry-row` 由 `flex-wrap:wrap` 改为 `nowrap` + `overflow:hidden`；
+  `.tb-entry-note` 加 `text-overflow:ellipsis` —— 说明文字过长时省略，不撑破带宽。
+- `.tb-entry-btn` 加 `flex-shrink:0` —— 按钮本身永不被压缩。
+
+#### 验证（headless Chrome 实测）
+
+| 项 | 结果 |
+|---|---|
+| 按钮与标题同行 | 架构管理 ✓ 看板管理 ✓ |
+| 按钮在标题右侧 | ✓ ✓ |
+| 按钮未越出所属带 | ✓ ✓ |
+| 按钮文字无「打开」 | ✓ ✓ |
+| 权限说明文字未丢失 | ✓ ✓（未截断） |
+| **权限显隐** | `ui_check_perm_entries.py` **28/0** —— 无权限时入口槽隐藏、按钮消失 |
+| **全视口一致性** | 1600→500 共 10 视口 × 15 元素（位置/尺寸/列宽）**0 差异**，需求5 未被破坏 |
+| 回归 | 43 / 147 / 222 / 22 / 97 / 12 / 123 全绿 |
+| 扫描 | `ui_audit_scan` 六项全 0 |
+| 门禁 | `verify.py` 7/7 |
+
+#### 新增守卫脚本
+
+`ops/ui_check_entry_pos.py`（只读，14 项断言）—— 固化本次三条需求，
+防止后续改动把入口挪回独立带或加回「打开」二字。
+
+**为什么单独建而不塞进现有脚本**：`ops/ui_check_perm_render.py` 与 `ops/ui_check_filter.py`
+的「带数量 / 带顺序」断言**编码的是旧结构**（四带 / 五带），结构变更后必然失效。
+那两个脚本归属主设计师（§0.3.1），**本轮不越权改它们**（已登记 T-008），
+而是提供与新结构对齐的独立守卫。
+
+#### 遗留 / 待确认
+
+- **T-008 已登记** —— 两个旧断言的更新由主设计师处理（详见 §五）。
+- **建议更新 `docs/调试指南.md`** L3008-3009：其中「入口位置」表仍写着
+  「位于【架构部门】带之后 / `#archEntryBand`（`.tb-entry-band`）」，
+  现已改为「并入标题行右侧」。该文档属主设计师/交接管家范围，**未擅自改**。
+- `src/` 本轮改动**待提交**。
+- `src/` 累计改动**仍未推送到服务器** —— 同步是用户的权限。
+
+---
 
 ### #32 · 2026-11-03 · 主设计师 · 菜单顺序与权限动态渲染
 
