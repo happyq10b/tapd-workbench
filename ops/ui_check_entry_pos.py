@@ -88,7 +88,9 @@ PROBE = r"""
     archNote:(document.querySelector('#archEntryRow .tb-entry-note')||{}).textContent||'',
     boardNote:(document.querySelector('#boardEntryRow .tb-entry-note')||{}).textContent||'',
     archNoteAbsent:!document.querySelector('#archEntryRow .tb-entry-note'),
-    boardNoteAbsent:!document.querySelector('#boardEntryRow .tb-entry-note')
+    boardNoteAbsent:!document.querySelector('#boardEntryRow .tb-entry-note'),
+    // 源码级：该说明文字的渲染入口已彻底移除（防止被改回来）
+    noNoteInSource:(document.documentElement.innerHTML.indexOf('tb-entry-note')<0)
   });
 })()
 """
@@ -174,11 +176,14 @@ def main():
     ok('打开' not in (d.get('wgText') or ''), '架构管理按钮无「打开」：%r' % d.get('wgText'))
     ok('打开' not in (d.get('cfgText') or ''), '看板管理按钮无「打开」：%r' % d.get('cfgText'))
 
-    print('\n【用例3】管理员视角不显示权限说明（无信息量的废话已删）')
+    print('\n【用例3】**任何角色**都不显示权限范围说明（2026-11-03 用户要求：各用户界面都删掉）')
     ok(not (d.get('archNote') or '').strip(), '架构管理旁无说明文字：%r' % d.get('archNote'))
     ok(not (d.get('boardNote') or '').strip(), '看板管理旁无说明文字：%r' % d.get('boardNote'))
     ok(d.get('archNoteAbsent') is True, '架构管理未渲染 .tb-entry-note 节点')
     ok(d.get('boardNoteAbsent') is True, '看板管理未渲染 .tb-entry-note 节点')
+    # 结构性断言：代码里已不再存在该说明的渲染入口（防止被改回来）
+    ok(d.get('noNoteInSource') is True,
+       '源码中已无 .tb-entry-note 渲染入口（任何角色都不会再出现该说明）')
 
     print('\n【结果】%s' % ('全部通过' if not FAILED else '失败 %d 项' % len(FAILED)))
     for f in FAILED:
