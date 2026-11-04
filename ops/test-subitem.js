@@ -275,7 +275,9 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
     `(function(){const ids=Object.keys(ROW_OPS);const it=ROW_OPS[ids[ids.length-1]];return it?it.map(x=>x.label):[];})()`,
     sandbox);
   ok(_lastOps.some(l => l.includes('取消置顶')), '个人置顶后菜单项显示「取消置顶」（实测：%s）'.replace('%s', JSON.stringify(_lastOps)));
-  ok(treeHtml.includes('toggleCardDone'), '目录行状态标签可切换完成状态');
+  // ⚠️ 2026-11-04 需求3：目录中事项的完成情况改为**只读展示**（移除点击切换交互）
+  ok(!treeHtml.includes('toggleCardDone'), '目录行状态标签不再提供点击切换（只读展示）');
+  ok(treeHtml.includes('status-tag'), '目录行仍展示完成情况标签');
   ok(treeHtml.includes('openSubModal'), '目录行点击打开子事项弹窗');
   ok(treeHtml.includes('已完成'), '完成状态有标记');
   ok(!treeHtml.includes('openDetail'), '目录行不再走只读详情弹窗');

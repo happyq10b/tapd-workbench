@@ -237,7 +237,9 @@ async def main():
         r = await ev("""(function(){
             return {hasPerson:typeof PERSON_SEL!=='undefined',
                     src:(function(){
-                        try{return String(reload).indexOf("ps.set('person'")>=0;}catch(e){return false;}
+                        // ⚠️ 2026-11-04 需求5：筛选参数构造抽到 buildFilterParams
+                        //    （reload 与 xlsx 导出共用同一份 → 页面筛选对导出生效）
+                        try{return String(buildFilterParams).indexOf("ps.set('person'")>=0;}catch(e){return false;}
                     })(),
                     noOwner:(function(){
                         try{return String(reload).indexOf("ps.set('owner'")<0;}catch(e){return false;}

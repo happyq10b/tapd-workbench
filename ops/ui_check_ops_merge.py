@@ -150,8 +150,12 @@ async def main():
             ok(any('新建板块' in x for x in items), '菜单含「＋ 新建板块」')
             ok(any('展开板块' in x for x in items) and any('折叠板块' in x for x in items), '菜单含 展开/折叠板块')
             # ⚠️ 2026-11-04 #56 最终口径：模板/导入/导出留在本菜单；备份/恢复在顶部【更多】（管理员级）
-            ok(any('模板' in x for x in items) and any('导入' in x for x in items) and any('导出 Excel' in x for x in items),
-               '菜单含 模板/导入/导出：%s' % items)
+            # ⚠️ 2026-11-04 需求6/7：文案改为「导出（xlsx）」且三项都去掉了 emoji
+            ok(any('模板' in x for x in items) and any('导入（xlsx）' in x for x in items)
+               and any('导出（xlsx）' in x for x in items),
+               '菜单含 模板/导入（xlsx）/导出（xlsx）：%s' % items)
+            ok(not any(x.startswith('📄') or x.startswith('📊') or x.startswith('📥') for x in items),
+               '导入/导出/模板三项已去掉 emoji：%s' % items)
             ok(not any('备份' in x for x in items) and not any('恢复' in x for x in items),
                '本菜单不含 备份/恢复（已移到顶部更多，管理员级）：%s' % items)
             r2 = await ev("""(function(){

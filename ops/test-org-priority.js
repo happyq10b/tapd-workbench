@@ -63,7 +63,10 @@ ok(/def _collect_node_members\(node_id: int, nodes, appts\)/.test(pySrc),
   '后端收集节点末级人员');
 ok(/node\['members'\] = _collect_node_members/.test(pySrc), '/api/org/tree 节点带 members 字段');
 ok(/cc: Optional\[str\] = None/.test(pySrc), '/api/cards 增加 cc（参与人）筛选参数');
-ok(/if cc:\s*\n\s*# 参与人筛选/.test(pySrc), 'cards 接口按参与人过滤');
+// ⚠️ 2026-11-04：cards 的过滤逻辑已抽到共用函数 _filter_cards_for_user
+//    （列表与 xlsx 导出共用同一套 → 页面筛选对导出结果生效）
+ok(/def _filter_cards_for_user\(/.test(pySrc) && /if cc:/.test(pySrc),
+  'cards 按参与人过滤（逻辑在共用过滤函数 _filter_cards_for_user 内）');
 ok(/onames = \[x\.strip\(\) for x in owner\.split\(','\)/.test(pySrc), 'owner 支持多值（逗号分隔）');
 ok(/cnames = \[x\.strip\(\) for x in cc\.split\(','\)/.test(pySrc), 'cc 支持多值（逗号分隔）');
 ok(/var ORG_PERSON_PREFIX='__P__'/.test(htmlSrc), '人员前缀统一为常量');

@@ -167,9 +167,10 @@ async def main():
             _more = r.get('more') or {}
             ok(_more.get('备份') == 'V' and _more.get('恢复') == 'V',
                '顶部【更多】含 备份/恢复（admin）：%s' % _more)
-            ok(any('模板' in l for l in _lbl) and any('导入' in l for l in _lbl)
-               and any('导出 Excel' in l for l in _lbl),
-               '工具栏操作菜单含 模板/导入/导出（admin）：%s' % _lbl)
+            # ⚠️ 2026-11-04 需求6/7：「导出 Excel」→「导出（xlsx）」，三项去 emoji
+            ok(any('模板' in l for l in _lbl) and any('导入（xlsx）' in l for l in _lbl)
+               and any('导出（xlsx）' in l for l in _lbl),
+               '工具栏操作菜单含 模板/导入（xlsx）/导出（xlsx）（admin）：%s' % _lbl)
 
             print('\n【用例2】可编辑：管理员专属入口隐藏，其余可见')
             r = results[U_EDITOR]
@@ -185,9 +186,9 @@ async def main():
             _more = r.get('more') or {}
             ok(_more.get('备份') == 'H' and _more.get('恢复') == 'H',
                '顶部【更多】备份/恢复对非管理员隐藏（admin 级）：%s' % _more)
-            ok(any('模板' in l for l in _lbl) and any('导入' in l for l in _lbl)
-               and any('导出 Excel' in l for l in _lbl),
-               '工具栏操作菜单含 模板/导入/导出（editor）：%s' % _lbl)
+            ok(any('模板' in l for l in _lbl) and any('导入（xlsx）' in l for l in _lbl)
+               and any('导出（xlsx）' in l for l in _lbl),
+               '工具栏操作菜单含 模板/导入（xlsx）/导出（xlsx）（editor）：%s' % _lbl)
 
             print('\n【用例3】只读：写操作入口隐藏，只读可用的保留')
             r = results[U_VIEWER]
@@ -204,8 +205,8 @@ async def main():
                '顶部【更多】备份/恢复对非管理员隐藏（admin 级）：%s' % _more)
             ok(r.get('newCol') == 'H' and not any('导入' in l and '模板' not in l for l in _lbl),
                '新建板块/导入 对 viewer 隐藏（editor 门槛）：%s / %s' % (r.get('newCol'), _lbl))
-            ok(any('模板' in l for l in _lbl) and any('导出 Excel' in l for l in _lbl),
-               '模板/导出 对 viewer 保留（require_auth）：%s' % _lbl)
+            ok(any('模板' in l for l in _lbl) and any('导出（xlsx）' in l for l in _lbl),
+               '模板/导出（xlsx） 对 viewer 保留（require_auth）：%s' % _lbl)
         finally:
             cleanup()
 

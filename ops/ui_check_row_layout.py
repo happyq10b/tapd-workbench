@@ -162,11 +162,19 @@ async def main():
               const itemT=document.querySelector('.item-card .item-title');
               const ops=h.querySelector('.slot-ops .ops-btn');
               const barR=bar?Math.round(bar.getBoundingClientRect().right):0;
+              const barW=bar?Math.round(bar.getBoundingClientRect().width):0;
               const fL=fcols?Math.round(fcols.getBoundingClientRect().left):0;
               const itemTR=itemT?Math.round(itemT.getBoundingClientRect().right):0;
               const itemFL=itemF?Math.round(itemF.getBoundingClientRect().left):0;
+              // 板块行的「负责人」列起点（进度条右端应与之对齐）
+              const colOwner=h.querySelector('.week-fcols .fcol-owner');
+              const ownerL=colOwner?Math.round(colOwner.getBoundingClientRect().left):0;
+              // 事项行的「负责人」列起点（纵向对齐基准）
+              const itemOwner=document.querySelector('.item-card .fcols .fcol-owner');
+              const itemOwnerL=itemOwner?Math.round(itemOwner.getBoundingClientRect().left):0;
               const tailSlot=h.querySelectorAll('.item-tail .slot-overdue,.item-tail .slot-subtask,.item-tail .slot-status').length;
-              return {found:true,cols:cols,barR:barR,fL:fL,itemTR:itemTR,itemFL:itemFL,
+              return {found:true,cols:cols,barR:barR,barW:barW,fL:fL,itemTR:itemTR,itemFL:itemFL,
+                      ownerL:ownerL,itemOwnerL:itemOwnerL,
                       ops:ops?ops.textContent.trim():'',tailSlot:tailSlot};
             })()""")
             ok(r.get('found') is True, '板块行渲染')
@@ -174,12 +182,17 @@ async def main():
             ok(any(c.startswith('负责人') for c in ccols) and any(c.startswith('创建') for c in ccols)
                and any(c.startswith('截止') for c in ccols),
                '板块行有 负责人/创建/截止 字段：%s' % ccols)
-            ok(r.get('barR') == r.get('fL') or abs(r.get('barR', 0) - r.get('fL', 0)) <= 13,
-               '进度条结尾 ≈ 板块字段列左端（差值为行内 gap 12px：%s vs %s）' % (r.get('barR'), r.get('fL')))
-            ok(abs(r.get('itemTR', 0) - r.get('barR', 1)) <= 2,
-               '进度条结尾与事项标题结尾对齐（标题右 %s vs bar 右 %s）' % (r.get('itemTR'), r.get('barR')))
-            ok(abs(r.get('itemFL', 0) - r.get('fL', 1)) <= 2,
-               '板块字段列与事项字段列左端对齐（%s vs %s）' % (r.get('fL'), r.get('itemFL')))
+            # ⚠️ 2026-11-04 需求2：进度条改为**固定宽度**（≈两个周数列），不再弹性伸缩；
+            #    它的**右端与「负责人」列的起点对齐**（不再与字段列左端/事项标题右端对齐）。
+            ok(abs(r.get('barW', 0) - 200) <= 12,
+               '进度条宽度固定 ≈两个周数列（实测 %s px）' % r.get('barW'))
+            ok(abs(r.get('barR', 0) - r.get('ownerL', 1)) <= 2,
+               '进度条右端与负责人列起点对齐（bar 右 %s vs 负责人左 %s）'
+               % (r.get('barR'), r.get('ownerL')))
+            # 板块行与事项行的「负责人」列仍纵向对齐（字段列起点一致）
+            ok(abs(r.get('ownerL', 0) - r.get('itemOwnerL', 1)) <= 4,
+               '板块负责人列与事项负责人列纵向对齐（%s vs %s）'
+               % (r.get('ownerL'), r.get('itemOwnerL')))
             ok(r.get('ops') == '操作 ▾', '板块行也是「操作 ▾」（含 置顶/复制/折叠/展开）')
             ok(r.get('tailSlot') == 3, '板块行尾部 3 个空占位槽位与事项行同构')
             # 板块操作菜单含 折叠/展开
