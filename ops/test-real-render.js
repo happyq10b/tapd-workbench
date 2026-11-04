@@ -74,7 +74,8 @@ function ok(c, m) { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++;
     vm.runInContext(`ME={can_edit:true,is_admin:true,username:'admin',boards:[{board_id:'${parent.board_id}',board_name:'B'}]};curBoard='${parent.board_id}';`, sandbox);
     const rowHtml = sandbox.cardItem(parent, 1);
     console.log('    父事项行 HTML 片段:', rowHtml.match(/<span class="fcol[^>]*>[^<]*<\/span>/)?.[0] || '(无)');
-    ok(/负责人：[^<]/.test(rowHtml), '父事项行显示了「负责人：」前缀');
+    // 2026-11-04 #55：字段渲染从「label：value」改为「label value」（去冒号省宽）
+    ok(/负责人 [^<]/.test(rowHtml), '父事项行显示了「负责人」前缀');
     ok(rowHtml.includes('＋ 子事项'), '父事项行的子事项按钮文案正确');
     // 父事项负责人独立：不借用子事项负责人
     const childOwners = await api('/api/cards/' + parent.card_id + '/children')
@@ -82,14 +83,15 @@ function ok(c, m) { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++;
     if (childOwners.length && !parent.owner) {
       ok(!childOwners.some(o => rowHtml.includes(o)),
         '父事项无负责人时不借用子事项负责人');
-      ok(rowHtml.includes('负责人：—'), '父事项无负责人时占位为「负责人：—」');
+      ok(rowHtml.includes('负责人 —'), '父事项无负责人时占位为「负责人 —」');
     }
     // 字段列：创建日期只到年月日
     ok(/创建：\d{4}-\d{2}-\d{2}/.test(rowHtml), '行内显示「创建：YYYY-MM-DD」（标签精简）');
     ok(!/创建日期：\d{4}-\d{2}-\d{2}\s\d{2}:/.test(rowHtml), '创建日期不含时分秒');
     ok(rowHtml.includes('fcols'), '字段列用 grid 定宽容器');
+    // 2026-11-04 #55：置顶/复制合并为 slot-ops（操作菜单）
     ok(rowHtml.includes('slot-overdue') && rowHtml.includes('slot-status')
-      && rowHtml.includes('slot-pin') && rowHtml.includes('slot-sub'),
+      && rowHtml.includes('slot-ops') && rowHtml.includes('slot-sub'),
       '主事项行渲染全部固定槽位（有/无内容都占位）');
 
     // 2) 子事项目录行渲染
@@ -110,7 +112,7 @@ function ok(c, m) { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++;
       ok(sOrder.join(',') === pOrder.join(','), '子事项字段集合与顺序与父事项完全一致');
       ok(/创建：\d{4}-\d{2}-\d{2}/.test(subHtml), '子事项显示「创建：YYYY-MM-DD」（标签精简）');
       ok(!/创建日期：\d{4}-\d{2}-\d{2}\s\d{2}:/.test(subHtml), '子事项创建日期不含时分秒');
-      ok(subHtml.includes('slot-overdue') && subHtml.includes('slot-status') && subHtml.includes('slot-pin'),
+      ok(subHtml.includes('slot-overdue') && subHtml.includes('slot-status') && subHtml.includes('slot-ops'),
         '子事项行渲染全部固定槽位');
     }
 

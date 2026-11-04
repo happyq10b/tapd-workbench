@@ -5,7 +5,7 @@ sys.path.insert(0, r'E:/WB缓存/2026-10-26-15-55-08/src')
 os.environ.setdefault('APP_SECRET', 'local-dev-secret-not-for-production')
 
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-PORT = 9471
+PORT = 9511
 BASE = 'http://127.0.0.1:8100'
 PWD = 'At159357'
 PASS, FAIL = [], []
@@ -72,30 +72,30 @@ async def main():
                       oldFold:txt.filter(function(x){return x==='折叠事项'||x==='展开事项'||x==='📌 板块置顶'||x==='📌 事项置顶'}).length,
                       ie:ib.filter(function(x){return x.indexOf('导入导出')>=0})};
             })()""")
-            ok((r.get('fold') or 0) >= 1, '「折叠」按钮存在')
-            ok((r.get('unfold') or 0) >= 1, '「展开」按钮存在')
-            ok((r.get('colPin') or 0) >= 1, '「📌 置顶」按钮存在（板块）')
+            # ⚠️ 2026-11-04 #55：折叠/展开/置顶/复制已并入板块行的「操作 ▾」菜单
             ok((r.get('oldFold') or 0) == 0, '旧文案（折叠事项/展开事项/板块置顶/事项置顶）已清零：%s' % r.get('oldFold'))
             ie = r.get('ie') or []
             ok(len(ie) == 1 and ie[0] == '导入导出', '导入导出按钮无 emoji：%s' % ie)
-            # 主事项行的 📌 置顶（⚠️ body.textContent 会混入 <script> 源码 → 只查按钮元素）
+            # ⚠️ 2026-11-04 #55：行内置顶/复制已合并为「操作 ▾」→ 验证按钮与菜单项
             r = await ev("""(function(){
+              var ops=[].slice.call(document.querySelectorAll('#boardContent .ops-btn'))
+                       .map(function(b){return b.textContent.trim()});
               var pins=[].slice.call(document.querySelectorAll('#boardContent .pin-btn'))
                        .map(function(b){return b.textContent.trim()});
-              return {old:pins.filter(function(x){return x==='📌 事项置顶'}).length,
-                      newStyle:pins.filter(function(x){return x==='📌 置顶'||x==='📌 已置顶'||x==='📌 子事项置顶'}).length};
+              return {opsCount:ops.length,pins:pins};
             })()""")
-            ok(r.get('old') == 0, '「📌 事项置顶」旧文案已消失（按钮元素层面）')
-            ok((r.get('newStyle') or 0) >= 1, '置顶按钮为新文案（%s 个）' % r.get('newStyle'))
+            ok((r.get('opsCount') or 0) >= 1, '行内有「操作 ▾」合并按钮（%s 个）' % r.get('opsCount'))
+            ok(len(r.get('pins') or []) == 0, '行内不再有独立置顶按钮（#55 合并）')
 
             # ── ③ 行内日期标签 ──
             print('\n【③ 行内日期标签】')
             r = await ev("""(function(){
               var c=document.getElementById('boardContent').textContent;
-              return {newStyle:c.indexOf('创建：')>=0&&c.indexOf('截止：')>=0,
+              return {newStyle:c.indexOf('创建 ')>=0&&c.indexOf('截止 ')>=0,
                       oldStyle:c.indexOf('创建日期：')>=0||c.indexOf('截止日期：')>=0};
             })()""")
-            ok(r.get('newStyle') is True, '行内为「创建：/ 截止：」')
+            # ⚠️ 2026-11-04 #55：字段渲染改为「label value」（去冒号省宽）
+            ok(r.get('newStyle') is True, '行内为「创建 / 截止」（无冒号紧凑版）')
             ok(r.get('oldStyle') is False, '「创建日期：/ 截止日期：」旧标签已消失')
 
             # ── ①② 板块弹窗 ──

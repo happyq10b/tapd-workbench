@@ -39,8 +39,9 @@ ok(/wset = \{x\.strip\(\) for x in week\.split\(','\) if x\.strip\(\)\}/.test(py
 ok(/'weeks': week_options/.test(pySrc), '接口回传可选周数列表（供筛选栏下拉）');
 // 前端：列表字段列
 ok(/\{key:'week_no', label:'周数'/.test(htmlSrc), '列表字段列包含「周数」');
-ok(/\{key:'owner',\s+label:'负责人'[\s\S]{0,120}\{key:'week_no', label:'周数'[\s\S]{0,120}\{key:'created', label:'创建'/.test(htmlSrc),
-  '「周数」位于「创建」之前（2026-11-04 标签精简：创建日期→创建）');
+// 2026-11-04 #55：周数移到**第一位**（紧随标题，在负责人左侧）
+ok(/\{key:'week_no', label:'周数'[\s\S]{0,120}\{key:'owner',\s+label:'负责人'[\s\S]{0,120}\{key:'created', label:'创建'/.test(htmlSrc),
+  '「周数」是第一个字段（在负责人左侧，紧随标题）');
 ok(/fieldCols\(\{owner:c\.owner,week_no:c\.week_no,created:c\.created,due:c\.due,column_name:c\.column_name\}\)/.test(htmlSrc),
   '主事项行传入周数（并带所属板块名，用于标注板块年份）');
 ok(/fieldCols\(\{owner:n\.owner,week_no:n\.week_no,created:n\.created,due:n\.due,column_name:n\.column_name\}\)/.test(htmlSrc),
@@ -50,7 +51,8 @@ const mainGrid = (htmlSrc.match(/\.fcols\{grid-template-columns:([^;]+);/) || []
 const subGrid = (htmlSrc.match(/\.sub-node \.fcols\{grid-template-columns:([^;]+);/) || [])[1];
 ok(!!mainGrid && !!subGrid && mainGrid === subGrid,
   `主/子事项网格列宽一致：${mainGrid} / ${subGrid}`);
-ok(/166px 118px 146px 178px/.test(mainGrid || ''), '网格含周数列（118px）且定宽');
+// 2026-11-04 #55：列宽压缩 648→446（周数 96 / 负责人 118 / 创建 104 / 截止 104）
+ok(/96px 118px 104px 104px/.test(mainGrid || ''), '网格含周数列（96px）且定宽（压缩后 446px）');
 const mainWidth = (htmlSrc.match(/\.fcols\{[\s\S]*?width:(\d+)px;flex:0 0 (\d+)px/) || []);
 const subWidth = (htmlSrc.match(/\.sub-node \.fcols\{[\s\S]*?width:(\d+)px;flex:0 0 (\d+)px/) || []);
 ok(mainWidth[1] === subWidth[1] && mainWidth[2] === subWidth[2],

@@ -133,7 +133,11 @@ async def main():
             })()""")
             ok(r.get('on') == 2, '再点「进行中」→ 多选组合')
             ok(r.get('n') == 2, '组合 done+progressing → 2 张（实际 %s）' % r.get('n'))
-            await ev("(function(){var cs=document.querySelectorAll('#progressOverview .stat-click');cs[0].click();cs[1].click();})()")
+            # ⚠️ 两次 click 各触发一次 reload —— 连点会并发两个 fetch，旧查询后返回
+            #    会覆盖页面（实测 on=0 但 n=1）→ 逐次点击并等 reload 落定
+            await ev("(function(){var cs=document.querySelectorAll('#progressOverview .stat-click');cs[0].click();return true;})()")
+            await asyncio.sleep(1.5)
+            await ev("(function(){var cs=document.querySelectorAll('#progressOverview .stat-click');cs[1].click();return true;})()")
             await asyncio.sleep(3)
             r = await ev("(function(){return {on:document.querySelectorAll('#progressOverview .stat-click.on').length,n:document.querySelectorAll('#boardContent .item-card').length}})()")
             ok(r.get('on') == 0 and r.get('n') == 3, '全部取消 → 恢复 3 张（on=%s n=%s）' % (r.get('on'), r.get('n')))

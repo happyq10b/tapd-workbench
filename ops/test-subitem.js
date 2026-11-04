@@ -262,10 +262,15 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   // 置顶是个人设置：子事项行的「已置顶」取决于当前账号的置顶集合
   sandbox.setPinned('card', 'NC1', true);
   const treeHtml = sandbox.subNodeHtml({ ...SUB, pinned: 0, status: 'done' }, 0);
-  ok(treeHtml.includes('toggleCardPin'), '目录行含置顶按钮');
+  // 2026-11-04 #55：置顶/复制合并为「操作 ▾」菜单（rowOpsRegister 注册闭包）
+  ok(treeHtml.includes('ops-btn') && treeHtml.includes('rowOpsShow'), '目录行含「操作 ▾」菜单按钮');
+  // ⚠️ #55：菜单项 label 存在 ROW_OPS 注册表（rowOpsShow 运行时才渲染），不在行 HTML 里
+  const _lastOps = vm.runInContext(
+    `(function(){const ids=Object.keys(ROW_OPS);const it=ROW_OPS[ids[ids.length-1]];return it?it.map(x=>x.label):[];})()`,
+    sandbox);
+  ok(_lastOps.some(l => l.includes('取消置顶')), '个人置顶后菜单项显示「取消置顶」（实测：%s）'.replace('%s', JSON.stringify(_lastOps)));
   ok(treeHtml.includes('toggleCardDone'), '目录行状态标签可切换完成状态');
   ok(treeHtml.includes('openSubModal'), '目录行点击打开子事项弹窗');
-  ok(treeHtml.includes('已置顶'), '个人置顶后显示「已置顶」文案');
   ok(treeHtml.includes('已完成'), '完成状态有标记');
   ok(!treeHtml.includes('openDetail'), '目录行不再走只读详情弹窗');
   ok(!/完成<\/button>|done-btn|doneBtn/.test(treeHtml), '目录行已移除冗余的「完成」按钮');
@@ -586,7 +591,7 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
     subtask_total: 0, subtask_done: 0, board_id: 'B1', locked_by: null,
     sub_owners: ['何巧娴', '吴婷婷'],
   }, 1);
-  ok(noOwnerRow.includes('负责人：—'), '父事项自身无负责人时占位为「负责人：—」');
+  ok(noOwnerRow.includes('负责人 —'), '父事项自身无负责人时占位为「负责人 —」');
   ok(!noOwnerRow.includes('何巧娴') && !noOwnerRow.includes('吴婷婷'),
     '父事项负责人不关联子事项负责人（不做继承/汇总）');
   const selfOwnerRow = sandbox.cardItem({
@@ -626,8 +631,8 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
     status: 'open', created: '2026-05-21 10:52:33', due: '', pinned: 0, sub_count: 0,
     subtask_total: 0, subtask_done: 0, board_id: 'B1', locked_by: null,
   }, 1);
-  ok(emptyOwnerRow.includes('负责人：—'), '负责人为空时占位为「负责人：—」');
-  ok(emptyOwnerRow.includes('截止：—'), '截止为空时占位为「截止：—」');
+  ok(emptyOwnerRow.includes('负责人 —'), '负责人为空时占位为「负责人 —」');
+  ok(emptyOwnerRow.includes('截止 —'), '截止为空时占位为「截止 —」');
   ok(emptyOwnerRow.includes('fcol-owner fcol-empty') && emptyOwnerRow.includes('fcol-due fcol-empty'),
     '负责人与截止日期的空值用同一套 fcol-empty 占位样式');
   // 「empty」是全局占位类（.empty{padding:48px}），子元素类名必须避开，否则行高被撑爆
@@ -655,7 +660,7 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
     const m = htmlSrc.match(new RegExp('\\.' + cls + '\\{[^}]*width:(\\d+)px'));
     return m ? m[1] : null;
   };
-  for (const cls of ['slot-overdue', 'slot-subtask', 'slot-status', 'slot-pin', 'slot-sub']) {
+  for (const cls of ['slot-overdue', 'slot-subtask', 'slot-status', 'slot-ops', 'slot-sub']) {
     const parent = slotWidths(cls);
     const sub = (htmlSrc.match(new RegExp('\\.sub-node \\.' + cls + '\\{[^}]*width:(\\d+)px')) || [])[1];
     ok(parent && sub && parent === sub, `${cls} 父子行宽度一致（${parent} / ${sub}）`);
@@ -703,14 +708,14 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   ok(/\.item-tail\{[^}]*margin-left:auto/.test(htmlSrc), '行尾区块整体右对齐（锚定行尾）');
   ok(/\.sub-tail\{[^}]*margin-left:auto/.test(htmlSrc), '子事项行尾区块整体右对齐');
   // 逾期 / 代办 / 状态 / 置顶 / 子事项 五个可选元素都要有定宽槽位
-  for (const cls of ['slot-overdue', 'slot-subtask', 'slot-status', 'slot-pin', 'slot-sub']) {
+  for (const cls of ['slot-overdue', 'slot-subtask', 'slot-status', 'slot-ops', 'slot-sub']) {
     ok(new RegExp('\\.' + cls + '\\{[^}]*width:\\d+px').test(htmlSrc), `${cls} 槽位有固定宽度`);
   }
   // 每行都要渲染这几个槽位（无论内容有无）→ 行内结构恒定
   ok(datedRow.includes('slot-overdue') && datedRow.includes('slot-subtask')
-    && datedRow.includes('slot-status') && datedRow.includes('slot-pin') && datedRow.includes('slot-sub'),
+    && datedRow.includes('slot-status') && datedRow.includes('slot-ops') && datedRow.includes('slot-sub'),
     '主事项行渲染全部固定槽位（有/无内容都占位）');
-  ok(subWithDate.includes('slot-overdue') && subWithDate.includes('slot-status') && subWithDate.includes('slot-pin'),
+  ok(subWithDate.includes('slot-overdue') && subWithDate.includes('slot-status') && subWithDate.includes('slot-ops'),
     '子事项行渲染全部固定槽位');
 
   // ============================================================
