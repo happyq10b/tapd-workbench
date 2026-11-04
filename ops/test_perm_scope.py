@@ -89,6 +89,9 @@ def cleanup():
     # 经接口新建的卡片 id 不含前缀（NC…），按 board_id 一并清掉，避免残留
     c.execute("DELETE FROM cards WHERE board_id LIKE ?||'%'", (PREFIX,))
     c.execute("DELETE FROM board_config WHERE board_id IN (?,?)", (TEST_BOARD, TEST_BOARD2))
+    # ⚠️ 2026-11-04 修：原先只删 boards 不删 board_columns →
+    #    board_columns.col_key 是主键且无外键级联 → 残留行让**第二次**运行撞 UNIQUE 约束。
+    c.execute("DELETE FROM board_columns WHERE board_id IN (?,?)", (TEST_BOARD, TEST_BOARD2))
     c.execute("DELETE FROM boards WHERE board_id IN (?,?)", (TEST_BOARD, TEST_BOARD2))
     c.execute("""DELETE FROM org_appointments WHERE member_id IN
                  (SELECT id FROM team_members WHERE name LIKE ?||'%')""", (PREFIX,))

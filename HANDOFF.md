@@ -1112,6 +1112,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #58 | 2026-11-04 | **主设计师** | 前端 | **看板卡片布局调整**：①板块目录字段与事项内字段**一一对齐**（板块行字段网格改回与事项行完全同构的 96/118/104/104 = 446px，板块的「周数位」复用为进度条位）；②进度条长度缩减至约原进度的 **30%**（200px → 60px）；③进度条移至**负责人字段左侧并紧贴**（右对齐 + 负 margin 吃掉间距，实测间距 4px），多出来的空间**全部留给标题**（实测 392px → 488px） | `src/static/index.html`、`ops/ui_check_hp_feat.py`、`ops/ui_check_row_layout.py`（断言同步） | `HANDOFF.md §七 #58` |
 | #59 | 2026-11-04 | **主设计师** | 前端 | **进度条布局微调**：进度条 60px → **84px**（延长）；去掉负 margin 溢出 → 右端与「负责人」列保留 **8px** 间距（原来仅 4px 紧贴）；「n/N 完成」加 `margin-right:24px` 往左推 → 起点距该文字 **48px**；垂直居中与字段列对齐**不变**（负责人列 866 vs 864） | `src/static/index.html`、`ops/ui_check_hp_feat.py`、`ops/ui_check_row_layout.py`（断言同步） | `HANDOFF.md §七 #59` |
 | #60 | 2026-11-04 | **主设计师** | 前端 | **进度条再调**：进度条 84px → **96px**（占满周数位格），**向左溢出 8px** 进入列间距 → 起点**紧靠**「n/N 完成」（4px），终点与「负责人」间距 **8px → 16px**（翻倍）；`.week-meta` 去掉 margin-right（不再推远）；字段列对齐与垂直居中**不变**。同批修复 **curBoards 同步遗漏**（新建板块/新建看板后只改 curBoard 未改 curBoards → reload 守卫早退 → 内容区停在「请选择看板」）| `src/static/index.html`、`ops/ui_check_col_pickers.py`（流程修正+守卫）、`ops/ui_check_hp_feat.py`、`ops/ui_check_row_layout.py`（断言同步） | `HANDOFF.md §七 #60` |
+| #61 | 2026-11-04 | **主设计师** | 前后端 | **看板管理页脚改造（三项）**：①「应用到已选 N 个看板」**移除**（后端 `POST /api/board-config/bulk` 一并下线）；②「删除该看板配置」→「**删除看板**」（删的是看板本体：板块/事项/子事项/配置/绑定残留全清，事项走软删可经全局备份找回；单条确认 1 次 → **2 次**）；③「保存负责人」+「保存配置」**合并为单一【保存看板】**（`saveBoardAll()`，按能力位分派） | `src/app/app.py`、`src/static/index.html`、`ops/test_board_delete.py`（新增）、`ops/ui_check_board_footer.py`（新增）、`ops/test-board-perm.js`、`ops/ui_check_owner_btn.py`、`ops/ui_check_perm_render.py`（断言同步）、`ops/test_perm_scope.py`、`ops/test_perm_matrix.py`（夹具泄漏修复） | `HANDOFF.md §七 #61` |
 | #55 | 2026-11-04 | **主设计师** | 前端 | **父子事项/板块行布局优化**：①字段列 648→446px（周数压缩「2026·W32」），省出的 202px 全给标题（实测 492px，约翻倍）；②周数移到负责人左侧（fieldItems 单一数据源调整，父子自动一致）；③板块行追加 负责人/创建/截止 字段 + 空槽位与事项行同构 → 字段列纵向对齐；进度条改弹性 → 右端 = 字段列左端 = 事项标题右端；④置顶/复制（板块行还有折叠/展开）合并为「操作 ▾」下拉菜单，tail 槽位与事项行同构 | `src/static/index.html`、`ops/ui_check_row_layout.py`（新增） | `HANDOFF.md §七 #55` |
 | #54 | 2026-11-04 | **主设计师** | 前端 + 后端 | **人员选择层级约束**：①看板负责人/参与人（参与人恢复）只能从**归属架构子树**选（保留 🌳，财务中心=顶层→全范围）；②板块负责人/参与人只能从**所属看板**的负责人与参与人选（🌳 架构按钮 → 👤 看板选人）；③事项负责人/参与人只能从**所属板块**的负责人与参与人选（移除「从架构选人」按钮，person picker 接池）；④负责人/参与人**互斥**（三层一致，负责人优先）；后端恢复 boards.participants 数据链路 + 双向互斥兜底 | `src/app/app.py`、`src/static/index.html`、`ops/test_hier_pool.py`（新增）、`ops/ui_check_hier_pick.py`（新增） | `HANDOFF.md §七 #54` |
 | #53 | 2026-11-04 | **主设计师** | 前端 | **筛选器改进三件**：①人员筛选树底栏加【清空】按钮（一键清空临时已选），并修 bug —— 全部取消勾选后点确定原来被 toast「未选择人员」拦截无法清空，改为允许空确认 = 清空该筛选（看板负责人筛选同理）；②周数筛选：提示改「可直接输入「2026-41」回车」，输入格式统一为年份-周数（移除纯数字「41」支持），面板加【全选】【清空】按钮（取代底部「清空全部」选项）；③按钮行：【展开板块/折叠板块】→【展开/折叠】，【新建板块】移到最后，原位置加【清空筛选】（一键清空搜索/人员/周数/日期区间），toolbar-right 锁宽 402→452px | `src/static/index.html`、`ops/ui_check_filter_v2.py`（新增） | `HANDOFF.md §七 #53` |
@@ -1186,6 +1187,72 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #61 · 2026-11-04 · 主设计师 · 看板管理页脚改造（去批量应用 / 删看板本体 / 合并保存）
+
+**用户需求（截图）**
+
+1. 看板管理里「**应用到已选 n 个看板**」这个功能没什么用，**去掉**。
+2. 「**删除看板配置**」也没用，**改成删除看板本身**。
+3. 「保存负责人」与「保存配置」没必要分开，**统一一个【保存看板】**。
+
+**语义变化（这是本轮的核心，不只是改文案）**
+
+| 项 | 改前 | 改后 |
+|---|---|---|
+| 批量应用 | 页脚「应用到已选 N 个看板」→ `POST /api/board-config/bulk` | **移除**（接口一并下线） |
+| 单条删除 | 「删除该看板配置」→ 删 `board_config` 行，**看板与事项不动** | 「**删除看板**」→ `DELETE /api/boards/{id}`，**看板本体连同板块/事项/子事项/配置一起清掉** |
+| 批量删除 | 「删除所选」→ 删配置 | 「删除所选」→ `POST /api/boards/bulk-delete`，**删看板本体** |
+| 保存 | 「保存负责人」（`can_assign_owner`）+「保存配置」（`can_edit`）两按钮 | **单一【保存看板】**（`saveBoardAll()`），按能力位分派 |
+
+**为什么「删配置」等于什么都没删**：看板配置只是一组维度（归属部门/属性/状态/备注），
+删掉配置后看板还在、事项还在，只是回到「未配置」状态 —— 用户视角等于白删。
+用户要的显然是「把这个看板从系统里清掉」。
+
+**后端新增**
+
+- `DELETE /api/boards/{board_id}` —— 删看板本体。
+  权限：`perm_check(OP_DELETE, LV_BOARD_OWNER, min_level=LV_BOARD_OWNER)`（看板负责人及以上），
+  与 `/api/boards` 的 `can_delete` 能力位**同一判定**（能力位也同步加了 `min_level`）。
+- `POST /api/boards/bulk-delete` —— 批量删看板本体，**仅管理员**（与原「删除所选」口径一致）。
+- `_purge_board()` —— 级联清除：`boards`/`board_config`/`board_columns` 物理删除；
+  `cards` **软删**（`deleted=1`，可用全局备份恢复找回）；`card_subtasks` 随事项清除；
+  顺带清掉 `workgroups.boards` 与 `users.allowed_boards` 里的绑定残留（避免悬空 id）。
+
+**前端**
+
+- 页脚按钮集合：`[删除看板] [保存看板] [取消]`（原来 5 个按钮）。
+- `saveBoardAll()`：`can_assign_owner` → 存负责人；`can_edit` → 存基本信息 + 参与人；
+  **没有对应权限的部分不发请求**（避免 403 打断整次保存）。
+- `bcAfterDelete(deletedIds)` 新增参数：删除后把被删看板从内容区的 `curBoards` 里撤掉
+  （否则 tab 会指向一个已不存在的看板）。
+
+**⚠️ 单条删除确认次数 1 → 2**
+
+删配置可逆、删看板不可逆 → 单条删除升为两次确认，与批量同口径。
+`ops/test-board-perm.js` 的原断言「单条删除弹一次确认」已按新语义同步。
+
+**🧪 顺带修掉的两个测试夹具泄漏（都是既有问题，非本轮引入）**
+
+1. `ops/test_perm_scope.py`：`cleanup()` 只删 `boards` 不删 `board_columns` →
+   `col_key` 是主键且无外键级联 → 残留行让**第二次**运行撞 `UNIQUE constraint failed`。
+   已补 `DELETE FROM board_columns`。修前：连跑两次第二次直接崩。
+2. `ops/test_perm_matrix.py`：用例4 通过 `POST /api/boards` 新建的看板，
+   id 由后端自动生成（形如 `B<时间戳>`，**不带 `__perm_` 前缀**）→ 原 cleanup 删不到 →
+   每跑一次漏一个 → 残留看板污染 `test_perm_scope` 的可见性断言（多出一个 `B1…` 看板）。
+   已按本测试专用的「看板名 + 工作空间」标记精确清理。
+   **排查方法**：`git stash` 暂存本轮改动 → 跑一遍 → 确认失败依旧 → 排除本轮引入。
+
+**🧪 其他既有失败（非本轮引入，已用 stash 对照确认）**
+
+- `ops/test-filter.js`：10 项失败（编码的是未实现的「创建日期区间」筛选）。
+- `ops/ui_check_owner.py`：1 项失败（树里「未开通账号」标注 —— 依赖真实成员数据）。
+- `ops/ui_check_tree.py`：1 项失败。
+- `ops/ui_check_perm.py`：脚本自身登录失败（旧代码同样失败）。
+
+**验证**：新增 `ops/test_board_delete.py` **23/0**、新增 `ops/ui_check_board_footer.py` **14/0**；
+Python **19 组全绿**（含 test_perm_scope 28/0 修复后）、JS 12 组、UI 17 组全绿；
+门禁 `ops/verify.py` **7/7**（fingerprint `4da2c15ca1608f1194c9c01c28cd2a1e`）；夹具零残留。
 
 ### #60 · 2026-11-04 · 主设计师 · 进度条再调（紧靠起点 + 终点间距翻倍）+ curBoards 同步修复
 

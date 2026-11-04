@@ -96,6 +96,21 @@ def cleanup():
         c.execute("DELETE FROM %s WHERE %s LIKE ?" % (t, col), (PREFIX + '%',))
     c.execute("""DELETE FROM org_appointments WHERE member_id IN
                  (SELECT id FROM team_members WHERE account LIKE ?)""", (PREFIX + '%',))
+    # ⚠️ 2026-11-04 修：用例4 通过 POST /api/boards 新建的看板，其 id 由后端自动生成
+    #    （形如 B<时间戳>，**不带 __perm_ 前缀**）→ 原 cleanup 删不到 → 每跑一次漏一个，
+    #    残留看板会污染 test_perm_scope 的可见性断言（多出一个 B1… 看板）。
+    #    按本测试专用的「看板名 + 工作空间」标记精确清理。
+    c.execute("DELETE FROM cards WHERE board_id IN "
+              "(SELECT board_id FROM boards WHERE board_name=? AND workspace_id=?)",
+              ('【分级权限】新看板', 'ws_pm'))
+    c.execute("DELETE FROM board_columns WHERE board_id IN "
+              "(SELECT board_id FROM boards WHERE board_name=? AND workspace_id=?)",
+              ('【分级权限】新看板', 'ws_pm'))
+    c.execute("DELETE FROM board_config WHERE board_id IN "
+              "(SELECT board_id FROM boards WHERE board_name=? AND workspace_id=?)",
+              ('【分级权限】新看板', 'ws_pm'))
+    c.execute("DELETE FROM boards WHERE board_name=? AND workspace_id=?",
+              ('【分级权限】新看板', 'ws_pm'))
     c.commit()
     c.close()
 

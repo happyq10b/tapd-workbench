@@ -56,7 +56,7 @@ ok(/function bcChangeBoard\(bid\)\{[\s\S]*?renderBoardList\(\);/.test(htmlSrc),
   '场景「切换编辑对象」：bcChangeBoard 后同步列表高亮');
 ok(/function resetBoardConfigForm\(\)\{[\s\S]*?renderBoardList\(\);/.test(htmlSrc),
   '场景「重新加载/取消」：resetBoardConfigForm 后同步列表高亮');
-ok(/async function submitBoardConfigForm\(\)\{[\s\S]*?renderBoardList\(\);/.test(htmlSrc),
+ok(/async function saveBoardAll\(\)\{[\s\S]*?renderBoardList\(\);/.test(htmlSrc),
   '场景「保存后重载」：提交后同步列表高亮');
 
 // ============================================================
@@ -154,8 +154,8 @@ ok(/node\.node_type==='dept'\)[\s\S]*?node\.owned_boards/.test(htmlSrc),
   '部门级节点的板块由「归属部门」派生（owned_boards）');
 ok(/owned_boards/.test(pySrc) || /'owned_boards': sorted\(owned\.get/.test(pySrc),
   '组织架构树接口返回节点拥有的板块 owned_boards');
-ok(/@app\.post\('\/api\/board-config\/bulk'\)/.test(pySrc), '提供批量配置接口（批量设置归属部门）');
-ok(/function applyBulkConfig\(\)/.test(htmlSrc), '前端支持把归属部门批量应用到勾选的板块');
+// ⚠️ 2026-11-04：批量应用功能已下线（用户：「应用到已选 N 个看板」这个功能没什么用，去掉）
+ok(!/@app\.post\('\/api\/board-config\/bulk'\)/.test(pySrc), '批量配置接口已下线');
 
 // ============================================================
 // 用例 4：默认不选中（全选 / 取消全选合并为单个切换按钮）
@@ -180,14 +180,23 @@ ok(/class="bc-pick"/.test(htmlSrc), '列表项带勾选框');
 ok(/function bcPaintPick\(\)/.test(htmlSrc), '勾选状态回写 DOM（选中态与勾选态分离）');
 
 // ============================================================
-// 用例 5：删除确认（单条一次 / 批量两次）+ 删除后刷新清空
+// 用例 5：删除确认（单条两次 / 批量两次）+ 删除后刷新清空
+// ⚠️ 2026-11-04：删除语义从「删看板配置」改为「**删看板本身**」→ 不可逆 → 单条也升为两次确认
 // ============================================================
 console.log('\n【用例5】删除确认与删除后刷新');
 ok(/function bcDeleteOne\(bid\)/.test(htmlSrc), '提供单条删除 bcDeleteOne');
 ok(!/function deleteBoardConfig\(/.test(htmlSrc), '旧的 deleteBoardConfig 已移除（统一走 bcDeleteOne）');
 ok(/function bcDeleteSelected\(\)/.test(htmlSrc), '提供批量删除 bcDeleteSelected');
-ok(/function bcDeleteOne\(bid\)\{[\s\S]*?if\(!bcConfirm\([\s\S]*?\)\)return;/.test(htmlSrc),
-  '单条删除弹一次确认（取消即终止）');
+{
+  // 单条删除：两次确认（删看板本身不可逆）
+  const m1 = htmlSrc.match(/async function bcDeleteOne\(bid\)\{[\s\S]*?\n\}/);
+  ok(!!m1, '单条删除函数体可解析');
+  const body1 = m1 ? m1[0] : '';
+  const confirms1 = (body1.match(/bcConfirm\(/g) || []).length;
+  ok(confirms1 === 2, '单条删除弹两次确认（实际 ' + confirms1 + ' 次）');
+  ok(/if\(!bcConfirm\([\s\S]*?\)\)return;[\s\S]*?if\(!bcConfirm\([\s\S]*?\)\)return;/.test(body1),
+    '单条删除两次确认逐级拦截，任一次取消都不执行删除');
+}
 {
   // 批量删除：两次确认，且第一次取消后不得继续到第二次
   const m = htmlSrc.match(/async function bcDeleteSelected\(\)\{[\s\S]*?\n\}/);
@@ -198,23 +207,31 @@ ok(/function bcDeleteOne\(bid\)\{[\s\S]*?if\(!bcConfirm\([\s\S]*?\)\)return;/.te
   ok(/if\(!bcConfirm\([\s\S]*?\)\)return;[\s\S]*?if\(!bcConfirm\([\s\S]*?\)\)return;/.test(body),
     '两次确认逐级拦截，任一次取消/关闭都不执行删除');
 }
-ok(/function bcAfterDelete\(\)/.test(htmlSrc), '删除后统一走 bcAfterDelete');
-ok(/async function bcAfterDelete\(\)\{[\s\S]*?BC_SEL=new Set\(\);/.test(htmlSrc),
+ok(/function bcAfterDelete\(deletedIds\)/.test(htmlSrc), '删除后统一走 bcAfterDelete');
+ok(/async function bcAfterDelete\(deletedIds\)\{[\s\S]*?BC_SEL=new Set\(\);/.test(htmlSrc),
   '删除后清空选择状态');
-ok(/async function bcAfterDelete\(\)\{[\s\S]*?await loadBoardConfig\(\);/.test(htmlSrc),
+ok(/async function bcAfterDelete\(deletedIds\)\{[\s\S]*?await loadBoardConfig\(\);/.test(htmlSrc),
   '删除后刷新看板列表');
-ok(/async function bcAfterDelete\(\)\{[\s\S]*?renderBoardList\(\);[\s\S]*?renderEditArea\(\);/.test(htmlSrc),
+ok(/async function bcAfterDelete\(deletedIds\)\{[\s\S]*?renderBoardList\(\);[\s\S]*?renderEditArea\(\);/.test(htmlSrc),
   '删除后重绘列表与编辑区');
 ok(!/class="bc-item-del"/.test(htmlSrc), '列表行内不再有删除按钮（已移入编辑区）');
 // 删除按钮受**后端能力位**控制（2026-11-03）：can_delete 为真才显示。
-ok(/if\(isEdit&&canDelete\)footer\+='<button class="btn-secondary bc-del-single"/.test(htmlSrc),
+// ⚠️ 2026-11-04 语义变更：删除从「删看板配置」改成「**删看板本身**」，
+//    故不再要求 isEdit（未配置的看板同样可删），且按钮文案改为「删除看板」。
+ok(/if\(canDelete\)footer\+='<button class="btn-secondary bc-del-single"/.test(htmlSrc),
   '编辑区页脚提供单个看板的删除按钮（按 can_delete 权限渲染）');
+ok(/title="删除该看板本身（连同其下的板块与事项，不可撤销）">删除看板<\/button>/.test(htmlSrc),
+  '单条删除按钮语义为「删除看板本身」');
 ok(/const canEdit=!!b\.can_edit, canDelete=!!b\.can_delete, canAssign=!!b\.can_assign_owner;/.test(htmlSrc),
   '编辑区按后端能力位（can_edit/can_delete/can_assign_owner）控制可配置范围');
-ok(/if\(canAssign\)footer\+='<button class="btn-secondary" onclick="saveBoardAcl\(\)"/.test(htmlSrc),
-  '「保存负责人」按 can_assign_owner 权限渲染（架构负责人及以上）');
-ok(/if\(canEdit\)footer\+='<button class="btn-primary" onclick="submitBoardConfigForm\(\)"/.test(htmlSrc),
-  '「保存配置」按 can_edit 权限渲染');
+// ⚠️ 2026-11-04：「保存负责人」+「保存配置」合并为单一【保存看板】按钮
+ok(/if\(canEdit\|\|canAssign\)footer\+='<button class="btn-primary" onclick="saveBoardAll\(\)"/.test(htmlSrc),
+  '「保存看板」按钮按 can_edit/can_assign_owner 任一能力位渲染');
+ok(!/onclick="saveBoardAcl\(\)"/.test(htmlSrc) && !/onclick="submitBoardConfigForm\(\)"/.test(htmlSrc),
+  '旧的「保存负责人」「保存配置」两个按钮已合并为【保存看板】');
+ok(/async function saveBoardAll\(\)/.test(htmlSrc), '提供统一保存函数 saveBoardAll');
+ok(/if\(canAssign\)\{[\s\S]*?\/acl/.test(htmlSrc), 'saveBoardAll 按 can_assign_owner 保存负责人');
+ok(/if\(canEdit\)\{[\s\S]*?\/board-config/.test(htmlSrc), 'saveBoardAll 按 can_edit 保存基本信息');
 ok(/id="bcDelBtn"/.test(htmlSrc) && /onclick="bcDeleteSelected\(\)"/.test(htmlSrc),
   '批量删除按钮与全选按钮同排');
 // 删除按钮不带个数：个数统一由右侧「已选 N 个」显示，避免同一信息重复两处
@@ -230,9 +247,19 @@ ok(/<div class="bc-opbar-btns">/.test(htmlSrc), '工具条按钮包裹在同一�
 ok(/\.bc-opbar-count\{[^}]*margin-left:auto/.test(htmlSrc), '勾选计数靠右对齐');
 ok(/\.bc-del-btn\{/.test(htmlSrc), '批量删除按钮有独立统一样式');
 ok(/db\.disabled=BC_SEL\.size===0/.test(htmlSrc), '未勾选时批量删除按钮禁用');
-ok(/@app\.post\('\/api\/board-config\/bulk-delete'\)/.test(pySrc), '提供批量删除配置接口');
-ok(/class BoardConfigBulkDeleteReq\(BaseModel\)/.test(pySrc), '批量删除请求模型定义');
-ok(/DELETE FROM board_config WHERE id=\?/.test(pySrc), '批量删除只删配置表，不动看板与卡片');
+// ⚠️ 2026-11-04：批量删除从「删配置」改成「删看板本身」，接口换为 /api/boards/bulk-delete
+ok(/@app\.post\('\/api\/boards\/bulk-delete'\)/.test(pySrc), '提供批量删除看板接口');
+ok(/class BoardBulkDeleteReq\(BaseModel\)/.test(pySrc), '批量删除看板请求模型定义');
+ok(/DELETE FROM boards WHERE board_id=\?/.test(pySrc), '批量删除会真正删掉看板本体');
+ok(!/@app\.post\('\/api\/board-config\/bulk-delete'\)/.test(pySrc),
+  '旧的「批量删除看板配置」接口已下线');
+ok(!/@app\.post\('\/api\/board-config\/bulk'\)/.test(pySrc),
+  '旧的「批量应用看板配置」接口已下线（应用到已选 N 个看板功能移除）');
+ok(!/function applyBulkConfig\(\)/.test(htmlSrc), '前端不再有 applyBulkConfig（应用到已选 N 个看板已移除）');
+ok(!/应用到已选/.test(htmlSrc), '界面上不再出现「应用到已选 N 个看板」按钮');
+// ⚠️ 2026-11-04：单条删除语义改为「删看板本身」→ 两次确认（高危不可逆）
+ok(/function bcDeleteOne\(bid\)\{[\s\S]*?if\(!bcConfirm\([\s\S]*?\)\)return;[\s\S]*?if\(!bcConfirm\([\s\S]*?\)\)return;/.test(htmlSrc),
+  '单条删除弹两次确认（删看板本体不可逆）');
 
 // ============================================================
 // 用例 6：架构管理选中态（无残留 + 重复点击取消）

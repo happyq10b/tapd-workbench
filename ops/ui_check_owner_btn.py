@@ -117,17 +117,18 @@ async def main():
             r = await ev("""(function(){
               var secs=[].slice.call(document.querySelectorAll('#bcEditArea .bc-section'));
               var sec=null;
-              secs.forEach(function(x){var l=x.querySelector('.lab');if(l&&l.textContent==='看板负责人')sec=x;});
+              secs.forEach(function(x){var l=x.querySelector('.lab');if(l&&(l.textContent==='看板负责人'||l.textContent==='看板负责人与参与人'))sec=x;});
               if(!sec)return {found:false};
               return {found:true,
                       pick:!!sec.querySelector('button[onclick*="bcPickOwner"]'),
                       roleNote:(document.querySelector('#bcEditArea .bc-hint b')||{}).textContent||'',
-                      saveAcl:!!document.querySelector('button[onclick*="saveBoardAcl"]')};
+                      saveAcl:!!document.querySelector('button[onclick*="saveBoardAll"]')};
             })()""")
             ok(isinstance(r,dict) and r.get('found') is True,'owner section rendered')
             ok(isinstance(r,dict) and r.get('roleNote')=='架构负责人',
                'identity note = 架构负责人 (%s)'%r.get('roleNote'))
-            ok(isinstance(r,dict) and r.get('saveAcl') is True,'footer save-owner button visible')
+            ok(isinstance(r,dict) and r.get('saveAcl') is True,
+               'footer 【保存看板】button visible (合并后的统一保存按钮)')
             ok(isinstance(r,dict) and r.get('pick') is True,
                '「选择负责人」button VISIBLE (fixed)')
 
@@ -141,12 +142,12 @@ async def main():
             r2 = await ev("""(function(){
               var secs=[].slice.call(document.querySelectorAll('#bcEditArea .bc-section'));
               var sec=null;
-              secs.forEach(function(x){var l=x.querySelector('.lab');if(l&&l.textContent==='看板负责人')sec=x;});
+              secs.forEach(function(x){var l=x.querySelector('.lab');if(l&&(l.textContent==='看板负责人'||l.textContent==='看板负责人与参与人'))sec=x;});
               return {pick:sec?!!sec.querySelector('button[onclick*="bcPickOwner"]'):null,
-                      saveAcl:!!document.querySelector('button[onclick*="saveBoardAcl"]')};
+                      saveAcl:!!document.querySelector('button[onclick*="saveBoardAll"]')};
             })()""")
             ok(isinstance(r2,dict) and not r2.get('pick'),'viewer: pick button hidden (or modal blocked)')
-            ok(isinstance(r2,dict) and r2.get('saveAcl') is False,'viewer: save-owner hidden')
+            ok(isinstance(r2,dict) and r2.get('saveAcl') is False,'viewer: 【保存看板】hidden')
             await ev("closeModal('boardConfigModal');")
     finally:
         cleanup(fx)

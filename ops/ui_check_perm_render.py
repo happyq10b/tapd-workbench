@@ -286,11 +286,15 @@ async def main():
             await ev("(function(){var it=document.querySelector('#bcList .bc-item');if(it)it.click();})()")
             await asyncio.sleep(1.5)
             d3 = await ev(r"""(function(){
-              return {assign:!!document.querySelector('button[onclick*="saveBoardAcl"]'),
-                      save:!!document.querySelector('button[onclick*="submitBoardConfigForm"]')};
+              return {assign:!!document.querySelector('button[onclick*="saveBoardAll"]'),
+                      save:!!document.querySelector('button[onclick*="saveBoardAll"]'),
+                      del:!!document.querySelector('button[onclick*="bcDeleteOne"]'),
+                      bulk:!!document.querySelector('button[onclick*="applyBulkConfig"]')};
             })()""")
-            ok(d3.get('assign') is True, '架构负责人：可指定看板负责人（保存负责人按钮可见）')
-            ok(d3.get('save') is True, '架构负责人：可保存看板配置')
+            ok(d3.get('assign') is True, '架构负责人：可指定看板负责人（【保存看板】按钮可见）')
+            ok(d3.get('save') is True, '架构负责人：可保存看板配置（同一按钮）')
+            ok(d3.get('del') is True, '架构负责人：可删除看板本身')
+            ok(d3.get('bulk') is False, '「应用到已选 N 个看板」按钮已移除')
             await ev("closeModal('boardConfigModal')")
             await asyncio.sleep(1)
 
