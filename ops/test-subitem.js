@@ -613,9 +613,9 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
     status: 'open', created: '2026-05-21 10:52:33', due: '2026-04-30',
     pinned: 0, sub_count: 0, subtask_total: 0, subtask_done: 0, board_id: 'B1', locked_by: null,
   }, 1);
-  ok(datedRow.includes('创建日期：2026-05-21'), '行内显示「创建日期：2026-05-21」');
+  ok(datedRow.includes('创建：2026-05-21'), '行内显示「创建：2026-05-21」（2026-11-04 标签精简）');
   ok(!datedRow.includes('10:52'), '行内不再显示时分秒');
-  ok(datedRow.includes('截止日期：2026-04-30'), '行内显示「截止日期：2026-04-30」');
+  ok(datedRow.includes('截止：2026-04-30'), '行内显示「截止：2026-04-30」');
   ok(!datedRow.includes('创建时间'), '不再出现「创建时间」字样');
 
   // 2) 三列等宽对齐：用 grid 定宽，空值占位与截止日期一致
@@ -627,7 +627,7 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
     subtask_total: 0, subtask_done: 0, board_id: 'B1', locked_by: null,
   }, 1);
   ok(emptyOwnerRow.includes('负责人：—'), '负责人为空时占位为「负责人：—」');
-  ok(emptyOwnerRow.includes('截止日期：—'), '截止日期为空时占位为「截止日期：—」');
+  ok(emptyOwnerRow.includes('截止：—'), '截止为空时占位为「截止：—」');
   ok(emptyOwnerRow.includes('fcol-owner fcol-empty') && emptyOwnerRow.includes('fcol-due fcol-empty'),
     '负责人与截止日期的空值用同一套 fcol-empty 占位样式');
   // 「empty」是全局占位类（.empty{padding:48px}），子元素类名必须避开，否则行高被撑爆
@@ -684,7 +684,7 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
     card_id: 'S2', card_name: '带日期的子项', owner: '吴婷婷', status: 'open',
     created: '2026-10-27 16:25:13', due: '2026-10-24', children: [],
   }, 0);
-  ok(subWithDate.includes('创建日期：2026-10-27'), '子事项显示「创建日期：2026-10-27」');
+  ok(subWithDate.includes('创建：2026-10-27'), '子事项显示「创建：2026-10-27」');
   ok(!subWithDate.includes('16:25'), '子事项不再显示时分秒');
 
   // 4) 负责人独立：子事项不继承父事项负责人

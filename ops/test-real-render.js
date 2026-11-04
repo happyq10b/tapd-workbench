@@ -85,7 +85,7 @@ function ok(c, m) { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++;
       ok(rowHtml.includes('负责人：—'), '父事项无负责人时占位为「负责人：—」');
     }
     // 字段列：创建日期只到年月日
-    ok(/创建日期：\d{4}-\d{2}-\d{2}/.test(rowHtml), '行内显示「创建日期：YYYY-MM-DD」');
+    ok(/创建：\d{4}-\d{2}-\d{2}/.test(rowHtml), '行内显示「创建：YYYY-MM-DD」（标签精简）');
     ok(!/创建日期：\d{4}-\d{2}-\d{2}\s\d{2}:/.test(rowHtml), '创建日期不含时分秒');
     ok(rowHtml.includes('fcols'), '字段列用 grid 定宽容器');
     ok(rowHtml.includes('slot-overdue') && rowHtml.includes('slot-status')
@@ -108,7 +108,7 @@ function ok(c, m) { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++;
       const sOrder = (subHtml.match(/fcol-(owner|created|due)/g) || []);
       ok(pOrder.join(',') === 'fcol-owner,fcol-created,fcol-due', '父事项字段顺序 = 负责人/创建日期/截止日期');
       ok(sOrder.join(',') === pOrder.join(','), '子事项字段集合与顺序与父事项完全一致');
-      ok(/创建日期：\d{4}-\d{2}-\d{2}/.test(subHtml), '子事项显示「创建日期：YYYY-MM-DD」');
+      ok(/创建：\d{4}-\d{2}-\d{2}/.test(subHtml), '子事项显示「创建：YYYY-MM-DD」（标签精简）');
       ok(!/创建日期：\d{4}-\d{2}-\d{2}\s\d{2}:/.test(subHtml), '子事项创建日期不含时分秒');
       ok(subHtml.includes('slot-overdue') && subHtml.includes('slot-status') && subHtml.includes('slot-pin'),
         '子事项行渲染全部固定槽位');
