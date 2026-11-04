@@ -15,7 +15,7 @@ os.environ.setdefault('APP_SECRET', 'local-dev-secret-not-for-production')
 from app.app import hash_pw  # noqa: E402
 
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-PORT = 9533
+PORT = 9549
 BASE = 'http://127.0.0.1:8100'
 DB = r'E:/WB缓存/2026-10-26-15-55-08/src/app.db'
 PREFIX = '__hui_'
@@ -172,10 +172,10 @@ async def main():
             ok(not r.get('noHeader'), '板块行已渲染')
             ok(not r.get('noBar') and not r.get('noOwner'), '进度条与负责人列都在板块行内')
             barW = r.get('barW', 0)
-            # ≈ 两个周数列的宽度（96×2=192）；实测 200px（含吃掉列间距的 8px）→ 容差 12
-            ok(abs(barW - 192) <= 12, '进度条宽度固定 ≈两个周数列（实测 %s px，基准 192）' % barW)
+            # ⚠️ 2026-11-04：进度条缩至原长度的 30%（200px → 60px）
+            ok(abs(barW - 60) <= 2, '进度条长度约为原进度的三成（实测 %s px，基准 60）' % barW)
             gap = (r.get('ownerL', 0) - r.get('barR', 0))
-            ok(-2 <= gap <= 2, '进度条右端与负责人列起点对齐（差 %s px）' % gap)
+            ok(0 <= gap <= 8, '进度条紧贴负责人列左侧（间距 %s px）' % gap)
             if r.get('itemOwnerL'):
                 d = r.get('ownerL', 0) - r['itemOwnerL']
                 ok(abs(d) <= 4, '板块行负责人列与事项行负责人列纵向对齐（差 %s px）' % d)

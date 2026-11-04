@@ -10,7 +10,7 @@ import time
 import urllib.request
 
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-PORT = 9507
+PORT = 9551
 BASE = 'http://127.0.0.1:8100'
 PASS, FAIL = [], []
 
@@ -182,13 +182,13 @@ async def main():
             ok(any(c.startswith('负责人') for c in ccols) and any(c.startswith('创建') for c in ccols)
                and any(c.startswith('截止') for c in ccols),
                '板块行有 负责人/创建/截止 字段：%s' % ccols)
-            # ⚠️ 2026-11-04 需求2：进度条改为**固定宽度**（≈两个周数列），不再弹性伸缩；
-            #    它的**右端与「负责人」列的起点对齐**（不再与字段列左端/事项标题右端对齐）。
-            ok(abs(r.get('barW', 0) - 200) <= 12,
-               '进度条宽度固定 ≈两个周数列（实测 %s px）' % r.get('barW'))
-            ok(abs(r.get('barR', 0) - r.get('ownerL', 1)) <= 2,
-               '进度条右端与负责人列起点对齐（bar 右 %s vs 负责人左 %s）'
-               % (r.get('barR'), r.get('ownerL')))
+            # ⚠️ 2026-11-04：进度条缩至原长度 30%（200→60px），落在周数位格内、
+            #    右对齐**紧贴**「负责人」列左侧（间距约 4px）。
+            ok(abs(r.get('barW', 0) - 60) <= 2,
+               '进度条长度约为原进度的三成（实测 %s px）' % r.get('barW'))
+            _bgap = r.get('ownerL', 0) - r.get('barR', 0)
+            ok(0 <= _bgap <= 8,
+               '进度条紧贴负责人列左侧（间距 %s px）' % _bgap)
             # 板块行与事项行的「负责人」列仍纵向对齐（字段列起点一致）
             ok(abs(r.get('ownerL', 0) - r.get('itemOwnerL', 1)) <= 4,
                '板块负责人列与事项负责人列纵向对齐（%s vs %s）'
