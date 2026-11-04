@@ -140,9 +140,10 @@ const getLet = (n) => vm.runInContext(n, sandbox);
   ok(/function openNoticeModal\(\)/.test(main), '提供公告管理弹窗');
   ok(/id="noticeModal"/.test(htmlSrc), '有公告管理弹窗容器');
   ok(main.includes("api('/api/notices')"), '公告通过 /api/notices 接口读写');
-  // 统计带：3 张卡片（总事项 / 已完成 / 未完成）
+  // 统计带：4 张卡片（总事项 / 已完成 / 进行中 / 未完成）—— 2026-11-04 增「进行中」
   const renderSrc = main.match(/async function renderProgress\(\)\{[\s\S]*?\n\}/)[0];
-  ok((renderSrc.match(/class="stat-card"/g) || []).length === 3, '统计带为 3 张卡片（总事项/已完成/未完成）');
+  ok(/ov\.progressing/.test(renderSrc) && /stat-click/.test(renderSrc),
+     '统计带为 4 张卡片（总事项/已完成/进行中/未完成，3 张可点击）');
   // 紧凑样式
   ok(/\.stat-value\{font-size:20px/.test(htmlSrc), '统计数字字号已压缩（26px → 20px）');
   ok(/\.stat-card\{[^}]*padding:8px 14px/.test(htmlSrc), '统计卡片内边距已压缩');

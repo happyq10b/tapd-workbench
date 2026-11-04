@@ -168,7 +168,11 @@ ok(/if\(topbar\)topbar\.style\.display='none'/.test(htmlSrc),
 ok(/document\.getElementById\('tbDepts'\)/.test(htmlSrc) && /document\.getElementById\('tbBoards'\)/.test(htmlSrc),
    'renderTabs 填充部门带与板块带');
 ok(/getElementById\('progressOverview'\)/.test(htmlSrc), 'renderProgress 填充统计带');
-ok((htmlSrc.match(/class="stat-card"/g) || []).length >= 3, '统计带含 3 张卡片');
+// 2026-11-04：统计带 4 张卡片（总事项/已完成/进行中/未完成）——
+// 3 张可点击卡共用 card() 模板 → 按 toggleStatCard 出现次数断言（3 个 onclick + 1 定义）
+// 模板只有一处 card() 助手（运行时渲染 3 张）→ 断言数据源与点击能力而非出现次数
+ok(/ov\.progressing/.test(htmlSrc) && /stat-click/.test(htmlSrc) && /toggleStatCard/.test(htmlSrc),
+   '统计带含 4 张卡片（新增「进行中」，3 张可点击筛选）');
 // 旧的 progress-overview 内嵌公告结构应已移除
 ok(!/<div class="notice-bar" id="noticeBar"><\/div>`\s*;\s*await renderNoticeBar/.test(htmlSrc),
    '统计带不再内嵌公告栏（公告已独立到右半）');
@@ -326,11 +330,14 @@ ok(/function toggleDept\(name\)\{[\s\S]{0,500}?selectDeptBoards\(name\)/.test(ht
    'toggleDept 展开部门时调用 selectDeptBoards（联动切换）');
 ok(/function toggleDept\(name\)\{[\s\S]{0,500}?clearBoardSelection\('部门已收起'\)/.test(htmlSrc),
    'toggleDept 收起部门时清空板块选择（不残留旧内容）');
-ok(/if\(!curBoard\)\{renderEmptyBoardState\(\)/.test(htmlSrc),
-   'reload 在未选板块时直接渲染空状态（不拉全量数据）');
+// 2026-11-04：看板选择改为 curBoards 多选集合 → 守卫条件同步
+ok(/if\(!curBoards\.size\)\{renderEmptyBoardState\(\)/.test(htmlSrc),
+   'reload 在未选看板时直接渲染空状态（不拉全量数据）');
 // 统计带按板块取数
-ok(/api\/overview'\+\(curBoard\?/.test(htmlSrc),
-   '统计带按当前板块取数（/api/overview 带 board_id）');
+// 2026-11-04：多看板 → 单选带 board_id、多选带 board_ids
+ok(/board_id='\+encodeURIComponent\(\[...curBoards\]\[0\]\)/.test(htmlSrc) &&
+   /board_ids='/.test(htmlSrc),
+   '统计带按当前选择取数（单选 board_id / 多选 board_ids）');
 
 console.log('\n结果：%d 通过 / %d 失败', pass, fail);
 process.exit(fail ? 1 : 0);

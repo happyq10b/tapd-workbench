@@ -1107,6 +1107,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #38 | 2026-11-03 | **UI设计师** | 界面调整 | **对齐基准修正**：统计卡底由对齐「可选看板带底」改为对齐左侧**白底卡片底**（margin 抵消法 → grid stretch **天然对齐**，差值 0px）；顶部区紧凑化（`.topbar-main` 空行 gap −20px / navgroup padding-bottom −5px / wrap padding-top −4px，topbar 329→304px，统计卡下方空隙 50→12px） | `src/static/index.html`、`ops/ui_check_layout_align.py`、`HANDOFF.md` | `HANDOFF.md §七 #38` |
 | #39 | 2026-11-03 | **UI设计师** | 界面调整 | 删除两个管理入口旁的**权限范围说明文字**（架构负责人 · 可配置 N 个节点… / 可配置 N 个看板）——由「仅管理员隐藏」改为**所有角色一律不显示**（代码层面移除渲染入口 + 清掉无引用 CSS）；实测管理员与架构负责人两种视角均无说明，权限逻辑不受影响 | `src/static/index.html`、`ops/ui_check_entry_pos.py`、`HANDOFF.md` | `HANDOFF.md §七 #39` |
 | #40 | 2026-11-03 | **UI设计师** | 界面调整 | 看板管理：列表**恢复滚动**（`setBcListScroll` 的 `overflow:hidden`→`auto`，恰好 7 个看板时中招） + 去中心节点「（全部看板 · 对全员展示）」附注 + 归属部门筛选**按权限过滤** + **新增负责人筛选**（管理员走树弹窗选人／受限用户降级为 owner 账号下拉，因 `/api/team` 对非管理员清空 account） | `src/static/index.html`、`HANDOFF.md` | `HANDOFF.md §七 #40` |
+| #51 | 2026-11-04 | **主设计师** | 前端 + 后端 | **统计卡片筛选 + 多看板选择 + 六项交互**：①统计带加「进行中」卡片（3→4 张）；②除总事项外三张卡**点击筛选**（单击选中/再击取消、多选组合，默认全不选）；③状态下拉移除、搜索框加宽吸收、统一高度；④周数候选倒序；⑤可选看板**单击取消 + 多选**（curBoards 集合，board_ids 下推后端，统计带随多选合计；顺带修了多看板同名板块组渲染翻倍的 bug）；⑥多看板板块排序增加**末级排序**（cards.column_sort 板块排序值） | `src/app/app.py`、`src/static/index.html`、`ops/test_multiboard.py`（新增 9 断言）、`ops/ui_check_multiboard.py`（新增 17 断言） | `HANDOFF.md §七 #51` |
 | #50 | 2026-11-04 | **主设计师** | 前端 + 后端 | **六项 UI 打磨**：①看板负责人区块加边框（bc-owner-sec）；②③**get_team 保留 account 字段** —— 非管理员脱敏时把 account 也清了 → 「姓名→账号」映射缺失 → 树选人全员误标「未开通账号」+ 负责人筛选降级成账号下拉（wwn 已开通却被误标即此根因），account 是选人选人的必需依赖，保留（role/password_set 仍脱敏）；④看板管理「+ 配置」按钮移除；⑤架构管理未选中节点的重复提示去重（留框内占位）；⑥新增/编辑板块的负责人/参与人并排两框加外框、删大段说明、按钮文案精简为「🌳 选择」 | `src/app/app.py`、`src/static/index.html`、`ops/ui_check_polish.py`（新增 14 断言） | `HANDOFF.md §七 #50` |
 | #48 | 2026-11-04 | **主设计师** | 前端 + 后端 | **架构负责人绑定宽池 + 板块负责人/参与人指派门槛对齐**：①架构负责人（中心负责人/总经理）可绑定**管辖架构下全部看板**（#47 收得过紧的回调 —— 宽池豁免，部门长/组长的「负责人/参与人」窄池不变）；②新建板块补**负责人**选择（此前 create 接口连 participants 都静默丢弃）；③编辑板块补负责人+参与人选择器（负责人区块原写死 ME.is_admin 整块隐藏）；负责人指派权 = 架构负责人及以上（后端从「仅管理员」放开，/api/me 每看板补能力位） | `src/app/app.py`、`src/static/index.html`、`ops/test_arch_bind_col.py`（新增 20 断言）、`ops/ui_check_col_pickers.py`（新增 10 断言） | `HANDOFF.md §七 #48` |
 | #47 | 2026-11-04 | **主设计师** | 前端 + 后端 | **新增节点仅管理员 + 绑定权限收紧**：①架构管理「＋ 新增节点」仅管理员可见/可操作（后端本就 require_admin，补前端显隐与守卫）；②看板绑定专项接口 PUT /api/org/nodes/{nid}/boards —— 执行角色=管理员或**部门长/小组组长**（在本节点或其祖先任职），非管理员**新增绑定**只能选自己是负责人（boards.owner）或参与人（板块参与人）的看板；候选池同口径过滤，已绑定项保留显示防误清；can_config_bind 能力位按新口径重算（架构负责人非部门长/组长 → 不可绑定）；仅约束绑定操作，不影响看板展示/编辑权限体系 | `src/app/app.py`、`src/static/index.html`、`ops/test_bind_perm.py`（新增 27 断言）、`ops/ui_check_bind_ui.py`（新增 11 断言） | `HANDOFF.md §七 #47` |
@@ -1177,6 +1178,36 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #51 · 2026-11-04 · 主设计师 · 统计卡片筛选 + 多看板选择
+
+**需求**（6 项）：①统计带追加「进行中」卡片；②除总事项外三张卡点击筛选（多选组合）；
+③状态下拉移除、搜索框拉长、统一高度；④周数列表倒序；⑤可选看板单击取消 + 多选；
+⑥多看板板块展示增加末级排序（板块自身的排序字段）。
+
+**实现**：
+- 后端：`/api/cards` 与 `/api/overview` 增加 `board_ids`（逗号分隔多看板）与
+  `status` 多值（done/progressing/open 逗号分隔，open=非 done 且非 progressing）；
+  `visible_columns` 支持 board_ids 限定（筛选后 cols_meta 计数与列表一致）。
+- 前端：`curBoards` Set 为内容区权威选择集（curBoard 保留为主看板，供新建等单看板流程）；
+  pickBoard 单击切换（选中/取消）；统计带 4 卡 + `STATUS_SEL` 多选 + `toggleStatCard`；
+  周数候选倒序；板块排序 `pinned → created desc → column_sort asc → 名称`
+  （csort 取板块内首卡的 column_sort，未携带排最后）。
+- 🔴 修了多看板合并渲染的 **板块组翻倍 bug**：不同看板的同名板块使 names 含重复项 →
+  同名组渲染两次（4 卡渲染出 8 个面板）→ names 按名称去重。
+
+**🔴 踩坑**：
+- 统计卡栅格 `repeat(3→4)` 全局替换**误伤布局栅格**（topbar-main / tb-grid 是
+  部门带/看板带/统计带的三列布局，不是统计卡）→ 只应改 .progress-overview 系列。
+- UI 测试点不到未展开部门组里的看板 tab（DOM 不存在）→ 直接调 pickBoard() 验证逻辑。
+- 测试断言**禁止对全局卡片计数写死**（status=done 撞上生产 1010 张 done 卡）；
+  源码级出现次数断言对「模板助手」会失真（3 张卡共用一个模板 → 源码只出现 1 次），
+  断数据源标识（ov.progressing）而非次数。
+- 前端探针取 `window.WEEK_OPTIONS` 为空 —— 顶层 `let` 不挂 window，直接用裸标识符。
+
+**验证**：新增 `ops/test_multiboard.py` **9/0**、`ops/ui_check_multiboard.py` **17/0**；
+`test-filter-ui` / `test-fixes` / `ui_check_filter` / `ui_check_owner` 断言按新结构同步；
+Python 16 组、JS 12 组、UI 11 组全绿。
 
 ### #50 · 2026-11-04 · 主设计师 · 六项 UI 打磨
 

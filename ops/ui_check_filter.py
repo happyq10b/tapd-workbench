@@ -138,8 +138,8 @@ async def main():
         ok(len((r.get('mainCols') or '').split()) == 3, '左半主区为三列：%s' % r.get('mainCols'))
         ok(len((r.get('deptCols') or '').split()) == 3, '部门带为三列：%s' % r.get('deptCols'))
         ok(len((r.get('boardCols') or '').split()) == 3, '板块带为三列：%s' % r.get('boardCols'))
-        ok(len((r.get('statCols') or '').split()) == 3, '统计带为三列：%s' % r.get('statCols'))
-        ok(r.get('statCards') == 3, '统计带 3 张卡片：%s' % r.get('statCards'))
+        ok(len((r.get('statCols') or '').split()) == 4, '统计带为四列（2026-11-04 增「进行中」卡）：%s' % r.get('statCols'))
+        ok(r.get('statCards') == 4, '统计带 4 张卡片（2026-11-04 增「进行中」）：%s' % r.get('statCards'))
         ok(r.get('noticeInAside') is True, '公告区在右半独立容器内')
         ok(r.get('sideBySide') is True, '右半公告区与左半主体左右并排（left=%s right=%s）'
            % (r.get('mainW'), r.get('asideW')))

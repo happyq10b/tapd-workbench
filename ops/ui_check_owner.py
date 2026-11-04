@@ -228,6 +228,8 @@ async def main():
         await ev("""(function(){
             var b=(typeof BC_BOARDS!=='undefined')?BC_BOARDS[0]:null;
             if(b&&typeof curBoard!=='undefined'){curBoard=b.board_id;}
+            // 2026-11-04：reload 守卫看 curBoards 多选集合 → 必须同步设置
+            if(b&&typeof curBoards!=='undefined'){curBoards=new Set([b.board_id]);}
             return true;
         })()""")
         await ev("reload(1)")
