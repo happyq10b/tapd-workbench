@@ -5,7 +5,7 @@ sys.path.insert(0, r'E:/WB缓存/2026-10-26-15-55-08/src')
 os.environ.setdefault('APP_SECRET', 'local-dev-secret-not-for-production')
 
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-PORT = 9511
+PORT = 9545
 BASE = 'http://127.0.0.1:8100'
 PWD = 'At159357'
 PASS, FAIL = [], []
@@ -74,8 +74,14 @@ async def main():
             })()""")
             # ⚠️ 2026-11-04 #55：折叠/展开/置顶/复制已并入板块行的「操作 ▾」菜单
             ok((r.get('oldFold') or 0) == 0, '旧文案（折叠事项/展开事项/板块置顶/事项置顶）已清零：%s' % r.get('oldFold'))
-            ie = r.get('ie') or []
-            ok(len(ie) == 1 and ie[0] == '导入导出', '导入导出按钮无 emoji：%s' % ie)
+            # ⚠️ 2026-11-04 #56：导入导出并入工具栏「操作 ▾」菜单 → 验证菜单项
+            r2 = await ev("""(function(){
+              var ops=(typeof ROW_OPS!=='undefined'&&ROW_OPS['toolbarOps'])||[];
+              return ops.filter(function(it){return !it.disabled;}).map(function(it){return it.label;});
+            })()""")
+            _lbl = r2 or []
+            ok(any('模板' in l for l in _lbl) and any('导入' in l for l in _lbl) and any('导出' in l for l in _lbl),
+               '导入/导出/模板在操作菜单且无 emoji（%d 项；备份/恢复在顶部更多）' % len(_lbl))
             # ⚠️ 2026-11-04 #55：行内置顶/复制已合并为「操作 ▾」→ 验证按钮与菜单项
             r = await ev("""(function(){
               var ops=[].slice.call(document.querySelectorAll('#boardContent .ops-btn'))

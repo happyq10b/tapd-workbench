@@ -1107,6 +1107,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #38 | 2026-11-03 | **UI设计师** | 界面调整 | **对齐基准修正**：统计卡底由对齐「可选看板带底」改为对齐左侧**白底卡片底**（margin 抵消法 → grid stretch **天然对齐**，差值 0px）；顶部区紧凑化（`.topbar-main` 空行 gap −20px / navgroup padding-bottom −5px / wrap padding-top −4px，topbar 329→304px，统计卡下方空隙 50→12px） | `src/static/index.html`、`ops/ui_check_layout_align.py`、`HANDOFF.md` | `HANDOFF.md §七 #38` |
 | #39 | 2026-11-03 | **UI设计师** | 界面调整 | 删除两个管理入口旁的**权限范围说明文字**（架构负责人 · 可配置 N 个节点… / 可配置 N 个看板）——由「仅管理员隐藏」改为**所有角色一律不显示**（代码层面移除渲染入口 + 清掉无引用 CSS）；实测管理员与架构负责人两种视角均无说明，权限逻辑不受影响 | `src/static/index.html`、`ops/ui_check_entry_pos.py`、`HANDOFF.md` | `HANDOFF.md §七 #39` |
 | #40 | 2026-11-03 | **UI设计师** | 界面调整 | 看板管理：列表**恢复滚动**（`setBcListScroll` 的 `overflow:hidden`→`auto`，恰好 7 个看板时中招） + 去中心节点「（全部看板 · 对全员展示）」附注 + 归属部门筛选**按权限过滤** + **新增负责人筛选**（管理员走树弹窗选人／受限用户降级为 owner 账号下拉，因 `/api/team` 对非管理员清空 account） | `src/static/index.html`、`HANDOFF.md` | `HANDOFF.md §七 #40` |
+| #56 | 2026-11-04 | **主设计师** | 前端 | **操作归拢（含两轮口径修正）**：①「＋ 子事项」（事项行）、「＋ 事项」（板块行）并入「操作 ▾」菜单，tail 移除 slot-sub（三行同步），宽度让给标题；②工具栏「展开/折叠/导入导出/+新建板块」并入「操作 ▾」（refreshToolbarOps 按权限注册）；③最终口径（用户两轮反馈）：**备份/恢复 = 管理员级，放顶部【更多】，非管理员不展现；模板/导入/导出 = 留在板块筛选的操作菜单**（导入=editor）；④工具栏右锁 452→158px、搜索框 max-width 520→760 拉宽吃满剩余（实测 550px 无空白）；⑤ops-btn 尺寸与行内其他按钮适配 | `src/static/index.html`、`ops/ui_check_ops_merge.py`（新增） | `HANDOFF.md §七 #56` |
 | #55 | 2026-11-04 | **主设计师** | 前端 | **父子事项/板块行布局优化**：①字段列 648→446px（周数压缩「2026·W32」），省出的 202px 全给标题（实测 492px，约翻倍）；②周数移到负责人左侧（fieldItems 单一数据源调整，父子自动一致）；③板块行追加 负责人/创建/截止 字段 + 空槽位与事项行同构 → 字段列纵向对齐；进度条改弹性 → 右端 = 字段列左端 = 事项标题右端；④置顶/复制（板块行还有折叠/展开）合并为「操作 ▾」下拉菜单，tail 槽位与事项行同构 | `src/static/index.html`、`ops/ui_check_row_layout.py`（新增） | `HANDOFF.md §七 #55` |
 | #54 | 2026-11-04 | **主设计师** | 前端 + 后端 | **人员选择层级约束**：①看板负责人/参与人（参与人恢复）只能从**归属架构子树**选（保留 🌳，财务中心=顶层→全范围）；②板块负责人/参与人只能从**所属看板**的负责人与参与人选（🌳 架构按钮 → 👤 看板选人）；③事项负责人/参与人只能从**所属板块**的负责人与参与人选（移除「从架构选人」按钮，person picker 接池）；④负责人/参与人**互斥**（三层一致，负责人优先）；后端恢复 boards.participants 数据链路 + 双向互斥兜底 | `src/app/app.py`、`src/static/index.html`、`ops/test_hier_pool.py`（新增）、`ops/ui_check_hier_pick.py`（新增） | `HANDOFF.md §七 #54` |
 | #53 | 2026-11-04 | **主设计师** | 前端 | **筛选器改进三件**：①人员筛选树底栏加【清空】按钮（一键清空临时已选），并修 bug —— 全部取消勾选后点确定原来被 toast「未选择人员」拦截无法清空，改为允许空确认 = 清空该筛选（看板负责人筛选同理）；②周数筛选：提示改「可直接输入「2026-41」回车」，输入格式统一为年份-周数（移除纯数字「41」支持），面板加【全选】【清空】按钮（取代底部「清空全部」选项）；③按钮行：【展开板块/折叠板块】→【展开/折叠】，【新建板块】移到最后，原位置加【清空筛选】（一键清空搜索/人员/周数/日期区间），toolbar-right 锁宽 402→452px | `src/static/index.html`、`ops/ui_check_filter_v2.py`（新增） | `HANDOFF.md §七 #53` |
@@ -1181,6 +1182,43 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #56 · 2026-11-04 · 主设计师 · 操作归拢（行内 + 工具栏，含两轮口径修正）
+
+**需求**：①「事项增加」「子事项增加」并入操作按钮区，腾出空间给标题；
+②「折叠」「展开」「新增板块」整合为一个操作按钮放在行尾；③筛选栏空白由搜索栏拉宽填充。
+**两轮口径修正**：备份/恢复 = **管理员级** → 顶部【更多】，非管理员不展现；
+模板/导入/导出 = **留在板块筛选的操作菜单**（导入=editor 门槛）。
+
+**最终操作入口全景**：
+
+| 位置 | 独立按钮 | 「操作 ▾」菜单项 |
+|---|---|---|
+| 事项行 | （无） | 置顶/复制/＋子事项（canAddSub） |
+| 子事项行 | （无） | 置顶/复制 |
+| 板块行 | （无） | ＋新建事项/置顶/复制/折叠子事项/展开子事项 |
+| 工具栏 | 清空筛选 | ＋新建板块(editor)/展开板块/折叠板块/模板/导出Excel/导入(editor) |
+| 顶栏【更多】 | 更多 | 账号管理/操作日志（admin）+ **备份/恢复（admin）** |
+
+**实现**：三行 tail 同步移除 slot-sub（每行让 72px 给标题，字段列对齐保持）；
+rowOps 菜单支持 disabled 分隔行；refreshToolbarOps 在 applyPermissionUI 末尾按
+canEdit/isAdmin 注册；原按钮 id（newBtn/backupBtn/jsonImportBtn/xlsxImportBtn）
+由 applyPermissionUI 按 isAdmin/canEdit 显隐（备份/恢复=isAdmin）；ops-btn 尺寸
+padding 3px 9px→4px 10px（与 fold-btn/pin-btn 适配）；工具栏操作按钮用 btn-default 大小。
+
+**🔴 坑**：
+- `!rowHtml.includes('slot-sub')` 恒 false —— **slot-subtask 包含子串 slot-sub**，
+  否定断言用负向字符类 `/slot-sub[^t]/`。
+- 菜单项按权限**注册时过滤**（动态菜单不走 applyPermissionUI 的 id 显隐）；
+  首版漏了「＋ 新建板块」的 editor 门槛（测试抓到）。
+- 断言「导入隐藏」被「下载**导入**模板」误中 → 用 `导入（` 特征子串匹配。
+- Python 补丁 heredoc/python -c 转义连环失败 → 复杂替换一律 Write 补丁脚本或 Edit 工具；
+  多段替换**写文件必须在最后**（本次再次靠它保住全部已匹配段）。
+
+**验证**：新增 `ops/ui_check_ops_merge.py` **20/0**（三行归拢/工具栏菜单/顶部更多/
+搜索框吃满剩余 550px）；ui_check_perm_entries（探针改查 ROW_OPS['toolbarOps']+
+headerMoreMenu，三角色矩阵）、ui_check_polish2、ui_check_filter_v2 断言同步；
+门禁 7/7，夹具零残留。
 
 ### #55 · 2026-11-04 · 主设计师 · 父子事项/板块行布局优化
 

@@ -76,7 +76,9 @@ function ok(c, m) { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++;
     console.log('    父事项行 HTML 片段:', rowHtml.match(/<span class="fcol[^>]*>[^<]*<\/span>/)?.[0] || '(无)');
     // 2026-11-04 #55：字段渲染从「label：value」改为「label value」（去冒号省宽）
     ok(/负责人 [^<]/.test(rowHtml), '父事项行显示了「负责人」前缀');
-    ok(rowHtml.includes('＋ 子事项'), '父事项行的子事项按钮文案正确');
+    // #56：「＋ 子事项」并入操作菜单（ROW_OPS 注册表）→ 行 HTML 只应有 ops-btn
+    ok(rowHtml.includes('ops-btn') && !rowHtml.includes('sub-toggle'),
+      '父事项行的子事项入口已并入操作菜单');
     // 父事项负责人独立：不借用子事项负责人
     const childOwners = await api('/api/cards/' + parent.card_id + '/children')
       .then(d => (d.children || []).map(c => c.owner).filter(Boolean));
@@ -91,8 +93,8 @@ function ok(c, m) { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++;
     ok(rowHtml.includes('fcols'), '字段列用 grid 定宽容器');
     // 2026-11-04 #55：置顶/复制合并为 slot-ops（操作菜单）
     ok(rowHtml.includes('slot-overdue') && rowHtml.includes('slot-status')
-      && rowHtml.includes('slot-ops') && rowHtml.includes('slot-sub'),
-      '主事项行渲染全部固定槽位（有/无内容都占位）');
+      && rowHtml.includes('slot-ops') && !/slot-sub[^t]/.test(rowHtml),
+      '主事项行渲染全部固定槽位（#56：slot-sub 已移除）');
 
     // 2) 子事项目录行渲染
     const children = await api('/api/cards/' + parent.card_id + '/children');

@@ -3,7 +3,7 @@
 import asyncio, json, os, shutil, sqlite3, subprocess, sys, time, urllib.request
 
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-PORT = 9475
+PORT = 9539
 BASE = 'http://127.0.0.1:8100'
 DB = r'E:/WB缓存/2026-10-26-15-55-08/src/app.db'
 PREFIX = '__fs_'
@@ -90,12 +90,14 @@ async def main():
             print('\n【需求3】按钮行')
             r = await ev("""(function(){
               var bar=document.querySelector('.toolbar-right');
-              var btns=[].slice.call(bar.querySelectorAll(':scope > button, :scope > .header-more > button')).map(function(b){return b.textContent.trim()});
+              // #56：操作按钮在 .slot-ops span 里
+              var btns=[].slice.call(bar.querySelectorAll(':scope > button, :scope > .slot-ops > button')).map(function(b){return b.textContent.trim()});
               return {order:btns};
             })()""")
             order = r.get('order') or []
-            ok(order == ['清空筛选', '展开', '折叠', '导入导出', '+ 新建板块'],
-               '按钮顺序 = 清空筛选/展开/折叠/导入导出/+新建板块：%s' % order)
+            # ⚠️ 2026-11-04 #56：展开/折叠/导入导出/新建板块 → 「操作 ▾」
+            ok(order == ['清空筛选', '操作 ▾'],
+               '按钮顺序 = 清空筛选 + 操作 ▾（#56 归拢）：%s' % order)
 
             # ── 需求3：清空筛选一键清空 ──
             print('\n【需求3】清空筛选')

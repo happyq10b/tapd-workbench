@@ -85,6 +85,12 @@ catch (e) { console.error('脚本装载失败:', e.message); process.exit(1); }
 
 // ---------- 断言工具 ----------
 let pass = 0, fail = 0;
+// #56：菜单项 label 存在 ROW_OPS 注册表（rowOpsShow 运行时才渲染），不在行 HTML 里
+function lastOpsLabels() {
+  return vm.runInContext(
+    `(function(){const ids=Object.keys(ROW_OPS);const it=ROW_OPS[ids[ids.length-1]];return it?it.map(x=>x.label):[];})()`,
+    sandbox);
+}
 function ok(cond, msg) {
   if (cond) { pass++; console.log('  ✓ ' + msg); }
   else { fail++; console.log('  ✗ ' + msg); }
@@ -283,8 +289,11 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   ok(!/id="drawerMask"/.test(html), '抽屉遮罩 DOM 已移除');
   ok(!/id="e_sub_btn"/.test(html), '编辑弹窗头部的「▤ 子事项」入口已移除（截图标注处）');
   // 行内「＋ 子事项」现在直接打开新建弹窗，不再经过抽屉
-  ok(sandbox.cardItem({ ...SUB, pinned: 0, status: 'open' }, 1).includes('openNewSubModal'),
-     '行内「＋ 子事项」直接打开新建子事项弹窗（不再走抽屉）');
+  const _mergeRow = sandbox.cardItem({ ...SUB, pinned: 0, status: 'open' }, 1);
+  ok(_mergeRow.includes('ops-btn') && !_mergeRow.includes('sub-toggle'),
+     '行内不再有独立「＋ 子事项」按钮（#56 并入操作菜单）');
+  ok(lastOpsLabels().some(l => l.includes('子事项')),
+     '操作菜单含「＋ 子事项」（直接打开新建弹窗，不走抽屉）');
   ok(!/openDrawer\(/.test(html), '代码里不再有 openDrawer 调用点');
   // 本期不支持子事项以下更深层级：目录树不再渲染孙节点
   const deepHtml = sandbox.subNodeHtml({
@@ -348,9 +357,9 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
     pinned: 0, created: '2026-10-28 07:00:00', locked_by: null, sub_count: 3,
   };
   const rowHtml = sandbox.cardItem(MAIN_ROW);
-  ok(rowHtml.includes('＋ 子事项'), '行内显示「＋ 子事项」');
+  ok(lastOpsLabels().some(l => l.includes('＋ 子事项')), '行内「＋ 子事项」入口在操作菜单里（#56）');
   ok(!/子事项\s*\d/.test(rowHtml), '行内不再显示「子事项 N」计数按钮');
-  ok(rowHtml.includes('openNewSubModal'), '「＋ 子事项」直接打开新建子事项弹窗（不再经过右侧抽屉）');
+  ok(lastOpsLabels().some(l => l.includes('子事项')), '菜单项直接打开新建子事项弹窗（不再经过右侧抽屉）');
   ok(!rowHtml.includes('openDrawer'), '「＋ 子事项」不再打开右侧抽屉');
   ok(rowHtml.includes('item-chev'), '已有子事项时仍保留左侧展开箭头（目录查看入口不丢）');
 
@@ -363,10 +372,10 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   // 与其它板块一样按「角色 + 归属 + 可见性」判定 → editor 也可加子事项
   setVar('ME', { can_edit: true, is_admin: false, username: 'editor', role: 'editor', boards: [{ board_id: 'B1', board_name: '看板1' }] });
   const costRow = sandbox.cardItem({ ...MAIN_ROW, board_id: '1162069797001000241' });
-  ok(costRow.includes('＋ 子事项'), '成本看板非管理员同样可「＋ 子事项」（无板块特例）');
+  ok(lastOpsLabels().some(l => l.includes('＋ 子事项')), '成本看板非管理员同样可「＋ 子事项」（无板块特例）');
   setVar('ME', { can_edit: true, is_admin: true, username: 'admin', role: 'admin', boards: [{ board_id: 'B1', board_name: '看板1' }] });
   const adminCostRow = sandbox.cardItem({ ...MAIN_ROW, board_id: '1162069797001000241' });
-  ok(adminCostRow.includes('＋ 子事项'), '成本看板管理员可见「＋ 子事项」');
+  ok(lastOpsLabels().some(l => l.includes('＋ 子事项')), '成本看板管理员可见「＋ 子事项」（菜单内）');
 
   // ============================================================
   // 用例 9：序号展示 / 负责人位置 / 编辑入口移入详情弹窗
@@ -570,8 +579,9 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
     status: 'open', created: '2026-01-01', due: '', pinned: 0, sub_count: 2,
     subtask_total: 0, subtask_done: 0, board_id: 'B1', locked_by: null,
   }, 1);
-  ok(subBtnRow.includes('＋ 子事项'), '行内按钮文案为「＋ 子事项」');
+  ok(lastOpsLabels().some(l => l.includes('＋ 子事项')), '菜单项文案为「＋ 子事项」（#56 并入操作菜单）');
   ok(!subBtnRow.includes('添加子事项'), '旧的「＋ 添加子事项」文案已移除');
+  ok(!subBtnRow.includes('sub-toggle'), '行内独立按钮已移除（槽位宽度让给标题）');
 
   // 3) 负责人前缀（主事项行 + 子事项目录行）
   ok(subBtnRow.includes('负责人：王伟娜'), '主事项行的负责人带「负责人：」前缀');
@@ -660,7 +670,7 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
     const m = htmlSrc.match(new RegExp('\\.' + cls + '\\{[^}]*width:(\\d+)px'));
     return m ? m[1] : null;
   };
-  for (const cls of ['slot-overdue', 'slot-subtask', 'slot-status', 'slot-ops', 'slot-sub']) {
+  for (const cls of ['slot-overdue', 'slot-subtask', 'slot-status', 'slot-ops']) {
     const parent = slotWidths(cls);
     const sub = (htmlSrc.match(new RegExp('\\.sub-node \\.' + cls + '\\{[^}]*width:(\\d+)px')) || [])[1];
     ok(parent && sub && parent === sub, `${cls} 父子行宽度一致（${parent} / ${sub}）`);
@@ -670,8 +680,8 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
     card_id: 'S9', card_name: '槽位检查', owner: '吴婷婷', status: 'open',
     created: '2026-10-27 16:25:13', due: '', children: [],
   }, 0);
-  ok(subSlotRow.includes('slot-subtask') && subSlotRow.includes('slot-sub'),
-    '子事项行补齐全部固定槽位（＋子事项那格留空）');
+  ok(subSlotRow.includes('slot-subtask') && !/slot-sub[^t]/.test(subSlotRow),
+    '子事项行补齐全部固定槽位（#56：slot-sub 已移除）');
   // 子树右边距：把缩进造成的右侧偏移推回来，使父子右边界一致
   ok(/\.sub-tree\{[^}]*margin:0 8px/.test(htmlSrc),
     '子树右边距已标定为 8px（使父子行右边界一致 → 字段列对齐）');
@@ -708,13 +718,13 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
   ok(/\.item-tail\{[^}]*margin-left:auto/.test(htmlSrc), '行尾区块整体右对齐（锚定行尾）');
   ok(/\.sub-tail\{[^}]*margin-left:auto/.test(htmlSrc), '子事项行尾区块整体右对齐');
   // 逾期 / 代办 / 状态 / 置顶 / 子事项 五个可选元素都要有定宽槽位
-  for (const cls of ['slot-overdue', 'slot-subtask', 'slot-status', 'slot-ops', 'slot-sub']) {
+  for (const cls of ['slot-overdue', 'slot-subtask', 'slot-status', 'slot-ops']) {
     ok(new RegExp('\\.' + cls + '\\{[^}]*width:\\d+px').test(htmlSrc), `${cls} 槽位有固定宽度`);
   }
   // 每行都要渲染这几个槽位（无论内容有无）→ 行内结构恒定
   ok(datedRow.includes('slot-overdue') && datedRow.includes('slot-subtask')
-    && datedRow.includes('slot-status') && datedRow.includes('slot-ops') && datedRow.includes('slot-sub'),
-    '主事项行渲染全部固定槽位（有/无内容都占位）');
+    && datedRow.includes('slot-status') && datedRow.includes('slot-ops') && !/slot-sub[^t]/.test(datedRow),
+    '主事项行渲染全部固定槽位（#56：slot-sub 已移除）');
   ok(subWithDate.includes('slot-overdue') && subWithDate.includes('slot-status') && subWithDate.includes('slot-ops'),
     '子事项行渲染全部固定槽位');
 

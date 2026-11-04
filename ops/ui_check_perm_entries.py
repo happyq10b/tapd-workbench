@@ -29,7 +29,7 @@ from app.app import hash_pw  # noqa: E402
 BASE = 'http://127.0.0.1:8100'
 DB = os.path.join(os.path.dirname(__file__), '..', 'src', 'app.db')
 CHROME = r'C:\Program Files\Google\Chrome\Application\chrome.exe'
-PORT = 9462
+PORT = 9533
 PREFIX = '__pe_'
 U_ADMIN, U_EDITOR, U_VIEWER = PREFIX + 'admin', PREFIX + 'editor', PREFIX + 'viewer'
 
@@ -116,21 +116,27 @@ async def main():
         PROBE = """(function(){
             function vis(id){var e=document.getElementById(id);if(!e)return 'MISSING';
                 return (e.style.display==='none'||getComputedStyle(e).display==='none')?'H':'V';}
-            // ⚠️ 2026-11-02（UI设计师 记录 #26/#27）：备份/恢复/模板/导入/导出 5 项
-            //    已整体挪到独立的【导入导出】按钮下（#headerImportExportMenu），
-            //    原「更多」下拉（#headerMoreMenu）已空置。
-            //    → 权限断言改为在【导入导出】菜单里取这 5 项。
-            var menu=document.getElementById('headerImportExportMenu');
+            // ⚠️ 2026-11-04 #56：工具栏四按钮（展开/折叠/导入导出/新建板块）并入
+            //    「操作 ▾」菜单，菜单项由 refreshToolbarOps 按 ME 权限**注册时过滤**
+            //    → 权限断言改为检查 ROW_OPS['toolbarOps'] 的 label 集合。
+            var ops=(typeof ROW_OPS!=='undefined'&&ROW_OPS['toolbarOps'])||[];
+            var labels=ops.filter(function(it){return !it.disabled;}).map(function(it){return it.label;});
             var items={};
-            if(menu)[].slice.call(menu.querySelectorAll('button')).forEach(function(b){
-                var t=b.textContent.trim().replace(/^[^\\u4e00-\\u9fa5]*/,'');
-                items[t]=(b.style.display==='none'||getComputedStyle(b).display==='none')?'H':'V';});
+            labels.forEach(function(l){
+                var t=l.replace(/^[^一-龥]*/,'');
+                items[t]='V';
+            });
+            // ⚠️ #56 最终口径：备份/恢复在顶部【更多】（headerMoreMenu，管理员级显隐）
+            var hm=document.getElementById('headerMoreMenu');
+            var more={};
+            if(hm)[].slice.call(hm.querySelectorAll('button')).forEach(function(b){
+                var t=b.textContent.trim().replace(/^[^一-龥]*/,'');
+                more[t]=(b.style.display==='none'||getComputedStyle(b).display==='none')?'H':'V';});
             return {role:(document.getElementById('roleTag')||{}).textContent,
                     team:vis('teamBtn'),wg:vis('wgBtn'),boardCfg:vis('boardConfigBtn'),
-                    audit:vis('auditBtn'),newCol:vis('newBtn'),items:items,
-                    // ⚠️ 2026-11-03（菜单顺序调整）：【架构管理】/【看板管理】入口
-                    //    已从顶栏移到顶部导航带（架构部门之后 / 可选看板之后）。
-                    //    无权限时**整带隐藏**（按钮从 DOM 移除）→ 取带的可见性。
+                    audit:vis('auditBtn'),
+                    newCol:labels.some(function(l){return l.indexOf('新建板块')>=0;})?'V':'H',
+                    labels:labels,items:items,more:more,
                     archBand:vis('archEntryBand'),boardBand:vis('boardEntryBand')};
         })()"""
 
@@ -157,8 +163,13 @@ async def main():
             ok(r.get('boardCfg') == 'V', '看板管理按钮：%s' % r.get('boardCfg'))
             ok(r.get('audit') == 'V', '操作日志：%s' % r.get('audit'))
             ok(r.get('newCol') == 'V', '新建板块：%s' % r.get('newCol'))
-            ok(all(v == 'V' for v in (r.get('items') or {}).values()),
-               '导入导出菜单 5 项全显示：%s' % (r.get('items') or {}))
+            _lbl = r.get('labels') or []
+            _more = r.get('more') or {}
+            ok(_more.get('备份') == 'V' and _more.get('恢复') == 'V',
+               '顶部【更多】含 备份/恢复（admin）：%s' % _more)
+            ok(any('模板' in l for l in _lbl) and any('导入' in l for l in _lbl)
+               and any('导出 Excel' in l for l in _lbl),
+               '工具栏操作菜单含 模板/导入/导出（admin）：%s' % _lbl)
 
             print('\n【用例2】可编辑：管理员专属入口隐藏，其余可见')
             r = results[U_EDITOR]
@@ -169,9 +180,14 @@ async def main():
             ok(r.get('boardBand') == 'H', '看板管理入口带隐藏：%s' % r.get('boardBand'))
             ok(r.get('boardCfg') in ('H', 'MISSING'), '看板管理按钮隐藏：%s' % r.get('boardCfg'))
             ok(r.get('audit') == 'H', '操作日志隐藏：%s' % r.get('audit'))
-            ok(r.get('newCol') == 'V', '新建板块可见：%s' % r.get('newCol'))
-            ok(all(v == 'V' for v in (r.get('items') or {}).values()),
-               '导入导出菜单 5 项全显示（备份/恢复/模板/导入/导出）：%s' % (r.get('items') or {}))
+            ok(r.get('newCol') == 'V', '新建板块可见（菜单项）：%s' % r.get('newCol'))
+            _lbl = r.get('labels') or []
+            _more = r.get('more') or {}
+            ok(_more.get('备份') == 'H' and _more.get('恢复') == 'H',
+               '顶部【更多】备份/恢复对非管理员隐藏（admin 级）：%s' % _more)
+            ok(any('模板' in l for l in _lbl) and any('导入' in l for l in _lbl)
+               and any('导出 Excel' in l for l in _lbl),
+               '工具栏操作菜单含 模板/导入/导出（editor）：%s' % _lbl)
 
             print('\n【用例3】只读：写操作入口隐藏，只读可用的保留')
             r = results[U_VIEWER]
@@ -181,13 +197,15 @@ async def main():
             ok(r.get('boardBand') == 'H', '看板管理入口带隐藏：%s' % r.get('boardBand'))
             ok(r.get('boardCfg') in ('H', 'MISSING'), '看板管理按钮隐藏：%s' % r.get('boardCfg'))
             ok(r.get('audit') == 'H', '操作日志隐藏：%s' % r.get('audit'))
-            ok(r.get('newCol') == 'H', '新建板块隐藏：%s' % r.get('newCol'))
-            it = r.get('items') or {}
-            ok(it.get('恢复') == 'H', '「恢复」(JSON 导入, require_editor) 隐藏：%s' % it.get('恢复'))
-            ok(it.get('导入') == 'H', '「导入」(xlsx, require_editor) 隐藏：%s' % it.get('导入'))
-            ok(it.get('备份') == 'V', '「备份」(导出 JSON, require_auth) 保留：%s' % it.get('备份'))
-            ok(it.get('模板') == 'V', '「模板」(require_auth) 保留：%s' % it.get('模板'))
-            ok(it.get('导出') == 'V', '「导出」(require_auth) 保留：%s' % it.get('导出'))
+            ok(r.get('newCol') == 'H', '新建板块隐藏（菜单项被权限过滤）：%s' % r.get('newCol'))
+            _lbl = r.get('labels') or []
+            _more = r.get('more') or {}
+            ok(_more.get('备份') == 'H' and _more.get('恢复') == 'H',
+               '顶部【更多】备份/恢复对非管理员隐藏（admin 级）：%s' % _more)
+            ok(r.get('newCol') == 'H' and not any('导入' in l and '模板' not in l for l in _lbl),
+               '新建板块/导入 对 viewer 隐藏（editor 门槛）：%s / %s' % (r.get('newCol'), _lbl))
+            ok(any('模板' in l for l in _lbl) and any('导出 Excel' in l for l in _lbl),
+               '模板/导出 对 viewer 保留（require_auth）：%s' % _lbl)
         finally:
             cleanup()
 
