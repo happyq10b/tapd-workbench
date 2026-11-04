@@ -257,7 +257,7 @@ async def main():
         ok(r.get('open') is True, '板块编辑弹窗已打开')
         ok(r.get('hasWrap') is True, '有「板块负责人」字段容器')
         ok(r.get('hasPick') is True, '有「🌳 选择负责人」按钮')
-        ok('选择负责人' in (r.get('pickText') or ''), '按钮文案正确（实测：%s）' % r.get('pickText'))
+        ok('选择' in (r.get('pickText') or ''), '按钮文案正确（2026-11-04 精简为「🌳 选择」，实测：%s）' % r.get('pickText'))
         ok(r.get('hasBox') is True, '有负责人回显区（实测：%s）' % r.get('boxText'))
 
         # ---------- 用例5：板块编辑里也能打开树 ----------

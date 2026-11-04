@@ -1107,6 +1107,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #38 | 2026-11-03 | **UI设计师** | 界面调整 | **对齐基准修正**：统计卡底由对齐「可选看板带底」改为对齐左侧**白底卡片底**（margin 抵消法 → grid stretch **天然对齐**，差值 0px）；顶部区紧凑化（`.topbar-main` 空行 gap −20px / navgroup padding-bottom −5px / wrap padding-top −4px，topbar 329→304px，统计卡下方空隙 50→12px） | `src/static/index.html`、`ops/ui_check_layout_align.py`、`HANDOFF.md` | `HANDOFF.md §七 #38` |
 | #39 | 2026-11-03 | **UI设计师** | 界面调整 | 删除两个管理入口旁的**权限范围说明文字**（架构负责人 · 可配置 N 个节点… / 可配置 N 个看板）——由「仅管理员隐藏」改为**所有角色一律不显示**（代码层面移除渲染入口 + 清掉无引用 CSS）；实测管理员与架构负责人两种视角均无说明，权限逻辑不受影响 | `src/static/index.html`、`ops/ui_check_entry_pos.py`、`HANDOFF.md` | `HANDOFF.md §七 #39` |
 | #40 | 2026-11-03 | **UI设计师** | 界面调整 | 看板管理：列表**恢复滚动**（`setBcListScroll` 的 `overflow:hidden`→`auto`，恰好 7 个看板时中招） + 去中心节点「（全部看板 · 对全员展示）」附注 + 归属部门筛选**按权限过滤** + **新增负责人筛选**（管理员走树弹窗选人／受限用户降级为 owner 账号下拉，因 `/api/team` 对非管理员清空 account） | `src/static/index.html`、`HANDOFF.md` | `HANDOFF.md §七 #40` |
+| #50 | 2026-11-04 | **主设计师** | 前端 + 后端 | **六项 UI 打磨**：①看板负责人区块加边框（bc-owner-sec）；②③**get_team 保留 account 字段** —— 非管理员脱敏时把 account 也清了 → 「姓名→账号」映射缺失 → 树选人全员误标「未开通账号」+ 负责人筛选降级成账号下拉（wwn 已开通却被误标即此根因），account 是选人选人的必需依赖，保留（role/password_set 仍脱敏）；④看板管理「+ 配置」按钮移除；⑤架构管理未选中节点的重复提示去重（留框内占位）；⑥新增/编辑板块的负责人/参与人并排两框加外框、删大段说明、按钮文案精简为「🌳 选择」 | `src/app/app.py`、`src/static/index.html`、`ops/ui_check_polish.py`（新增 14 断言） | `HANDOFF.md §七 #50` |
 | #48 | 2026-11-04 | **主设计师** | 前端 + 后端 | **架构负责人绑定宽池 + 板块负责人/参与人指派门槛对齐**：①架构负责人（中心负责人/总经理）可绑定**管辖架构下全部看板**（#47 收得过紧的回调 —— 宽池豁免，部门长/组长的「负责人/参与人」窄池不变）；②新建板块补**负责人**选择（此前 create 接口连 participants 都静默丢弃）；③编辑板块补负责人+参与人选择器（负责人区块原写死 ME.is_admin 整块隐藏）；负责人指派权 = 架构负责人及以上（后端从「仅管理员」放开，/api/me 每看板补能力位） | `src/app/app.py`、`src/static/index.html`、`ops/test_arch_bind_col.py`（新增 20 断言）、`ops/ui_check_col_pickers.py`（新增 10 断言） | `HANDOFF.md §七 #48` |
 | #47 | 2026-11-04 | **主设计师** | 前端 + 后端 | **新增节点仅管理员 + 绑定权限收紧**：①架构管理「＋ 新增节点」仅管理员可见/可操作（后端本就 require_admin，补前端显隐与守卫）；②看板绑定专项接口 PUT /api/org/nodes/{nid}/boards —— 执行角色=管理员或**部门长/小组组长**（在本节点或其祖先任职），非管理员**新增绑定**只能选自己是负责人（boards.owner）或参与人（板块参与人）的看板；候选池同口径过滤，已绑定项保留显示防误清；can_config_bind 能力位按新口径重算（架构负责人非部门长/组长 → 不可绑定）；仅约束绑定操作，不影响看板展示/编辑权限体系 | `src/app/app.py`、`src/static/index.html`、`ops/test_bind_perm.py`（新增 27 断言）、`ops/ui_check_bind_ui.py`（新增 11 断言） | `HANDOFF.md §七 #47` |
 | #46 | 2026-11-04 | **主设计师** | 前端 + 后端 | **周数候选过滤 + 人员树弹窗精简 + 默认展开**：①周数下拉只出现**当前视图里有事项的周**——年份绑定在板块层、此前只由前端隐藏板块，周数候选混入其它年份板块的周（「2025·第48周」），现 /api/cards 增加 years 参数下推到后端，在统计 week_options/计数/分页之前过滤；②人员树弹窗删掉「选择人员（点击▶展开…）」说明文字，搜索框上移进工具栏与「展开全部/折叠全部」并排（IME 保护逻辑不变）；③首次打开默认展开顶层「财务中心」（无手动展开记录时生效，折叠全部后重开回到该默认态） | `src/app/app.py`、`src/static/index.html`、`ops/ui_check_week_tree.py`（新增）、`ops/test_dept_group_scope.py`（基线动态化） | `HANDOFF.md §七 #46` |
@@ -1176,6 +1177,28 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #50 · 2026-11-04 · 主设计师 · 六项 UI 打磨
+
+**用户反馈**（6 项）：①看板负责人区块没框不明显；②wwn 已开通却显示「未开通账号」；
+③负责人筛选显示账号而非姓名；④「+ 配置」按钮无用去掉；⑤架构管理两块重复提示；
+⑥板块弹窗负责人/参与人没外框、说明太长、要并排。
+
+**②③ 同根**：`get_team` 对非管理员的脱敏分支把 `account` 也清空了 →
+前端「姓名 → 账号」映射（BC_ACL_MEMBERS）为空 →
+`bcHasAccount()` 全员 false（树里人人标「未开通账号」）+
+负责人筛选降级为账号下拉（显示账号而非姓名）。
+account 是**选人选人的必需依赖**（requireAccount 判定 + bcAccountByName 转换），
+保留下发；role / password_set 仍脱敏。
+
+其余：①`.bc-owner-sec` 边框样式；④删按钮（configBoard 函数保留无引用）；
+⑤删下方 hint 行、保留框内占位；⑥两个 form-group 改并排 flex + 各自边框 +
+删两段说明文案 + 按钮文案精简「🌳 选择」。
+
+**验证**：新增 `ops/ui_check_polish.py` **14/0**
+（非管理员验证②③树选人/筛选形态；admin 验证①④⑥）；
+`ui_check_owner.py` 按钮文案断言同步（23/0）；
+Python 15 组、JS 12 组、UI 10 组全绿。
 
 ### #48 · 2026-11-04 · 主设计师 · 架构负责人绑定宽池 + 板块负责人/参与人指派门槛对齐
 
