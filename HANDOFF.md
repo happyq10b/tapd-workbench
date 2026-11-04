@@ -1107,6 +1107,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #38 | 2026-11-03 | **UI设计师** | 界面调整 | **对齐基准修正**：统计卡底由对齐「可选看板带底」改为对齐左侧**白底卡片底**（margin 抵消法 → grid stretch **天然对齐**，差值 0px）；顶部区紧凑化（`.topbar-main` 空行 gap −20px / navgroup padding-bottom −5px / wrap padding-top −4px，topbar 329→304px，统计卡下方空隙 50→12px） | `src/static/index.html`、`ops/ui_check_layout_align.py`、`HANDOFF.md` | `HANDOFF.md §七 #38` |
 | #39 | 2026-11-03 | **UI设计师** | 界面调整 | 删除两个管理入口旁的**权限范围说明文字**（架构负责人 · 可配置 N 个节点… / 可配置 N 个看板）——由「仅管理员隐藏」改为**所有角色一律不显示**（代码层面移除渲染入口 + 清掉无引用 CSS）；实测管理员与架构负责人两种视角均无说明，权限逻辑不受影响 | `src/static/index.html`、`ops/ui_check_entry_pos.py`、`HANDOFF.md` | `HANDOFF.md §七 #39` |
 | #40 | 2026-11-03 | **UI设计师** | 界面调整 | 看板管理：列表**恢复滚动**（`setBcListScroll` 的 `overflow:hidden`→`auto`，恰好 7 个看板时中招） + 去中心节点「（全部看板 · 对全员展示）」附注 + 归属部门筛选**按权限过滤** + **新增负责人筛选**（管理员走树弹窗选人／受限用户降级为 owner 账号下拉，因 `/api/team` 对非管理员清空 account） | `src/static/index.html`、`HANDOFF.md` | `HANDOFF.md §七 #40` |
+| #53 | 2026-11-04 | **主设计师** | 前端 | **筛选器改进三件**：①人员筛选树底栏加【清空】按钮（一键清空临时已选），并修 bug —— 全部取消勾选后点确定原来被 toast「未选择人员」拦截无法清空，改为允许空确认 = 清空该筛选（看板负责人筛选同理）；②周数筛选：提示改「可直接输入「2026-41」回车」，输入格式统一为年份-周数（移除纯数字「41」支持），面板加【全选】【清空】按钮（取代底部「清空全部」选项）；③按钮行：【展开板块/折叠板块】→【展开/折叠】，【新建板块】移到最后，原位置加【清空筛选】（一键清空搜索/人员/周数/日期区间），toolbar-right 锁宽 402→452px | `src/static/index.html`、`ops/ui_check_filter_v2.py`（新增） | `HANDOFF.md §七 #53` |
 | #51 | 2026-11-04 | **主设计师** | 前端 + 后端 | **统计卡片筛选 + 多看板选择 + 六项交互**：①统计带加「进行中」卡片（3→4 张）；②除总事项外三张卡**点击筛选**（单击选中/再击取消、多选组合，默认全不选）；③状态下拉移除、搜索框加宽吸收、统一高度；④周数候选倒序；⑤可选看板**单击取消 + 多选**（curBoards 集合，board_ids 下推后端，统计带随多选合计；顺带修了多看板同名板块组渲染翻倍的 bug）；⑥多看板板块排序增加**末级排序**（cards.column_sort 板块排序值） | `src/app/app.py`、`src/static/index.html`、`ops/test_multiboard.py`（新增 9 断言）、`ops/ui_check_multiboard.py`（新增 17 断言） | `HANDOFF.md §七 #51` |
 | #50 | 2026-11-04 | **主设计师** | 前端 + 后端 | **六项 UI 打磨**：①看板负责人区块加边框（bc-owner-sec）；②③**get_team 保留 account 字段** —— 非管理员脱敏时把 account 也清了 → 「姓名→账号」映射缺失 → 树选人全员误标「未开通账号」+ 负责人筛选降级成账号下拉（wwn 已开通却被误标即此根因），account 是选人选人的必需依赖，保留（role/password_set 仍脱敏）；④看板管理「+ 配置」按钮移除；⑤架构管理未选中节点的重复提示去重（留框内占位）；⑥新增/编辑板块的负责人/参与人并排两框加外框、删大段说明、按钮文案精简为「🌳 选择」 | `src/app/app.py`、`src/static/index.html`、`ops/ui_check_polish.py`（新增 14 断言） | `HANDOFF.md §七 #50` |
 | #48 | 2026-11-04 | **主设计师** | 前端 + 后端 | **架构负责人绑定宽池 + 板块负责人/参与人指派门槛对齐**：①架构负责人（中心负责人/总经理）可绑定**管辖架构下全部看板**（#47 收得过紧的回调 —— 宽池豁免，部门长/组长的「负责人/参与人」窄池不变）；②新建板块补**负责人**选择（此前 create 接口连 participants 都静默丢弃）；③编辑板块补负责人+参与人选择器（负责人区块原写死 ME.is_admin 整块隐藏）；负责人指派权 = 架构负责人及以上（后端从「仅管理员」放开，/api/me 每看板补能力位） | `src/app/app.py`、`src/static/index.html`、`ops/test_arch_bind_col.py`（新增 20 断言）、`ops/ui_check_col_pickers.py`（新增 10 断言） | `HANDOFF.md §七 #48` |
@@ -1178,6 +1179,33 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #53 · 2026-11-04 · 主设计师 · 筛选器改进三件
+
+**用户需求**（附 3 张截图标注）：①人员相关筛选器加【清空】按钮 + 修"全取消后无法确认"bug；
+②周数筛选提示改「可直接输入「2026-41」回车」、格式统一年份-周数、移除纯周数支持、加【全选】【清空】；
+③【展开板块/折叠板块】改【展开/折叠】、【新建板块】移最后、原位置加【清空筛选】。
+
+**实现**：
+- openTreePick 加 `opts.clearable` → 底栏（已选计数旁）渲染【清空】按钮 →
+  `tpClearSelected()` 清空 TREE_PICK.selected + noneOwner 并重绘（不关弹窗，确认才应用）。
+  两个筛选场景开启：openPersonFilterPicker（主页人员筛选）、看板管理负责人筛选。
+- **bug 根因**：`openPersonFilterPicker` 的 onConfirm 里
+  `if((!persons.length)&&!wantNone){toast('未选择人员');return}` ——
+  全取消后确认被拦截，PERSON_SEL 保持旧值无法清空。改为允许空确认 = 清空。
+- 周数：`normWeekInput` 删除纯数字分支（保留 2026-41 与 2026年第41周）；
+  提示行右侧加【全选】（勾选当前搜索词过滤后的全部候选）【清空】按钮，
+  事件走 #weekFilterDrop 点击委托（data-week-all / data-week-clear）；
+  底部旧「清空全部」选项移除（与按钮重复）。
+- 按钮行顺序 = 清空筛选 / 展开 / 折叠 / 导入导出 / + 新建板块；
+  `clearAllRowFilters()` 一键清空搜索词+PERSON_SEL+WEEK_SEL+日期区间
+  （统计卡状态筛选与年份 chip 不在该行，不受影响）；
+  toolbar-right 锁宽 402→452px、toolbar-left 769→719px 同步让位。
+
+**验证**：新增 `ops/ui_check_filter_v2.py` **16/0**（按钮顺序/一键清空/提示文案/
+全选清空/纯数字拒绝/2026-41 选中/树清空/空确认清空）；旧断言同步 5 处
+（test-filter-ui 3、test-copy-week 1、ui_check_filter 1）。
+回归：JS 8 组、Python 3 组、UI 7 组全绿，verify 7/7。
 
 ### #51 · 2026-11-04 · 主设计师 · 统计卡片筛选 + 多看板选择
 

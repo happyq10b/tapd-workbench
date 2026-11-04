@@ -39,8 +39,8 @@ ok(/wset = \{x\.strip\(\) for x in week\.split\(','\) if x\.strip\(\)\}/.test(py
 ok(/'weeks': week_options/.test(pySrc), '接口回传可选周数列表（供筛选栏下拉）');
 // 前端：列表字段列
 ok(/\{key:'week_no', label:'周数'/.test(htmlSrc), '列表字段列包含「周数」');
-ok(/\{key:'owner',\s+label:'负责人'[\s\S]{0,120}\{key:'week_no', label:'周数'[\s\S]{0,120}\{key:'created', label:'创建日期'/.test(htmlSrc),
-  '「周数」位于「创建日期」之前（创建信息列之前）');
+ok(/\{key:'owner',\s+label:'负责人'[\s\S]{0,120}\{key:'week_no', label:'周数'[\s\S]{0,120}\{key:'created', label:'创建'/.test(htmlSrc),
+  '「周数」位于「创建」之前（2026-11-04 标签精简：创建日期→创建）');
 ok(/fieldCols\(\{owner:c\.owner,week_no:c\.week_no,created:c\.created,due:c\.due,column_name:c\.column_name\}\)/.test(htmlSrc),
   '主事项行传入周数（并带所属板块名，用于标注板块年份）');
 ok(/fieldCols\(\{owner:n\.owner,week_no:n\.week_no,created:n\.created,due:n\.due,column_name:n\.column_name\}\)/.test(htmlSrc),

@@ -203,9 +203,11 @@ async def main():
         await ev("closeTreePick();")
         await asyncio.sleep(0.6)
 
-        # 周数输入归一：41 → 2026年第41周
+        # ⚠️ 2026-11-04 #53：纯数字「41」已移除支持，格式统一「2026-41」
         r = await ev("(function(){return typeof normWeekInput==='function'?normWeekInput('41'):'__err__';})()")
-        ok(r == '2026年第41周', '周数「41」归一为「2026年第41周」：%s' % r)
+        ok(r == '', '纯数字「41」不再归一（返回空）：%s' % r)
+        r = await ev("(function(){return normWeekInput('2026-41');})()")
+        ok(r == '2026年第41周', '「2026-41」归一为「2026年第41周」：%s' % r)
         r = await ev("(function(){return typeof normWeekInput==='function'?normWeekInput('2026-41'):'__err__';})()")
         ok(r == '2026年第41周', '周数「2026-41」归一为「2026年第41周」：%s' % r)
         r = await ev("(function(){return typeof normWeekInput==='function'?normWeekInput('2026年第41周'):'__err__';})()")

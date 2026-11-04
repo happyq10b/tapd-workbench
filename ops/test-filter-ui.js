@@ -37,7 +37,7 @@ ok(/id="personFilterInput"[^>]*readonly/.test(htmlSrc),
    '人员输入框为只读触发器（点击打开架构树）');
 ok(/onclick="openPersonFilterPicker\(this\)"/.test(htmlSrc),
    '点击人员输入框直接打开架构树弹窗');
-ok(/class="cf-opt"/.test(htmlSrc), '候选为勾选式（.cf-opt + checkbox）');
+ok(/class="cf-opt /.test(htmlSrc), '候选为勾选式（.cf-opt + checkbox，周数面板）');
 ok(!/id="personFilterBtn"/.test(htmlSrc), '旧的「按人员筛选」按钮已移除');
 ok(!/id="weekFilterBtn"/.test(htmlSrc), '旧的「📅 周数」按钮已移除');
 // 输入匹配：人员改为在**树内**搜索（tp_search），周数按数字/标签匹配
@@ -74,11 +74,12 @@ ok(/key=week_sort_key\)/.test(pySrc), '后端列表接口的周数选项按组�
 ok(/function normWeekInput\(raw\)/.test(htmlSrc), '提供周数归一函数 normWeekInput');
 ok(/\\d\{4\}\)\\s\*年\?\\\s\*第\\\s\*\(\\d\{1,2\}\)/.test(htmlSrc) ||
    /m=s\.match\(\/\^\(\\d\{4\}\)/.test(htmlSrc), '周数归一支持「2026年第41周」');
-ok(/return new Date\(\)\.getFullYear\(\)\+'年第'\+w\+'周'/.test(htmlSrc),
-   '纯数字周数按当前年补全（41 → 2026年第41周）');
+// 2026-11-04 #53：输入格式统一为「2026-41」，移除纯数字「41」支持
+ok(!/return new Date\(\)\.getFullYear\(\)\+'年第'\+w\+'周'/.test(htmlSrc),
+   '纯数字周数「41」已不再支持（格式统一为年份-周数）');
 ok(/onFilterComboKey\(kind,ev\)/.test(htmlSrc), '回车提交输入值（加入多选集合）');
-ok(/toast\('周数格式应为 41 \/ 2026-41 \/ 2026年第41周'\)/.test(htmlSrc),
-   '非法周数给出明确提示');
+ok(/toast\('周数格式应为 2026-41（年份-周数）'\)/.test(htmlSrc),
+   '非法周数给出明确提示（2026-41 口径）');
 
 // ============================================================
 // 用例 2：人员筛选独占「负责人」维度（独立负责人下拉已下线）
