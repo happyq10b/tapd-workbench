@@ -1107,6 +1107,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #38 | 2026-11-03 | **UI设计师** | 界面调整 | **对齐基准修正**：统计卡底由对齐「可选看板带底」改为对齐左侧**白底卡片底**（margin 抵消法 → grid stretch **天然对齐**，差值 0px）；顶部区紧凑化（`.topbar-main` 空行 gap −20px / navgroup padding-bottom −5px / wrap padding-top −4px，topbar 329→304px，统计卡下方空隙 50→12px） | `src/static/index.html`、`ops/ui_check_layout_align.py`、`HANDOFF.md` | `HANDOFF.md §七 #38` |
 | #39 | 2026-11-03 | **UI设计师** | 界面调整 | 删除两个管理入口旁的**权限范围说明文字**（架构负责人 · 可配置 N 个节点… / 可配置 N 个看板）——由「仅管理员隐藏」改为**所有角色一律不显示**（代码层面移除渲染入口 + 清掉无引用 CSS）；实测管理员与架构负责人两种视角均无说明，权限逻辑不受影响 | `src/static/index.html`、`ops/ui_check_entry_pos.py`、`HANDOFF.md` | `HANDOFF.md §七 #39` |
 | #40 | 2026-11-03 | **UI设计师** | 界面调整 | 看板管理：列表**恢复滚动**（`setBcListScroll` 的 `overflow:hidden`→`auto`，恰好 7 个看板时中招） + 去中心节点「（全部看板 · 对全员展示）」附注 + 归属部门筛选**按权限过滤** + **新增负责人筛选**（管理员走树弹窗选人／受限用户降级为 owner 账号下拉，因 `/api/team` 对非管理员清空 account） | `src/static/index.html`、`HANDOFF.md` | `HANDOFF.md §七 #40` |
+| #54 | 2026-11-04 | **主设计师** | 前端 + 后端 | **人员选择层级约束**：①看板负责人/参与人（参与人恢复）只能从**归属架构子树**选（保留 🌳，财务中心=顶层→全范围）；②板块负责人/参与人只能从**所属看板**的负责人与参与人选（🌳 架构按钮 → 👤 看板选人）；③事项负责人/参与人只能从**所属板块**的负责人与参与人选（移除「从架构选人」按钮，person picker 接池）；④负责人/参与人**互斥**（三层一致，负责人优先）；后端恢复 boards.participants 数据链路 + 双向互斥兜底 | `src/app/app.py`、`src/static/index.html`、`ops/test_hier_pool.py`（新增）、`ops/ui_check_hier_pick.py`（新增） | `HANDOFF.md §七 #54` |
 | #53 | 2026-11-04 | **主设计师** | 前端 | **筛选器改进三件**：①人员筛选树底栏加【清空】按钮（一键清空临时已选），并修 bug —— 全部取消勾选后点确定原来被 toast「未选择人员」拦截无法清空，改为允许空确认 = 清空该筛选（看板负责人筛选同理）；②周数筛选：提示改「可直接输入「2026-41」回车」，输入格式统一为年份-周数（移除纯数字「41」支持），面板加【全选】【清空】按钮（取代底部「清空全部」选项）；③按钮行：【展开板块/折叠板块】→【展开/折叠】，【新建板块】移到最后，原位置加【清空筛选】（一键清空搜索/人员/周数/日期区间），toolbar-right 锁宽 402→452px | `src/static/index.html`、`ops/ui_check_filter_v2.py`（新增） | `HANDOFF.md §七 #53` |
 | #51 | 2026-11-04 | **主设计师** | 前端 + 后端 | **统计卡片筛选 + 多看板选择 + 六项交互**：①统计带加「进行中」卡片（3→4 张）；②除总事项外三张卡**点击筛选**（单击选中/再击取消、多选组合，默认全不选）；③状态下拉移除、搜索框加宽吸收、统一高度；④周数候选倒序；⑤可选看板**单击取消 + 多选**（curBoards 集合，board_ids 下推后端，统计带随多选合计；顺带修了多看板同名板块组渲染翻倍的 bug）；⑥多看板板块排序增加**末级排序**（cards.column_sort 板块排序值） | `src/app/app.py`、`src/static/index.html`、`ops/test_multiboard.py`（新增 9 断言）、`ops/ui_check_multiboard.py`（新增 17 断言） | `HANDOFF.md §七 #51` |
 | #50 | 2026-11-04 | **主设计师** | 前端 + 后端 | **六项 UI 打磨**：①看板负责人区块加边框（bc-owner-sec）；②③**get_team 保留 account 字段** —— 非管理员脱敏时把 account 也清了 → 「姓名→账号」映射缺失 → 树选人全员误标「未开通账号」+ 负责人筛选降级成账号下拉（wwn 已开通却被误标即此根因），account 是选人选人的必需依赖，保留（role/password_set 仍脱敏）；④看板管理「+ 配置」按钮移除；⑤架构管理未选中节点的重复提示去重（留框内占位）；⑥新增/编辑板块的负责人/参与人并排两框加外框、删大段说明、按钮文案精简为「🌳 选择」 | `src/app/app.py`、`src/static/index.html`、`ops/ui_check_polish.py`（新增 14 断言） | `HANDOFF.md §七 #50` |
@@ -1179,6 +1180,46 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #54 · 2026-11-04 · 主设计师 · 人员选择层级约束
+
+**需求**：①看板负责人/参与人从对应架构下选（保留架构选择按钮，过滤范围外人员；
+财务中心=顶层→全范围）；②板块负责人/参与人从所属看板的负责人与参与人选（移除架构按钮）；
+③事项负责人/参与人从所属板块的负责人与参与人选（移除架构按钮）；④负责人与参与人互斥。
+
+**层级链**（每层只能从上一层名单里选）：
+
+    架构子树人员 → 看板负责人+参与人 → 板块负责人+参与人 → 事项负责人+参与人
+
+**后端**：
+- `boards.participants` 恢复使用（11-02 下线，本需求需要它作为板块选人池的来源）：
+  /api/me、/api/boards 每看板下发 owner/participants；AclReq.participants 兼容
+  逗号串与列表（原写死 List[str]，前端传逗号串直接 422）
+- set_board_acl / set_board_participants 双向互斥兜底（设负责人→从参与人剔除；反之亦然）；
+  set_board_acl 不再清空参与人
+
+**前端**：
+- 看板弹窗（renderAclSection 重写）：负责人/参与人并排两框；orgTreeForNode(nodeId)
+  把树收口到**归属架构子树**（dept_node_id=0 退化全树）；orgTreeWithoutNames 把负责人
+  从参与人候选剔除；saveBoardAcl 连带 PUT participants
+- 板块弹窗：colAclPool（看板 owner+participants → 姓名）+ poolTree（合成单节点树
+  塞进 openTreePick person 模式，复用搜索/全选/清空）；按钮 🌳→👤「从看板选人」
+- 事项弹窗：initPersonPicker 加 pool/pair/isOwner 参数（ALL=池，手输池外名字被
+  「不在列表中」拦截）；cardPickPool 从 COLS_META 取板块 owner/participants（缺失回退
+  看板池）；openEdit/openNew/openNewSub 预计算池入 _cardPickPool；移除 addOrgPickBtn
+- 互斥三层一致：负责人优先（选为负责人自动从参与人移除；参与人侧撞负责人拦截）
+
+**🔴 坑**：
+- poolTree 的 members 必须是**对象**（{name,node_id}）—— openTreePick person 模式
+  按 m.name 取名、m.node_id 过滤归属，传字符串渲染成空面板（黑盒 20 分钟）。
+- orgTreeWithoutNames 首版 ex.has(m) 拿对象比名字 → 永远 false（测试抓到）。
+- 树人员行 textContent 带「▶ 👤 」前缀 + 任职徽标后缀 → 断言必须按行前缀匹配。
+- evaluate 裸 await 再现（#46 同款）：`await ensureOrgTree(true);0;` 整句语法错误
+  静默不执行 → ORG_TREE 未加载、断言时序不稳定。一律 `.then(()=>1)` + awaitPromise。
+
+**验证**：新增 `ops/test_hier_pool.py` **11/0**（me/boards 下发、双向互斥、保留参与人）、
+`ops/ui_check_hier_pick.py` **24/0**（真实 Chrome：子树收口/池过滤/互斥三弹窗/手输拦截）；
+test-fixes / test-org-priority / ui_check_owner 旧断言按 #54 语义同步；门禁 7/7。
 
 ### #53 · 2026-11-04 · 主设计师 · 筛选器改进三件
 

@@ -87,11 +87,17 @@ ok(!/opt\.value=names; opt\.textContent='负责人：'/.test(htmlSrc),
    '不再往负责人下拉注入自定义 option（旧实现的条件覆盖根源）');
 ok(/ps\.set\('cc',cc\)/.test(htmlSrc), 'reload 带上 cc 参数');
 ok(/async function ensureOrgTree\(force\)/.test(htmlSrc), '架构树按需加载（支持强制刷新）');
-ok(/await ensureOrgTree\(\)/.test(htmlSrc), '独立入口先加载架构树');
-ok(/function addOrgPickBtn\(containerId, kind\)/.test(htmlSrc), '编辑弹窗加「从架构选人」按钮');
-ok(/function openOrgPersonPick\(containerId, kind, anchor\)/.test(htmlSrc), '编辑弹窗打开 person 模式树');
-ok(/addOrgPickBtn\('e_owner','owner'\)/.test(htmlSrc) && /addOrgPickBtn\('e_cc','cc'\)/.test(htmlSrc),
-  '负责人与参与人两个选择器都接入架构选人');
+// 2026-11-04 #54 层级约束：事项的负责人/参与人从**所属板块**的负责人与参与人中选
+// → 「从架构选人」按钮整体移除，选人池由 cardPickPool 从板块元数据计算。
+ok(!/addOrgPickBtn/.test(htmlSrc) && !/openOrgPersonPick/.test(htmlSrc),
+  '「从架构选人」按钮及其入口已移除（事项选人收口到板块池）');
+ok(/async function cardPickPool\(boardId,columnName\)/.test(htmlSrc),
+  '事项选人池 = 所属板块的负责人与参与人（cardPickPool，缺失时回退看板池）');
+ok(/initPersonPicker\('e_owner',[^\n]*'e_cc',true\)/.test(htmlSrc)
+   && /initPersonPicker\('e_cc',[^\n]*'e_owner',false\)/.test(htmlSrc),
+  '负责人/参与人选择器互斥配对（负责人不能同时是参与人）');
+ok(/orgTreeForNode\(nodeId\)/.test(htmlSrc) && /orgTreeWithoutNames\(tree,names\)/.test(htmlSrc),
+  '看板层选人范围 = 归属架构子树，参与人候选剔除负责人');
 ok(/class="pp-in"/.test(htmlSrc), '人员选择器仍保留手动输入（与架构选人并存）');
 ok(/ORG_PERSON_NAMES=new Set\(\)/.test(htmlSrc), '汇总架构人员名以区分手动输入项');
 

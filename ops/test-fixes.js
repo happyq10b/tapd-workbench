@@ -160,8 +160,9 @@ const getLet = (n) => vm.runInContext(n, sandbox);
      '子事项模式不再隐藏「参与人」');
   ok(/window\._editCc=\(c\.cc\|\|''\)\.split\(';'\)\.filter\(Boolean\);/.test(main),
      '子事项也回填参与人（读取 cc 字段）');
-  ok(/initPersonPicker\('e_cc',window\._editCc=window\._editCc\|\|\[\]\);/.test(main),
-     '子事项也初始化参与人选择器');
+  // 2026-11-04 #54：选择器带选人池与互斥配对（pool / pair）
+  ok(/initPersonPicker\('e_cc',window\._editCc=window\._editCc\|\|\[\],pool,'e_owner',false\);/.test(main),
+     '子事项也初始化参与人选择器（带板块选人池与互斥配对）');
   ok(/fields\.cc=\(window\._editCc\|\|\[\]\)\.join\(';'\);/.test(main),
      '保存时子事项也提交 cc 字段');
   // 新建弹窗：主/子事项都有参与人

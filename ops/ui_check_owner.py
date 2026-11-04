@@ -121,7 +121,8 @@ async def main():
             };
         })()""")
         ok(r.get('hasOwnerLabel') is True, '编辑区有「看板负责人」区块')
-        ok(r.get('hasParticipantWord') is False, '编辑区**没有**「参与人」字样')
+        # ⚠️ 2026-11-04 #54：看板参与人**恢复**（板块选人池的来源）→ 断言反转
+        ok(r.get('hasParticipantWord') is True, '编辑区有「参与人」区块（#54 恢复）')
         ok(r.get('hasOwnerSelect') is False, '负责人不再是 <select> 下拉（改成树状选择）')
         ok(r.get('hasParticipantsSelect') is False, '参与人多选框已移除')
         ok(r.get('hasPickBtn') is True, '有「🌳 选择负责人」按钮（树状选择器入口）')
@@ -264,17 +265,25 @@ async def main():
 
         # ---------- 用例5：板块编辑里也能打开树 ----------
         print('\n【用例5】板块负责人同样用树状图选人')
-        await ev("colPickOwner(document.getElementById('c_owner_pick_btn'))")
-        await asyncio.sleep(2.5)
+        # ⚠️ 2026-11-04 #54：板块负责人从**所属看板**的负责人与参与人中选（合成池树）。
+        #    本测试选中的是生产看板，多半未配置看板负责人/参与人 → 池为空 →
+        #    预期「不开树 + 引导提示」；若池非空则树打开且只含池内人员。
+        toasts_before = await ev("document.querySelectorAll('.toast').length")
+        await ev("colPickOwner(document.getElementById('c_owner_pick_btn'))", aw=True)
+        await asyncio.sleep(1.5)
         r = await ev("""(function(){
             var p=document.querySelector('.tree-pick');
-            if(!p)return {open:false};
-            var persons=p.querySelectorAll('.tp-node.tp-person');
-            return {open:true, personCount:persons.length,
-                    title:(p.querySelector('.tp-title')||{}).textContent||''};
-        })()""")
-        ok(r.get('open') is True, '板块负责人树弹窗已打开')
-        ok((r.get('personCount') or 0) > 0, '树里有末级人员（%s 个）' % r.get('personCount'))
+            var toasts=[].slice.call(document.querySelectorAll('.toast')).map(function(t){return t.textContent;});
+            return {open:!!p, personCount:p?p.querySelectorAll('.tp-node.tp-person').length:0,
+                    toasts:toasts};
+        })()""", aw=True)
+        opened = r.get('open') is True
+        pool_empty = (not opened) and any('尚未配置' in t for t in (r.get('toasts') or []))
+        ok(opened or pool_empty,
+           '板块负责人选人：池非空开树 / 池空给引导（open=%s, toasts=%s）'
+           % (r.get('open'), (r.get('toasts') or [])[-1:]))
+        if opened:
+            ok((r.get('personCount') or 0) > 0, '树里有末级人员（%s 个）' % r.get('personCount'))
         await ev("closeTreePick()")
         await asyncio.sleep(0.5)
 
