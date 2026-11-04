@@ -10,7 +10,7 @@ import time
 import urllib.request
 
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-PORT = 9551
+PORT = 9567
 BASE = 'http://127.0.0.1:8100'
 PASS, FAIL = [], []
 
@@ -182,13 +182,13 @@ async def main():
             ok(any(c.startswith('负责人') for c in ccols) and any(c.startswith('创建') for c in ccols)
                and any(c.startswith('截止') for c in ccols),
                '板块行有 负责人/创建/截止 字段：%s' % ccols)
-            # ⚠️ 2026-11-04：进度条缩至原长度 30%（200→60px），落在周数位格内、
-            #    右对齐**紧贴**「负责人」列左侧（间距约 4px）。
-            ok(abs(r.get('barW', 0) - 60) <= 2,
-               '进度条长度约为原进度的三成（实测 %s px）' % r.get('barW'))
+            # ⚠️ 2026-11-04 微调：进度条 60px → 84px（延长）；
+            #    右端不再溢出到列间距 → 与「负责人」留 8px；起点距「n/N 完成」约 48px。
+            ok(abs(r.get('barW', 0) - 84) <= 2,
+               '进度条长度 84px（实测 %s px）' % r.get('barW'))
             _bgap = r.get('ownerL', 0) - r.get('barR', 0)
-            ok(0 <= _bgap <= 8,
-               '进度条紧贴负责人列左侧（间距 %s px）' % _bgap)
+            ok(4 <= _bgap <= 12,
+               '进度条终点与负责人列留有少量间距（%s px）' % _bgap)
             # 板块行与事项行的「负责人」列仍纵向对齐（字段列起点一致）
             ok(abs(r.get('ownerL', 0) - r.get('itemOwnerL', 1)) <= 4,
                '板块负责人列与事项负责人列纵向对齐（%s vs %s）'
