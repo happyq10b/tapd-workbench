@@ -106,6 +106,11 @@ def build():
 def main():
     from app.app import user_allowed, _member_appointed_nodes, _member_dept_scope
     cleanup()
+    # ⚠️ 真实数据的**基线必须在造夹具之前实测**（2026-11-04 教训）：
+    #    用例5 曾硬编码「== 7 个看板」→ 用户自己复制看板（合法数据）就让断言假失败。
+    #    基线实测于 cleanup() 之后、build() 之前 —— 此刻库中无本测试夹具。
+    _base_yh = len(user_allowed('yh')[0] or set())
+    _base_wwn = len(user_allowed('wwn')[0] or set())
     build()
     try:
         print('\n【用例1】小组节点不向上提升（根因修复点）')
@@ -149,11 +154,12 @@ def main():
     ok(not b_tyl,
        '谭亚利（总账部部长，总账部不拥有看板 + 小组未绑定）→ 0 个：%s' % sorted(b_tyl or []))
     b_yh, _c = user_allowed('yh')
-    ok(b_yh and len(b_yh) == 7,
-       '余河（财务中心）仍可见全部 7 个看板（管理层全范围不受影响）：%d 个' % len(b_yh or []))
+    ok(b_yh and len(b_yh) == _base_yh,
+       '余河（财务中心）可见看板数 = 进入时基线 %d（管理层全范围不受夹具影响）：%d 个'
+       % (_base_yh, len(b_yh or [])))
     b_wwn, _c = user_allowed('wwn')
-    ok(b_wwn and len(b_wwn) == 7,
-       '王伟娜（核算部部长）仍可见 7 个看板：%d 个' % len(b_wwn or []))
+    ok(b_wwn and len(b_wwn) == _base_wwn,
+       '王伟娜（核算部部长）可见看板数 = 进入时基线 %d：%d 个' % (_base_wwn, len(b_wwn or [])))
     b_none, _c = user_allowed('zhangsan')
     ok(not b_none,
        '无任何架构归属的账号 → 0 个看板（fail-closed）：%s' % sorted(b_none or []))

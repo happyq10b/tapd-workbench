@@ -295,8 +295,12 @@ async def main():
         # 展开 → 折叠：人员可见性应随之变化
         r = await ev("""(function(){
             var p=TREE_PICK.panel;
+            // ⚠️ 2026-11-04：弹窗现在**默认展开「财务中心」**→ 第一个箭头可能已是
+            //    展开态（▼），点击会变成收起 → 全局位为 false 的假失败。
+            //    改点第一个**收起态**（▶）的箭头，保证断言的是「展开写入全局」。
             var first=null;
-            p.querySelectorAll('.tp-arrow[id^="tp_arrow_"]').forEach(function(a){ if(!first)first=a; });
+            p.querySelectorAll('.tp-arrow[id^="tp_arrow_"]').forEach(function(a){
+              if(!first&&a.textContent.indexOf('▶')>=0)first=a; });
             if(!first)return {none:true};
             var id=first.id.replace('tp_arrow_','');
             var box=document.getElementById('tp_children_'+id);

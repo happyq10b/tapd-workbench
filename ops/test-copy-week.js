@@ -96,8 +96,12 @@ ok(/openCopyModal\('column'/.test(htmlSrc), '板块头部有复制入口');
 ok(/openCopyModal\([^)]{0,12}board/.test(htmlSrc), '看板管理列表有复制入口');
 ok(/openCopyModal\(kind/.test(htmlSrc) && /copyCurrentCard\(\)/.test(htmlSrc), '事项编辑弹窗有复制入口');
 ok(/id="e_copy_btn"/.test(htmlSrc), '编辑弹窗页脚含复制按钮');
-ok(/openCopyModal\('board'[\s\S]{0,400}ME\.is_admin/.test(htmlSrc) || /kind==='board'&&!ME\.is_admin/.test(htmlSrc),
-  '看板复制仅管理员可用（与看板新建/配置同级）');
+// ⚠️ 2026-11-03 #45：复制权限从「仅管理员」放开为 can_edit 口径（对该看板有管理权
+//    即可复制：看板负责人/架构负责人范围内/管理员）。越权仍由后端 403 拦截。
+ok(/kind==='board'[^\n]{0,200}P\.can_edit/.test(htmlSrc) || /can_edit:!!b\.can_edit/.test(htmlSrc),
+  '看板复制按 can_edit 能力位放行（看板负责人/架构负责人可复制自己权限下的看板）');
+ok(/perm_check\([\s\S]{0,200}?OP_UPDATE[\s\S]{0,200}?LV_BOARD_OWNER[\s\S]{0,200}?min_level=LV_BOARD_OWNER/.test(pySrc),
+  '后端复制接口与 can_edit 同一判定（越权仍 403）');
 
 // ============================================================
 // 用例 4：后端复制接口与权限校验

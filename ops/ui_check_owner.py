@@ -150,7 +150,9 @@ async def main():
             };
         })()""")
         ok(r.get('open') is True, '树弹窗已打开')
-        ok('选择人员' in (r.get('title') or ''), '弹窗标题是人员选择（实测：%s）' % r.get('title'))
+        # ⚠️ 2026-11-04：说明标题已按用户要求删除，搜索框上移进工具栏与展开/折叠并排
+        ok((r.get('title') or '') == '', '说明标题已删除（实测：%r）' % r.get('title'))
+        ok(r.get('hasSearch') is True, '搜索框保留（在工具栏内）')
         ok((r.get('nodeCount') or 0) > 0, '树里有架构节点（%s 个）' % r.get('nodeCount'))
         ok((r.get('personCount') or 0) > 0, '树里有末级人员（%s 个）' % r.get('personCount'))
         ok(r.get('hasSearch') is True, '树内带人员搜索框')
