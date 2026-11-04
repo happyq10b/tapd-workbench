@@ -1107,6 +1107,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #38 | 2026-11-03 | **UI设计师** | 界面调整 | **对齐基准修正**：统计卡底由对齐「可选看板带底」改为对齐左侧**白底卡片底**（margin 抵消法 → grid stretch **天然对齐**，差值 0px）；顶部区紧凑化（`.topbar-main` 空行 gap −20px / navgroup padding-bottom −5px / wrap padding-top −4px，topbar 329→304px，统计卡下方空隙 50→12px） | `src/static/index.html`、`ops/ui_check_layout_align.py`、`HANDOFF.md` | `HANDOFF.md §七 #38` |
 | #39 | 2026-11-03 | **UI设计师** | 界面调整 | 删除两个管理入口旁的**权限范围说明文字**（架构负责人 · 可配置 N 个节点… / 可配置 N 个看板）——由「仅管理员隐藏」改为**所有角色一律不显示**（代码层面移除渲染入口 + 清掉无引用 CSS）；实测管理员与架构负责人两种视角均无说明，权限逻辑不受影响 | `src/static/index.html`、`ops/ui_check_entry_pos.py`、`HANDOFF.md` | `HANDOFF.md §七 #39` |
 | #40 | 2026-11-03 | **UI设计师** | 界面调整 | 看板管理：列表**恢复滚动**（`setBcListScroll` 的 `overflow:hidden`→`auto`，恰好 7 个看板时中招） + 去中心节点「（全部看板 · 对全员展示）」附注 + 归属部门筛选**按权限过滤** + **新增负责人筛选**（管理员走树弹窗选人／受限用户降级为 owner 账号下拉，因 `/api/team` 对非管理员清空 account） | `src/static/index.html`、`HANDOFF.md` | `HANDOFF.md §七 #40` |
+| #48 | 2026-11-04 | **主设计师** | 前端 + 后端 | **架构负责人绑定宽池 + 板块负责人/参与人指派门槛对齐**：①架构负责人（中心负责人/总经理）可绑定**管辖架构下全部看板**（#47 收得过紧的回调 —— 宽池豁免，部门长/组长的「负责人/参与人」窄池不变）；②新建板块补**负责人**选择（此前 create 接口连 participants 都静默丢弃）；③编辑板块补负责人+参与人选择器（负责人区块原写死 ME.is_admin 整块隐藏）；负责人指派权 = 架构负责人及以上（后端从「仅管理员」放开，/api/me 每看板补能力位） | `src/app/app.py`、`src/static/index.html`、`ops/test_arch_bind_col.py`（新增 20 断言）、`ops/ui_check_col_pickers.py`（新增 10 断言） | `HANDOFF.md §七 #48` |
 | #47 | 2026-11-04 | **主设计师** | 前端 + 后端 | **新增节点仅管理员 + 绑定权限收紧**：①架构管理「＋ 新增节点」仅管理员可见/可操作（后端本就 require_admin，补前端显隐与守卫）；②看板绑定专项接口 PUT /api/org/nodes/{nid}/boards —— 执行角色=管理员或**部门长/小组组长**（在本节点或其祖先任职），非管理员**新增绑定**只能选自己是负责人（boards.owner）或参与人（板块参与人）的看板；候选池同口径过滤，已绑定项保留显示防误清；can_config_bind 能力位按新口径重算（架构负责人非部门长/组长 → 不可绑定）；仅约束绑定操作，不影响看板展示/编辑权限体系 | `src/app/app.py`、`src/static/index.html`、`ops/test_bind_perm.py`（新增 27 断言）、`ops/ui_check_bind_ui.py`（新增 11 断言） | `HANDOFF.md §七 #47` |
 | #46 | 2026-11-04 | **主设计师** | 前端 + 后端 | **周数候选过滤 + 人员树弹窗精简 + 默认展开**：①周数下拉只出现**当前视图里有事项的周**——年份绑定在板块层、此前只由前端隐藏板块，周数候选混入其它年份板块的周（「2025·第48周」），现 /api/cards 增加 years 参数下推到后端，在统计 week_options/计数/分页之前过滤；②人员树弹窗删掉「选择人员（点击▶展开…）」说明文字，搜索框上移进工具栏与「展开全部/折叠全部」并排（IME 保护逻辑不变）；③首次打开默认展开顶层「财务中心」（无手动展开记录时生效，折叠全部后重开回到该默认态） | `src/app/app.py`、`src/static/index.html`、`ops/ui_check_week_tree.py`（新增）、`ops/test_dept_group_scope.py`（基线动态化） | `HANDOFF.md §七 #46` |
 | #45 | 2026-11-03 | **主设计师** | 前端 + 后端 | **复制权限放开到 can_edit 口径**：架构负责人、看板负责人也允许复制自己权限下的看板（用户反馈：操作栏没有复制按钮）。后端 copy_board 从 require_admin 放开为「对该看板有管理权」（与 /api/boards 的 can_edit 同一判定）；前端三处入口（列表项复制按钮 / 批量复制按钮显隐 / 复制弹窗准入）全部对齐 can_edit，批量复制时无权看板自动跳过提示；越权仍 403 | `src/app/app.py`、`src/static/index.html`、`ops/ui_check_copy_perm.py`（新增） | `HANDOFF.md §七 #45` |
@@ -1175,6 +1176,47 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #48 · 2026-11-04 · 主设计师 · 架构负责人绑定宽池 + 板块负责人/参与人指派门槛对齐
+
+**需求**（用户反馈，3 项）：
+1. 架构负责人应有**自己架构下全部看板**的绑定权力（#47 收得过紧的回调）。
+2. 新建板块没有负责人的选择。
+3. 编辑板块没有负责人与参与人的选择。
+
+**绑定权限最终矩阵**：
+
+| 角色 | 可绑定节点 | 候选池 |
+|---|---|---|
+| 管理员 | 全部 | 全部 |
+| **架构负责人**（中心负责人/总经理） | 管辖架构下全部节点 | **管辖架构下全部看板**（宽池） |
+| 部门长 | 本部门 + 后代小组 | 负责人/参与人看板 ∪ 已绑定（窄池） |
+| 小组组长 | 仅本组 | 同上（窄池） |
+
+实现：`_arch_owner_nodes()`（center_head/gm 任命节点+后代）；can_config_bind 与
+绑定专项接口放行；`/api/workgroups` 带 `binding_scope`（admin/arch/own）并把架构
+负责人的宽池并入 `bindable_board_ids`。
+
+**板块负责人/参与人（根因与修法）**：
+- 负责人区块整块 `ME.is_admin` 才显示（#43 同款问题**第四次**）→ 改为
+  `colCanAssignOwner()` = 看板 `can_assign_owner`（架构负责人及以上）。
+- 后端 `update_column` 负责人字段写死「仅管理员」→ 放开为
+  `perm_check(OP_ASSIGN_OWNER, min_level=LV_ARCH_OWNER)`（与看板负责人指派同口径）。
+- **新建板块 create 接口连 participants 都没落库**（模型有字段、INSERT 没用 ——
+  静默丢弃的潜伏 bug）→ 补 owner + participants 落库；owner 指派权同上。
+- `/api/me` 每看板补 `can_edit` / `can_assign_owner` 能力位（与 list_boards 同源），
+  前端 `colCanAssignParticipants()` = 看板 can_edit ∪ 本板块负责人。
+
+**🔴 踩坑**：
+- 测试「编辑板块」断言落在 create 弹窗残留态上假通过 —— 选中看板才能渲染
+  `.week-title`；且默认「2026 年」chip 激活筛选 → **空板块隐藏**（#46 语义），
+  夹具板块必须放一张卡。
+- 测试夹具看板缺 `board_config` 归属 → 架构负责人对它**没有权限等级**
+  （权限链 = 看板 → 归属部门 → 任命），造夹具时归属配置不能省。
+
+**验证**：新增 `ops/test_arch_bind_col.py` **20/0**、`ops/ui_check_col_pickers.py` **10/0**；
+`test_bind_perm.py` 两条 #47 旧断言按 #48 语义更新（27/0）；
+Python 15 组、JS 12 组、UI 9 组全绿。
 
 ### #47 · 2026-11-04 · 主设计师 · 新增节点仅管理员 + 绑定权限收紧
 

@@ -155,9 +155,9 @@ def main():
         # 部门长：改自己部门 D 的绑定 → 200（部门长管理本部门架构下）
         code, r = http('/api/org/nodes/%d/boards' % fx['nD'], 'PUT', {'boards': ','.join(B.values())}, token=t['dept'])
         ok(code == 200, '部门长改本部门绑定 → 200（实际 %s）' % code)
-        # 中心负责人（架构负责人但非部门长/组长）→ 403
+        # ⚠️ 2026-11-04 #48 修订：架构负责人（中心负责人）可绑管辖架构下全部看板 → 200
         code, r = http('/api/org/nodes/%d/boards' % fx['nG'], 'PUT', {'boards': B['own']}, token=t['arch'])
-        ok(code == 403, '中心负责人（非部门长/组长）绑定 → 403（实际 %s）' % code)
+        ok(code == 200, '中心负责人（架构负责人）绑定管辖范围内小组 → 200（#48 宽池，实际 %s）' % code)
         # 无岗位 → 403
         code, r = http('/api/org/nodes/%d/boards' % fx['nG'], 'PUT', {'boards': B['own']}, token=t['none'])
         ok(code == 403, '无岗位账号绑定 → 403（实际 %s）' % code)
@@ -190,7 +190,7 @@ def main():
         ok(tree[PREFIX + 'C']['can_config_bind'] is False, '部门长：中心节点 can_config_bind=false（锁定）')
         code, r = http('/api/org/tree', token=t['arch'])
         tree = {}; walk(r.get('tree') or [])
-        ok(tree[PREFIX + 'G']['can_config_bind'] is False, '中心负责人（非部门长/组长）：小组 can_config_bind=false')
+        ok(tree[PREFIX + 'G']['can_config_bind'] is True, '中心负责人（架构负责人）：小组 can_config_bind=true（#48 修订）')
         code, r = http('/api/org/tree', token=t['lead'])
         tree = {}; walk(r.get('tree') or [])
         ok(tree[PREFIX + 'G']['can_config_bind'] is True, '小组组长：本组 can_config_bind=true')
