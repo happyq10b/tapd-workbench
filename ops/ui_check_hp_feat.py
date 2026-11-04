@@ -15,7 +15,7 @@ os.environ.setdefault('APP_SECRET', 'local-dev-secret-not-for-production')
 from app.app import hash_pw  # noqa: E402
 
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-PORT = 9565
+PORT = 9575
 BASE = 'http://127.0.0.1:8100'
 DB = r'E:/WB缓存/2026-10-26-15-55-08/src/app.db'
 PREFIX = '__hui_'
@@ -176,12 +176,13 @@ async def main():
             ok(not r.get('noHeader'), '板块行已渲染')
             ok(not r.get('noBar') and not r.get('noOwner'), '进度条与负责人列都在板块行内')
             barW = r.get('barW', 0)
-            # ⚠️ 2026-11-04 微调：进度条 60px → 84px（延长，两侧都不再紧贴文本）
-            ok(abs(barW - 84) <= 2, '进度条长度 84px（实测 %s px）' % barW)
+            # ⚠️ 2026-11-04 再调：进度条占满周数位格（96px）并向左溢出 8px
+            #    → 起点紧靠「n/N 完成」（4px），终点距「负责人」16px（翻倍）
+            ok(abs(barW - 96) <= 2, '进度条长度 96px（占满周数位格，实测 %s px）' % barW)
             gap = (r.get('ownerL', 0) - r.get('barR', 0))
-            ok(4 <= gap <= 12, '进度条终点与负责人列留有少量间距（%s px）' % gap)
+            ok(12 <= gap <= 20, '进度条终点与负责人列间距 16px（实测 %s px）' % gap)
             gapL = (r.get('barL', 0) - r.get('metaR', 0))
-            ok(gapL >= 24, '进度条起点与「n/N 完成」不紧贴（间距 %s px）' % gapL)
+            ok(0 <= gapL <= 8, '进度条起点紧靠「n/N 完成」（间距 %s px）' % gapL)
             if r.get('itemOwnerL'):
                 d = r.get('ownerL', 0) - r['itemOwnerL']
                 ok(abs(d) <= 4, '板块行负责人列与事项行负责人列纵向对齐（差 %s px）' % d)

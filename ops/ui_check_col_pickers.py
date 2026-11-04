@@ -99,6 +99,23 @@ async def main():
                 if await ev("typeof ME!=='undefined'&&!!ME"): break
             await asyncio.sleep(2)
 
+            # ── 先选中看板（真实操作顺序：选看板 → 建板块 → 编辑板块）──
+            # ⚠️ 不要在新建板块**之后**再点 tab：pickBoard 是「单击取消」的切换语义，
+            #    再点一次会把刚建好的板块所在看板取消掉 → 内容区清空。
+            await ev("""(function(){
+              var tabs=document.querySelectorAll('#tbBoards [data-bid], .tb-board [data-bid], #tbBoards button, .tb-board button');
+              for(var i=0;i<tabs.length;i++){
+                if(tabs[i].getAttribute('data-bid')===%s){tabs[i].click();return 'clicked-bid'}
+              }
+              for(var i=0;i<tabs.length;i++){
+                if(tabs[i].textContent.indexOf('看板')>=0){tabs[i].click();return 'clicked-text'}
+              }
+              return 'notfound:'+tabs.length;
+            })()""" % json.dumps(fx['bid']))
+            await asyncio.sleep(2.5)
+            rsel = await ev("document.querySelectorAll('.week-title.edit').length + '/' + (curBoard||'')")
+            ok(str(rsel).split('/')[0] not in ('0', '') and rsel, '看板已选中并渲染出板块标题（%s）' % rsel)
+
             # ── 新建板块 ──
             print('\n【新建板块】部门长视角')
             await ev("openColumnModal();")
@@ -126,19 +143,11 @@ async def main():
 
             # ── 编辑板块 ──
             print('\n【编辑板块】部门长视角')
-            # ⚠️ 必须先选中看板渲染出板块标题，否则 .week-title 不存在 →
-            #    openColumnEdit 没跑，断言落在 create 弹窗残留态上（假通过）。
-            #    直接赋 curBoard 不走完整渲染链路 → 点真实看板 tab。
-            await ev("""(function(){
-              var tabs=document.querySelectorAll('#tbBoards [data-bid], .tb-board [data-bid], #tbBoards button, .tb-board button');
-              for(var i=0;i<tabs.length;i++){
-                if(tabs[i].getAttribute('data-bid')===%s||tabs[i].textContent.indexOf('看板')>=0){tabs[i].click();return 'clicked'}
-              }
-              return 'notfound:'+tabs.length;
-            })()""" % json.dumps(fx['bid']))
-            await asyncio.sleep(3)
+            # ⚠️ 2026-11-04：新建板块后**等渲染**（saveColumn 已自动切到该看板并 reload），
+            #    **不要再点 tab** —— pickBoard 是「单击取消」的切换语义，再点一次 = 取消选择。
+            await asyncio.sleep(2.5)
             r0 = await ev("document.querySelectorAll('.week-title.edit').length + '/' + (curBoard||'')")
-            ok(str(r0).split('/')[0] not in ('0', '') and r0, '看板已选中并渲染出板块标题（%s）' % r0)
+            ok(str(r0).split('/')[0] not in ('0', '') and r0, '新建板块后仍渲染出板块标题（%s）' % r0)
             await ev("""(function(){
               var t=[].slice.call(document.querySelectorAll('.week-title.edit'))
                      .find(function(x){return x.textContent.indexOf('编辑组')>=0});
@@ -165,4 +174,5 @@ async def main():
     print('\n=== 结果：%d 通过 / %d 失败 ===' % (len(PASS), len(FAIL)))
     return 1 if FAIL else 0
 
-sys.exit(asyncio.run(main()))
+if __name__=='__main__':
+    sys.exit(asyncio.run(main()))
