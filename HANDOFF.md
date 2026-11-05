@@ -1121,6 +1121,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #62 | 2026-11-05 | **主设计师** | 前后端 | **架构管理编辑入口调整 + 节点新增分级授权（补记）**：①点击架构树节点 → 直接进入编辑态（标题「编辑：节点名」），移除树行「编辑」按钮；②「＋新增节点」仅超管可见且为唯一能选「无上级」的入口；「+子节点」按 can_add_child 能力位 + 层级规则置灰（无权限/常规小组行 disabled）；③create_org_node 从 require_admin 放开为分级授权（无上级仅超管；有上级按管辖范围）；非管理员新建后绑定走节点级专项接口 | `src/app/app.py`、`src/static/index.html`、`ops/test_bind_perm.py`（断言同步）、`ops/ui_check_org_entry.py`（新增 29 断言） | 详见 `src` 提交 2da0e0f / 顶层 72bca26；正文要点见 `.workbuddy/memory/2026-11-05.md` |
 | #63 | 2026-11-05 | **主设计师** | 流程建设 | **新增执行策略文档**：代码探索与成果验证的「边界控制 + 三级分层验证」规则 —— 每轮六步固定流程（申报→定点探查→最小实施→分层验证→升级判定→收尾留痕）；门禁随范围缩放档位表（G0/L1/L2/L3/全量）；每级明确升级触发条件；全量 verify.py 仅限重要节点（提交/同步/全局结构改动） | `docs/执行策略.md`（新增） | `HANDOFF.md §七 #63` |
 | #64 | 2026-11-05 | **主设计师** | 流程建设 | **执行策略 v1.1 + 必读项进 HANDOFF**：①「全量」从绝对红线改为**判断制** —— 到达全量候选先过「三问」（要出门同步？全局结构被改？累积影响不可追踪？），三问全否不跑、判断留痕（verify.py 仅在要同步时由 sync.sh 凭证机制强制）；②执行纪律必读项写入「🔴 开工前必读 ② 开工检查项」+ 5 分钟路径 | `docs/执行策略.md`（v1.0→v1.1）、`HANDOFF.md`（§一①/②、§六、§七） | `HANDOFF.md §七 #64` |
+| #65 | 2026-11-05 | **主设计师** | 前端 | **看板管理弹窗首开尺寸异常修复**：根因 = openBoardConfigModal 先 renderBoardList 后 display:flex，setBcListScroll 用 offsetHeight 量行高时弹窗隐藏 → 量到 0 → maxHeight=20px 压扁（二开被上次可见渲染纠正所以正常）；修复 = 先显示再渲染 + setBcListScroll 隐藏态守卫（offsetParent 空则跳过） | `src/static/index.html`、`ops/ui_check_bc_first_open.py`（新增 5 断言） | `HANDOFF.md §七 #65` |
 | #55 | 2026-11-04 | **主设计师** | 前端 | **父子事项/板块行布局优化**：①字段列 648→446px（周数压缩「2026·W32」），省出的 202px 全给标题（实测 492px，约翻倍）；②周数移到负责人左侧（fieldItems 单一数据源调整，父子自动一致）；③板块行追加 负责人/创建/截止 字段 + 空槽位与事项行同构 → 字段列纵向对齐；进度条改弹性 → 右端 = 字段列左端 = 事项标题右端；④置顶/复制（板块行还有折叠/展开）合并为「操作 ▾」下拉菜单，tail 槽位与事项行同构 | `src/static/index.html`、`ops/ui_check_row_layout.py`（新增） | `HANDOFF.md §七 #55` |
 | #54 | 2026-11-04 | **主设计师** | 前端 + 后端 | **人员选择层级约束**：①看板负责人/参与人（参与人恢复）只能从**归属架构子树**选（保留 🌳，财务中心=顶层→全范围）；②板块负责人/参与人只能从**所属看板**的负责人与参与人选（🌳 架构按钮 → 👤 看板选人）；③事项负责人/参与人只能从**所属板块**的负责人与参与人选（移除「从架构选人」按钮，person picker 接池）；④负责人/参与人**互斥**（三层一致，负责人优先）；后端恢复 boards.participants 数据链路 + 双向互斥兜底 | `src/app/app.py`、`src/static/index.html`、`ops/test_hier_pool.py`（新增）、`ops/ui_check_hier_pick.py`（新增） | `HANDOFF.md §七 #54` |
 | #53 | 2026-11-04 | **主设计师** | 前端 | **筛选器改进三件**：①人员筛选树底栏加【清空】按钮（一键清空临时已选），并修 bug —— 全部取消勾选后点确定原来被 toast「未选择人员」拦截无法清空，改为允许空确认 = 清空该筛选（看板负责人筛选同理）；②周数筛选：提示改「可直接输入「2026-41」回车」，输入格式统一为年份-周数（移除纯数字「41」支持），面板加【全选】【清空】按钮（取代底部「清空全部」选项）；③按钮行：【展开板块/折叠板块】→【展开/折叠】，【新建板块】移到最后，原位置加【清空筛选】（一键清空搜索/人员/周数/日期区间），toolbar-right 锁宽 402→452px | `src/static/index.html`、`ops/ui_check_filter_v2.py`（新增） | `HANDOFF.md §七 #53` |
@@ -1195,6 +1196,26 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #65 · 2026-11-05 · 主设计师 · 看板管理弹窗首开尺寸异常修复
+
+**用户反馈**（截图）：首次打开看板管理弹窗默认大小有问题（明显偏小、左侧列表只剩滚动条），二次打开就正常。
+
+**根因**：`openBoardConfigModal()` 的顺序是 `renderBoardList() → display='flex'`，
+而 `setBcListScroll` 靠 `first.offsetHeight` 量行高算 `maxHeight`（≤7 个 → none；>7 个 → 行高×7+20）。
+首开时弹窗还是 `display:none` → `offsetHeight=0` → `maxHeight=20px` → 列表与整个弹窗被压扁。
+二次打开正常是因为该值已被**上次会话中可见态的渲染**（如 bcLoadColCounts 回填后的重绘）纠正过。
+
+**修复**（`src/static/index.html`，提交 f1f1641）
+
+1. `openBoardConfigModal`：**先 `display='flex'` 再渲染**（量高时弹窗已可见）；
+2. `setBcListScroll` 加守卫：`box.offsetParent` 为空（隐藏态）直接跳过，等可见时的下一次渲染再适配。
+
+**验证**：新增 `ops/ui_check_bc_first_open.py` **5/0** —— 新会话首开实测弹窗高 860px、
+bcList maxHeight 594px（非 20px 压扁态），二开与首开 |Δ|=0；`ui_check_board_footer.py` 14/0 回归通过；夹具零残留。
+
+**门禁判断留痕（执行策略 §2.2 三问）**：①本轮只提交不同步 → 否；②改动为前端局部函数 → 否；③影响面单点可追踪 → 否。
+**三问全否 → 不跑全量 verify.py**，以 L1（node --check）+ L2/L3（两个 UI 实测）收口。
 
 ### #64 · 2026-11-05 · 主设计师 · 执行策略 v1.1：全量改判断制 + 必读项进 HANDOFF
 
