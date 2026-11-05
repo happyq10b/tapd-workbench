@@ -115,21 +115,40 @@ def main():
     fx = setup()
     t = fx['tok']
     try:
-        # ── 需求1：新增节点仅管理员 ──
-        print('\n【需求1】新增节点仅管理员')
+        # ── 需求1：节点新增分级授权（2026-11-05 用户需求，取代 #47「仅管理员」）──
+        #   超管=任意层级；架构负责人=管辖架构下所有节点；组长=自己管辖范围；
+        #   无上级（parent_id=0）= 仅超管；越权 403。
+        print('\n【需求1】节点新增分级授权（2026-11-05）')
         code, r = http('/api/org/nodes', 'POST',
                        {'name': PREFIX + '新节点', 'node_type': 'group', 'parent_id': fx['nD']}, token=t['admin'])
         ok(code == 200, '管理员新增节点 → 200（实际 %s）' % code)
-        new_nid = r.get('id')
         code, r = http('/api/org/nodes', 'POST',
-                       {'name': PREFIX + '越权节点', 'node_type': 'group', 'parent_id': fx['nD']}, token=t['dept'])
-        ok(code == 403, '部门长新增节点 → 403（实际 %s）' % code)
+                       {'name': PREFIX + '部门长子节点', 'node_type': 'group', 'parent_id': fx['nD']}, token=t['dept'])
+        ok(code == 200, '部门长在自己部门下新增 → 200（管辖范围内，实际 %s）' % code)
         code, _ = http('/api/org/nodes', 'POST',
                        {'name': PREFIX + '越权节点2', 'node_type': 'group', 'parent_id': fx['nD']}, token=t['lead'])
-        ok(code == 403, '小组组长新增节点 → 403（实际 %s）' % code)
-        code, _ = http('/api/org/nodes', 'POST',
-                       {'name': PREFIX + '越权节点3', 'node_type': 'group', 'parent_id': fx['nD']}, token=t['arch'])
-        ok(code == 403, '中心负责人新增节点 → 403（实际 %s）' % code)
+        ok(code == 403, '小组组长在部门下新增 → 403（D 不在其管辖范围）' % ())
+        code, r = http('/api/org/nodes', 'POST',
+                       {'name': PREFIX + '架构负责人子节点', 'node_type': 'group', 'parent_id': fx['nD']}, token=t['arch'])
+        ok(code == 200, '架构负责人在管辖架构下新增 → 200（实际 %s）' % code)
+        # 无上级（parent_id=0）→ 仅超管（其他角色均 403）
+        for who in ('dept', 'lead', 'arch'):
+            code, _ = http('/api/org/nodes', 'POST',
+                           {'name': PREFIX + '顶层越权_' + who, 'node_type': 'group', 'parent_id': 0}, token=t[who])
+            ok(code == 403, '无上级新增（%s）→ 403（实际 %s）' % (who, code))
+        # 树能力位：can_add_child
+        code, tree = http('/api/org/tree', 'GET', token=t['dept'])
+        def find_node(ns, nid):
+            for x in ns or []:
+                if x['id'] == nid: return x
+                f = find_node(x.get('children'), nid)
+                if f: return f
+            return None
+        nd = find_node(tree.get('tree'), fx['nD'])
+        ok(nd and nd.get('can_add_child') is True, '部门长视角：本部门 can_add_child=true')
+        nd2 = find_node(tree.get('tree'), fx['nG'])
+        ok(nd2 is not None, '部门长视角：后代小组节点可见')
+
 
         # ── 需求2：绑定权限 ──
         print('\n【需求2】看板绑定（角色 + 候选池）')
