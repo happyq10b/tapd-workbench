@@ -17,7 +17,7 @@ DB = r'E:/WB缓存/2026-10-26-15-55-08/src/app.db'
 P = '__shot2_'
 U_DEPT = P + 'dept'
 PWD = 'At159357'
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.shots', 'bc_new_board_btn.png')
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.shots', 'wg_add_child.png')
 CENTER_NAME = '财务中心'
 DEPT_NAME = P + '核算部'
 
@@ -104,7 +104,11 @@ async def main():
                 if await ev("typeof ME!=='undefined'&&!!ME"):
                     break
             await asyncio.sleep(2)
-            await ev("openBoardConfigModal();")
+            await ev("openWgModal();")
+            await asyncio.sleep(1)
+            # 找一个部门节点（生产「核算部」或夹具部门），点其「+子节点」进入预览态
+            await ev("(function(){var n=ORG_FLAT.find(function(x){return x.name==='" + DEPT_NAME + "';});"
+                     "if(n){addWgChild(n.id);return 'ok';}return 'not found';})()")
             await asyncio.sleep(2.5)
             vis = await ev("(function(){var b=document.getElementById('bcNewBoardBtn');"
                            "return {vis:b?(b.style.display!=='none'&&b.offsetParent!==null):false,"
