@@ -120,7 +120,11 @@ ok(/def _node_bound_boards\(node: dict/.test(pySrc),
   '节点绑定的看板按节点类型派生（中心=全部 / 部门=归属看板 / 小组=手工绑定）');
 ok(/return merged if bound else None/.test(pySrc),
   '工作组绑定层只取显式白名单（不再把部门自有看板并入，否则永远收窄不了）');
-ok(/_center_node_ids\(\)/.test(pySrc), '中心级部门单独识别（财务中心=全部板块）');
+// 2026-11-05 新规则：中心归属看板不再全员可见（走任命链），_center_node_ids 已随之移除
+ok(/node_type'\)\s*==\s*'center'|node_type"\)\s*==\s*'center'|node_type==='center'/.test(pySrc),
+  '中心级节点按 node_type 识别（挂靠中心 = 管理层全范围）');
+ok(!/nid in centers/.test(pySrc) && /if not owner\.get\(bid, 0\)/.test(pySrc),
+  '公共看板 = 未归属；中心归属看板走任命链（2026-11-05 新规则）');
 // ⚠️ 2026-11-02 修复：中心判定改用「原始任命节点的类型」而非「向上提升后的 scope」
 //    （小组成员不应因父部门是中心就获得管理层全范围）。
 ok(/get\('node_type'\)\s*==\s*'center'/.test(pySrc),
@@ -128,7 +132,7 @@ ok(/get\('node_type'\)\s*==\s*'center'/.test(pySrc),
    '权限判定使用「原始任命节点」（小组不被提升到父部门）');
 ok(/return merged if bound else None/.test(pySrc),
    '工作组绑定层仍只取显式白名单（收窄语义不变）');
-ok(/nid in centers/.test(pySrc), '中心归属的板块对全员展示');
+// （2026-11-05 旧断言移除：中心归属的板块已不再对全员展示，走任命链）
 ok(/def _dept_order\(\)/.test(pySrc), '目录树部门顺序随架构层级动态变化');
 // ⚠️ 2026-11-02：/api/me 的部门清单改为**按权限过滤** —— 只含有可见看板的部门。
 //    原为 `'depts': _dept_order()`（架构里的全部部门）→ 普通用户目录树会列出

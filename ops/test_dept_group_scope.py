@@ -122,13 +122,11 @@ def main():
            '注意：展示用的 scope 仍按祖先算（%s）—— 那是展示语义，权限判定不用它' % sorted(scope))
 
         print('\n【用例2】各成员可见看板符合「节点自己绑定的」语义（2026-11-05 新规则）')
-        # 公共看板 = 归属中心 / 未归属（生产「综合」已移入财务中心 → 全员可见）
+        # 公共看板 = 未归属（2026-11-05 新规则：归属中心的综合不再全员可见）
         c = sqlite3.connect(os.path.join(ROOT, 'src', 'app.db'))
-        center_ids = {r[0] for r in c.execute("SELECT id FROM org_nodes WHERE node_type='center'")}
         all_ids = {r[0] for r in c.execute('SELECT board_id FROM boards')}
         owned_ids = {r[0] for r in c.execute(
-            'SELECT board_id FROM board_config WHERE dept_node_id > 0 AND dept_node_id NOT IN (%s)'
-            % ','.join('?' * len(center_ids)), tuple(center_ids))} if True else set()
+            'SELECT board_id FROM board_config WHERE dept_node_id > 0')}
         c.close()
         public = all_ids - owned_ids
         b_dept, _c = user_allowed(PREFIX + 'dept')
@@ -156,13 +154,11 @@ def main():
     # ⚠️ 真实数据断言必须在**夹具清理之后**跑 ——
     #    否则夹具的看板会混进真实账号的可见集合，数字对不上。
     print('\n【用例5】真实数据回归（夹具已清理，避免干扰）')
-    # 生产公共看板 = 归属中心 / 未归属（2026-11-05：「综合」已移入财务中心 → 全员可见）
+    # 生产公共看板 = 未归属（2026-11-05 新规则：归属中心的综合不再全员可见）
     c = sqlite3.connect(os.path.join(ROOT, 'src', 'app.db'))
-    center_ids = {r[0] for r in c.execute("SELECT id FROM org_nodes WHERE node_type='center'")}
     all_ids = {r[0] for r in c.execute('SELECT board_id FROM boards')}
     owned_ids = {r[0] for r in c.execute(
-        'SELECT board_id FROM board_config WHERE dept_node_id > 0 AND dept_node_id NOT IN (%s)'
-        % ','.join('?' * len(center_ids)), tuple(center_ids))}
+        'SELECT board_id FROM board_config WHERE dept_node_id > 0')}
     c.close()
     _public_real = all_ids - owned_ids
     b_scj, _c = user_allowed('scj')

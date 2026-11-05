@@ -96,8 +96,12 @@ def setup():
     cleanup()
     c = db()
     now = "2026-11-02 12:00:00"
-    c.execute("INSERT INTO boards (board_id, board_name, workspace_id, created_at) VALUES (?,?,?,?)",
-              (BID, '【PM】权限矩阵看板', 'ws_pm', now))
+    c.execute("INSERT INTO boards (board_id, board_name, workspace_id, participants, created_at)"
+              " VALUES (?,?,?,?,?)",
+              (BID, '【PM】权限矩阵看板', 'ws_pm',
+               ','.join([U_EDITOR, U_COL1, U_VIEWER]), now))
+    # 2026-11-05 新规则：部门成员不再自动继承部门看板 → editor/col1/viewer
+    # 以【看板参与人】身份可见（U_NONE 仍无归属 → 不可见）
     c.execute("""INSERT INTO board_config (board_id, dept, dept_node_id, attr, status, created_at)
                  VALUES (?,?,?,?,?,?)""", (BID, '核算部', 4, '日常', '启用', now))
     for ci, cn in COLS:
@@ -155,7 +159,9 @@ def main():
         ok(len(me_admin.get('boards') or []) > 0, '管理员可见看板：%d 个' % len(me_admin.get('boards') or []))
         ok(len(me_editor.get('boards') or []) > 0, '可编辑可见看板：%d 个' % len(me_editor.get('boards') or []))
         ok(len(me_none.get('boards') or []) == 0, '无归属用户可见看板：0 个')
-        ok(not (me_none.get('depts') or []), '无归属用户部门清单为空：%s' % (me_none.get('depts') or []))
+        ok(me_none.get('depts') == ['财务中心'],
+           '无归属用户：部门清单只剩财务中心（2026-11-05 中心恒显示，看板为空）：%s'
+           % (me_none.get('depts') or []))
 
         print('\n【用例2】板块级：白名单收窄后可见板块同步收窄')
         _, cols_all = http('/api/boards/%s/columns' % BID, token=T[U_EDITOR])

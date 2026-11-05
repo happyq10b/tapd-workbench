@@ -171,12 +171,11 @@ def base_board_ids():
 
 
 def _owned_board_ids():
-    """**部门**归属的看板 id 集合（dept_node_id 指向非中心节点）；
-    公共看板 = 未归属 ∪ 归属中心（财务中心 → 全员可见）"""
+    """有归属的看板 id 集合（board_config.dept_node_id > 0，含归属中心的）；
+    2026-11-05 新规则：公共看板 = 未归属（归属中心的综合不再全员可见）"""
     c = db()
     ids = {r[0] for r in c.execute(
-        "SELECT board_id FROM board_config WHERE dept_node_id > 0 AND dept_node_id NOT IN"
-        " (SELECT id FROM org_nodes WHERE node_type='center')")}
+        "SELECT board_id FROM board_config WHERE dept_node_id > 0")}
     c.close()
     return ids
 

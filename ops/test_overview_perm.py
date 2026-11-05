@@ -217,10 +217,10 @@ def main():
         _, me_c = http('/api/me', token=tok_c)
         ok(me_c.get('depts') == ['财务中心'],
            'C 只见公共看板归属「财务中心」（2026-11-05 综合全员可见）：%s' % (me_c.get('depts') or []))
-        # 部门清单必须与可见看板的归属部门一致
+        # 部门清单 = 可见看板的归属部门 ∪ 中心（2026-11-05：财务中心恒显示）
         a_depts_from_boards = {b.get('dept') for b in (me_a.get('boards') or []) if b.get('dept')}
-        ok(set(me_a.get('depts') or []) == a_depts_from_boards,
-           '部门清单 == 可见看板的归属部门集合：%s vs %s'
+        ok(set(me_a.get('depts') or []) == a_depts_from_boards | {'财务中心'},
+           '部门清单 == 可见看板归属部门 + 财务中心（恒显示）：%s vs %s'
            % (me_a.get('depts'), sorted(a_depts_from_boards)))
     finally:
         cleanup()
