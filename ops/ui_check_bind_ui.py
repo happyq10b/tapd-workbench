@@ -130,13 +130,14 @@ async def main():
             pool = r.get('pool') or []
             ids = [x['id'] for x in pool]
             ok(fx['b_own'] in ids, '候选池含【我是负责人】的看板')
-            ok(fx['b_free'] not in ids, '候选池不含【既非我、也未绑定】的看板（B_for 在池里是因已绑定，符合设计）')
+            ok(fx['b_free'] in ids, '部门长=架构负责人：候选池含【既非我、也未绑定】的看板（2026-11-05 宽池）')
             own = [x for x in pool if x['id'] == fx['b_own']][0] if pool else {}
             ok(own.get('checked') is True, '我的已绑项勾选且无「已绑定」标记：%s' % own)
             foreign = [x for x in pool if x['id'] == fx['b_for']][0] if pool else {}
-            ok(foreign and foreign.get('checked') is True and foreign.get('boundTag') is True,
-               '管理员绑的「非我」看板：保留显示 + 「已绑定」标记 + 勾选')
-            ok('负责人或参与人' in (r.get('hint') or ''), '提示说明新口径：%s' % r.get('hint'))
+            ok(foreign and foreign.get('checked') is True,
+               '管理员绑的「非我」看板：保留显示 + 勾选（宽池下不再标「已绑定」，2026-11-05）')
+            ok('作为架构负责人' in (r.get('hint') or ''),
+               '提示说明新口径（部门长=架构负责人宽池）：%s' % r.get('hint'))
             # 勾选 B_own 保持 + 保存 → 专项接口落库
             before = sqlite3.connect(DB).execute("SELECT boards FROM workgroups WHERE id=?", (fx['wG'],)).fetchone()[0]
             await ev("(function(){window.bcConfirm=function(){return true};})()")

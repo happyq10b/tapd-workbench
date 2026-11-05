@@ -2,7 +2,7 @@
 """#54 人员选择层级约束 —— UI 实测（真实 Chrome + CDP）
 1. 看板弹窗：负责人/参与人并排两框；选人范围 = 归属架构子树；参与人候选剔除负责人
 2. 板块弹窗：「👤 选择」（无 🌳）；选人池 = 所属看板的负责人与参与人
-3. 事项编辑弹窗：无「从架构选人」按钮；选人池 = 所属板块的负责人与参与人；互斥
+3. 事项编辑弹窗：无「从架构选人」按钮；选人池 = 所属板块的负责人与参与人；2026-11-05 取消互斥
 """
 import asyncio
 import json
@@ -142,7 +142,7 @@ async def main():
             await asyncio.sleep(2)
 
             # ── 1. 纯函数：架构子树过滤 ──
-            print('\n【1】orgTreeForNode / orgTreeWithoutNames')
+            print('\n【1】orgTreeForNode 子树')
             await ev("ensureOrgTree(true).then(function(){return 1;});", aw=True)
             await asyncio.sleep(1)
             r = await ev("""(function(){
@@ -151,22 +151,17 @@ async def main():
               (function col(ns){(ns||[]).forEach(n=>{(n.members||[]).forEach(m=>names.push(m.name||m));col(n.children||[]);});})(sub);
               const allNames=[];
               (function col(ns){(ns||[]).forEach(n=>{(n.members||[]).forEach(m=>allNames.push(m.name||m));col(n.children||[]);});})(ORG_TREE);
-              const pruned=orgTreeWithoutNames(ORG_TREE,['%s']);
-              const prunedNames=[];
-              (function col(ns){(ns||[]).forEach(n=>{(n.members||[]).forEach(m=>prunedNames.push(m.name||m));col(n.children||[]);});})(pruned);
               return {subId:sub.length===1?sub[0].id:null,subNames:names,
-                      allHasOther:allNames.some(n=>n.indexOf('__hz_')<0),
-                      prunedKept:prunedNames.filter(n=>n!=='%s').length,
-                      prunedExcluded:!prunedNames.includes('%s')};
-            })()""" % (fx['dy'], NAME_A, NAME_A, NAME_A))
+                      allHasOther:allNames.some(n=>n.indexOf('__hz_')<0)};
+            })()""" % (fx['dy'],))
             ok(r.get('subId') == fx['dy'], 'orgTreeForNode(部门) 返回该子树（id=%s）' % r.get('subId'))
             ok(sorted(r.get('subNames') or []) == sorted([NAME_A, NAME_B, NAME_C]),
                '子树成员 = A/B/C：%s' % (r.get('subNames')))
             ok(r.get('allHasOther') is True, '全树含架构外人员（对照）')
-            ok(r.get('prunedExcluded') is True, 'orgTreeWithoutNames 剔除负责人')
+            # orgTreeWithoutNames 已随互斥取消移除（2026-11-05）
 
             # ── 2. 事项编辑弹窗：池 + 无架构按钮 + 互斥 ──
-            print('\n【2】事项编辑弹窗（板块池 + 互斥）')
+            print('\n【2】事项编辑弹窗（板块池 + 取消互斥）')
             await ev("window.COLS_META=[{col_key:%s,column_id:'c1',owner:%s,participants:%s}];0;"
                      % (json.dumps(fx['bid'] + '::' + fx['col']), json.dumps(U_A), json.dumps(U_B)))
             await ev("openEdit(%s);" % json.dumps(fx['card']), aw=True)
@@ -182,21 +177,21 @@ async def main():
             ok(r.get('hasArch') is False, '「从架构选人」按钮已移除')
             ok(r.get('ownerPool') == [NAME_A, NAME_B], '负责人池 = 板块负责人+参与人（%s）' % r.get('ownerPool'))
             ok(r.get('ccPool') == [NAME_A, NAME_B], '参与人池同源')
-            ok(r.get('ownerPair') == 'e_cc' and r.get('ccPair') == 'e_owner', '互斥配对已建立')
-            # 互斥行为：先设参与人 B，再选 B 为负责人 → B 从参与人移除
+            # 2026-11-05 取消互斥：不再断言配对剔除；负责人/参与人可同为一人
+            # 取消互斥行为：先设参与人 B，再选 B 为负责人 → B 仍在参与人
             await ev("PP['e_cc'].arr.length=0;PP['e_cc'].arr.push(%s);ppSyncTags('e_cc');0;" % json.dumps(NAME_B))
             await ev("ppToggle('e_owner',%s);0;" % json.dumps(NAME_B))
             r = await ev("(function(){return {cc:PP['e_cc'].arr.slice(),owner:PP['e_owner'].arr.slice()}})()")
             ok(r.get('owner') == [NAME_B], '选 B 为负责人')
-            ok(r.get('cc') == [], 'B 自动从参与人移除（互斥）')
-            # 参与人侧录入负责人 → 拦截
-            await ev("ppAddTyped('e_cc',%s);0;" % json.dumps(NAME_B))
+            ok(r.get('cc') == [NAME_B], 'B 仍在参与人（互斥已取消，可同为负责人+参与人）')
+            # 参与人侧录入负责人 → 不再拦截（ppAddTyped 读输入框值）
+            await ev("PP['e_cc'].arr.length=0;PP['e_cc'].inp.value=%s;ppAddTyped('e_cc');0;" % json.dumps(NAME_B))
             r = await ev("PP['e_cc'].arr.slice()")
-            ok(r == [], '参与人侧录入负责人被拦截（cc 仍空）')
-            # 池外人录入 → 拦截
-            await ev("ppAddTyped('e_cc','生产环境某成员');0;")
+            ok(r == [NAME_B], '参与人侧录入负责人不再拦截（实际 %s）' % r)
+            # 池外人录入 → 拦截（ppAddTyped 读输入框值，先置值再调）
+            await ev("PP['e_cc'].inp.value='生产环境某成员';ppAddTyped('e_cc');0;")
             r = await ev("PP['e_cc'].arr.slice()")
-            ok(r == [], '池外人员录入被拦截（不在 ALL）')
+            ok(r == [NAME_B], '池外人员录入被拦截（不在 ALL，实际 %s）' % r)
             await ev("closeModal('editModal');")
 
             # ── 3. 板块弹窗：👤 看板选人池 ──
@@ -237,8 +232,8 @@ async def main():
               const rows=[].slice.call(p.querySelectorAll('.tp-node.tp-person')).map(x=>x.textContent.replace(/^[\s\S]*👤\s*/u,'').trim());
               return {panel:true,rows:rows,hasOwner:rows.some(r=>r.indexOf(%s)===0),hasB:rows.some(r=>r.indexOf(%s)===0)};
             })()""" % (json.dumps(NAME_A), json.dumps(NAME_B)))
-            ok(r.get('panel') is True and r.get('hasOwner') is False,
-               '参与人面板已剔除负责人（互斥）')
+            ok(r.get('panel') is True and r.get('hasOwner') is True,
+               '参与人面板含负责人（2026-11-05 互斥已取消）')
             ok(r.get('hasB') is True, '参与人面板含 B')
             await ev("(function(){const p=document.querySelector('.tree-pick');if(p)p.remove();})()")
             await ev("closeModal('columnModal');")
@@ -282,8 +277,8 @@ async def main():
               const rows=[].slice.call(p.querySelectorAll('.tp-node.tp-person')).map(x=>x.textContent.replace(/^[\s\S]*👤\s*/u,'').trim());
               return {panel:true,rows:rows,hasOwner:rows.some(r=>r.indexOf(%s)===0),hasB:rows.some(r=>r.indexOf(%s)===0),hasC:rows.some(r=>r.indexOf(%s)===0)};
             })()""" % (json.dumps(NAME_A), json.dumps(NAME_B), json.dumps(NAME_C)))
-            ok(r.get('panel') is True and r.get('hasOwner') is False,
-               '看板参与人面板剔除负责人 A（互斥）')
+            ok(r.get('panel') is True and r.get('hasOwner') is True,
+               '看板参与人面板含负责人 A（2026-11-05 互斥已取消）')
             ok(r.get('hasB') is True and r.get('hasC') is True, '参与人面板含 B/C')
             await ev("(function(){const p=document.querySelector('.tree-pick');if(p)p.remove();})()")
             await ev("closeModal('boardConfigModal');")

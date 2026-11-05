@@ -112,13 +112,13 @@ def main():
         code, r = http('/api/org/nodes/%d/boards' % fx['nD'], 'PUT',
                        {'boards': B['arch_t'] + ',' + B['dept_own'] + ',' + B['foreign']}, token=t['arch'])
         ok(code == 200, '架构负责人绑【非负责人/参与人】看板 → 200（宽池，实际 %s %s）' % (code, r.get('detail', '')))
-        # 部门长窄池不变：绑 foreign → 403
+        # 部门长 = 架构负责人（2026-11-05）：绑 foreign（架构下无关系看板）→ 200 宽池豁免
         code, r = http('/api/org/nodes/%d/boards' % fx['nD'], 'PUT',
                        {'boards': B['arch_t'] + ',' + B['dept_own']}, token=t['dept'])
         ok(code == 200, '部门长绑【自己是负责人】看板 → 200')
         code, r = http('/api/org/nodes/%d/boards' % fx['nD'], 'PUT',
                        {'boards': B['arch_t'] + ',' + B['dept_own'] + ',' + B['foreign']}, token=t['dept'])
-        ok(code == 403, '部门长绑【无关系】看板 → 403（窄池不变，实际 %s）' % code)
+        ok(code == 200, '部门长绑【无关系】看板 → 200（宽池，实际 %s %s）' % (code, r.get('detail', '')))
         # 无岗位 → 403
         code, r = http('/api/org/nodes/%d/boards' % fx['nD'], 'PUT', {'boards': B['arch_t']}, token=t['plain'])
         ok(code == 403, '无关组长绑别的部门节点 → 403（实际 %s）' % code)
@@ -129,7 +129,8 @@ def main():
         ok(B['foreign'] in ids, '架构负责人候选池含【非负责人/参与人】的架构下看板')
         code, r = http('/api/workgroups', token=t['dept'])
         ids = set(r.get('bindable_board_ids') or [])
-        ok(r.get('binding_scope') == 'own' and B['foreign'] not in ids, "部门长 binding_scope='own' 且不含无关系看板")
+        ok(r.get('binding_scope') == 'arch' and B['foreign'] in ids,
+           "部门长 binding_scope='arch'（2026-11-05 宽池）且含无关系看板")
 
         # ── 需求2/3：板块负责人/参与人 ──
         print('\n【需求2/3】板块负责人/参与人指派')

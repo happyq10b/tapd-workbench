@@ -96,11 +96,11 @@ ok(!/addOrgPickBtn/.test(htmlSrc) && !/openOrgPersonPick/.test(htmlSrc),
   '「从架构选人」按钮及其入口已移除（事项选人收口到板块池）');
 ok(/async function cardPickPool\(boardId,columnName\)/.test(htmlSrc),
   '事项选人池 = 所属板块的负责人与参与人（cardPickPool，缺失时回退看板池）');
-ok(/initPersonPicker\('e_owner',[^\n]*'e_cc',true\)/.test(htmlSrc)
-   && /initPersonPicker\('e_cc',[^\n]*'e_owner',false\)/.test(htmlSrc),
-  '负责人/参与人选择器互斥配对（负责人不能同时是参与人）');
-ok(/orgTreeForNode\(nodeId\)/.test(htmlSrc) && /orgTreeWithoutNames\(tree,names\)/.test(htmlSrc),
-  '看板层选人范围 = 归属架构子树，参与人候选剔除负责人');
+// 2026-11-05 取消互斥：配对参数保留（历史签名），但 ppToggle/ppAddTyped 已不再互剔
+ok(/initPersonPicker\('e_owner',[^\n]*'e_cc',true\)/.test(htmlSrc),
+  '负责人/参与人选择器配对参数保留（互斥逻辑已取消，签名兼容）');
+ok(/orgTreeForNode\(nodeId\)/.test(htmlSrc) && !/orgTreeWithoutNames\(/.test(htmlSrc),
+  '看板层选人范围 = 归属架构子树（互斥剔除函数已随取消互斥移除）');
 ok(/class="pp-in"/.test(htmlSrc), '人员选择器仍保留手动输入（与架构选人并存）');
 ok(/ORG_PERSON_NAMES=new Set\(\)/.test(htmlSrc), '汇总架构人员名以区分手动输入项');
 

@@ -1126,6 +1126,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #64 | 2026-11-05 | **主设计师** | 流程建设 | **执行策略 v1.1 + 必读项进 HANDOFF**：①「全量」从绝对红线改为**判断制** —— 到达全量候选先过「三问」（要出门同步？全局结构被改？累积影响不可追踪？），三问全否不跑、判断留痕（verify.py 仅在要同步时由 sync.sh 凭证机制强制）；②执行纪律必读项写入「🔴 开工前必读 ② 开工检查项」+ 5 分钟路径 | `docs/执行策略.md`（v1.0→v1.1）、`HANDOFF.md`（§一①/②、§六、§七） | `HANDOFF.md §七 #64` |
 | #65 | 2026-11-05 | **主设计师** | 前端 | **看板管理弹窗首开尺寸异常修复**：根因 = openBoardConfigModal 先 renderBoardList 后 display:flex，setBcListScroll 用 offsetHeight 量行高时弹窗隐藏 → 量到 0 → maxHeight=20px 压扁（二开被上次可见渲染纠正所以正常）；修复 = 先显示再渲染 + setBcListScroll 隐藏态守卫（offsetParent 空则跳过） | `src/static/index.html`、`ops/ui_check_bc_first_open.py`（新增 5 断言） | `HANDOFF.md §七 #65` |
 | #66 | 2026-11-05 | **主设计师** | 流程建设 | **执行策略 v1.2：实测案例按复杂度取舍 + 人工确认流**：只有较复杂的修改（行为逻辑/状态流转/权限/数据流/跨模块）才附带实测案例；**简单视图改动（文案/样式值/显隐/布局）不写测试** —— L1 后截图交用户人工确认，**等用户回复效果后再进行下一步调整**；人工确认暴露的逻辑型 bug 修复仍补针对性实测（如 #65） | `docs/执行策略.md`（v1.1→v1.2，新增 §2.3）、`HANDOFF.md`（开工检查项） | `HANDOFF.md §七 #66` |
+| #67 | 2026-11-05 | **主设计师** | 前后端 | **架构管理任命分级 + 部门长架构负责人化 + 取消负责人/参与人互斥**（对齐用户提供的角色配置参照表）：①部门长由中心负责人/总经理任命、部门长任命组长/组员并使其默认成为部门架构参与人（含部门骨干）；②部门长自动获得管辖架构下全部看板的绑定/查看权（宽池）；③取消负责人/参与人互斥（前后端六处 + 后端三接口） | `src/app/app.py`、`src/static/index.html`、`ops/test_appoint_perm.py`（新增 19 断言）、`ops/test_bind_perm.py`、`ops/test_hier_pool.py`、`ops/test_arch_bind_col.py`、`ops/test-org-priority.js`、`ops/ui_check_hier_pick.py`、`ops/ui_check_bind_ui.py`（断言同步） | `HANDOFF.md §七 #67` |
 | #55 | 2026-11-04 | **主设计师** | 前端 | **父子事项/板块行布局优化**：①字段列 648→446px（周数压缩「2026·W32」），省出的 202px 全给标题（实测 492px，约翻倍）；②周数移到负责人左侧（fieldItems 单一数据源调整，父子自动一致）；③板块行追加 负责人/创建/截止 字段 + 空槽位与事项行同构 → 字段列纵向对齐；进度条改弹性 → 右端 = 字段列左端 = 事项标题右端；④置顶/复制（板块行还有折叠/展开）合并为「操作 ▾」下拉菜单，tail 槽位与事项行同构 | `src/static/index.html`、`ops/ui_check_row_layout.py`（新增） | `HANDOFF.md §七 #55` |
 | #54 | 2026-11-04 | **主设计师** | 前端 + 后端 | **人员选择层级约束**：①看板负责人/参与人（参与人恢复）只能从**归属架构子树**选（保留 🌳，财务中心=顶层→全范围）；②板块负责人/参与人只能从**所属看板**的负责人与参与人选（🌳 架构按钮 → 👤 看板选人）；③事项负责人/参与人只能从**所属板块**的负责人与参与人选（移除「从架构选人」按钮，person picker 接池）；④负责人/参与人**互斥**（三层一致，负责人优先）；后端恢复 boards.participants 数据链路 + 双向互斥兜底 | `src/app/app.py`、`src/static/index.html`、`ops/test_hier_pool.py`（新增）、`ops/ui_check_hier_pick.py`（新增） | `HANDOFF.md §七 #54` |
 | #53 | 2026-11-04 | **主设计师** | 前端 | **筛选器改进三件**：①人员筛选树底栏加【清空】按钮（一键清空临时已选），并修 bug —— 全部取消勾选后点确定原来被 toast「未选择人员」拦截无法清空，改为允许空确认 = 清空该筛选（看板负责人筛选同理）；②周数筛选：提示改「可直接输入「2026-41」回车」，输入格式统一为年份-周数（移除纯数字「41」支持），面板加【全选】【清空】按钮（取代底部「清空全部」选项）；③按钮行：【展开板块/折叠板块】→【展开/折叠】，【新建板块】移到最后，原位置加【清空筛选】（一键清空搜索/人员/周数/日期区间），toolbar-right 锁宽 402→452px | `src/static/index.html`、`ops/ui_check_filter_v2.py`（新增） | `HANDOFF.md §七 #53` |
@@ -1200,6 +1201,23 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #67 · 2026-11-05 · 主设计师 · 架构管理任命分级 + 部门长架构负责人化 + 取消互斥（对齐角色配置参照表）
+
+**用户需求**（文字 + 截图）：①部门长任命仅限中心负责人/总经理（管理员同样有权）；被任命即成为架构负责人，可查看架构下全部看板板块；②部门长可任命部门下组长/组员，默认成为架构参与人；③**取消「负责人不能同为参与人」限制**；④板块绑定环节部门长可查看其架构下绑定的所有看板。
+
+**用户中途追加**：提供 `E:\桌面\角色配置.xlsx` 角色配置参照表 —— 关键增量：**部门层面架构参与人来源 = 部门骨干、组长、组员**（据此把部门骨干任命也纳入自动参与人）；中心层面架构参与人 = 全员（现有中心全员可见语义已覆盖，登记为语义说明）。
+
+**实现**
+
+- **任命分级**：`_APPOINT_RULES` + `_check_appoint_perm`（dept_head←center_head/gm；group_leader/member←dept_head；其余仅管理员；目标节点须在任命者 `_role_scope_nodes` 子树内）；POST/DELETE /api/org/appointments 从 require_admin 放开为 require_auth+分级；树接口 per-node `can_appoint_roles` 能力位（前端按岗位渲染任命/罢免按钮与提示）。
+- **部门长=架构负责人**：`_arch_owner_nodes` 加 dept_head → 绑定/查看宽池；`get_workgroups` 绑定候选宽池判定同步；宽池下不再标「已绑定」。
+- **自动架构参与人**：`_auto_arch_participant`（任命 group_leader/member/dept_backbone → 最近 dept 祖先 `org_nodes.participants` 去重追加；罢免不自动移除）。
+- **取消互斥**：后端 set_board_acl / set_board_participants / set_column_acl 不再互剔；前端六处移除（ppToggle/ppAddTyped/下拉过滤/板块树选人/看板树选人）；`orgTreeWithoutNames` 移除。
+
+**验证**：新增 `ops/test_appoint_perm.py` **19/0**（任命分级矩阵/架构参与人/取消互斥/宽池/罢免）；`test_bind_perm` 32/0、`test_arch_bind_col` 20/0、`test_hier_pool` 11/0、`test-appoint` 相关 UI `ui_check_bind_ui` 11/0、`ui_check_hier_pick` 22/0、`test-org-priority.js` 107/0、`test-board-perm.js` 133/0（断言按新语义同步）；`verify.py` **7/7**（fingerprint 249e4ccf…）；夹具零残留。
+
+**既有失败登记**（stash 对照确认与本轮无关）：`test_board_perm_matrix.py` 2 项（「无归属用户可见看板 0 个」——当前库中生产数据使无归属用户可见财务中心中心级看板，测试夹具假设被真实数据打破）；全量 sweep 时 4 个测试的顺序干扰（单独跑全绿）。
 
 ### #66 · 2026-11-05 · 主设计师 · 执行策略 v1.2：实测案例按复杂度取舍 + 人工确认流
 

@@ -159,9 +159,9 @@ def main():
         # 部门长：自己是板块参与人的看板 → 200
         code, r = http('/api/org/nodes/%d/boards' % fx['nG'], 'PUT', {'boards': B['bound'] + ',' + B['own'] + ',' + B['part']}, token=t['dept'])
         ok(code == 200, '部门长绑【自己是板块参与人】的看板 → 200（实际 %s）' % code)
-        # 部门长：无关系的看板 → 403
+        # 部门长：无关系的看板 → 200（2026-11-05 部门长=架构负责人，宽池豁免）
         code, r = http('/api/org/nodes/%d/boards' % fx['nG'], 'PUT', {'boards': B['bound'] + ',' + B['own'] + ',' + B['part'] + ',' + B['for']}, token=t['dept'])
-        ok(code == 403, '部门长绑【无关系】的看板 → 403（实际 %s）' % code)
+        ok(code == 200, '部门长绑【无关系】的看板 → 200（宽池，实际 %s %s）' % (code, r.get('detail', '')))
         # 组长：绑自己节点（G 是自己任命节点）→ 200
         code, r = http('/api/org/nodes/%d/boards' % fx['nG'], 'PUT', {'boards': B['bound']}, token=t['lead'])
         ok(code == 200, '小组组长在本组保存绑定 → 200（实际 %s）' % code)
@@ -220,7 +220,7 @@ def main():
         code, r = http('/api/workgroups', token=t['dept'])
         ids = set(r.get('bindable_board_ids') or [])
         ok(B['own'] in ids and B['part'] in ids, '候选池含【负责人/参与人】看板：%s' % sorted(ids))
-        ok(B['for'] not in ids, '候选池不含无关系看板')
+        ok(B['for'] in ids, '候选池含无关系看板（2026-11-05 部门长=架构负责人宽池）')
         code, r = http('/api/workgroups', token=t['admin'])
         ok(r.get('bindable_board_ids') is None, '管理员不受候选池限制（bindable_board_ids=null）')
 

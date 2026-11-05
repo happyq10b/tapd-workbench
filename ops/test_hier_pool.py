@@ -97,33 +97,34 @@ def main():
         ok(b2 and b2[0].get('participants') == U_B + ',' + U_C,
            'boards.participants = %s' % (b2 and b2[0].get('participants')))
 
-        # ── 3. 设负责人 → 从参与人剔除（互斥） ──
-        print('\n【3】set_board_acl 互斥')
+        # ── 3. 设负责人 → 参与人保留（2026-11-05 取消互斥） ──
+        print('\n【3】set_board_acl 不再互斥')
         code, r = http('/api/boards/%s/acl' % bid, 'PUT', {'owner': U_B}, token=tok)
         ok(code == 200 and r.get('owner') == U_B, '设 U_B 为负责人（实际 %s）' % code)
-        ok(r.get('participants') == U_C, 'U_B 自动从参与人剔除（剩 %s）' % r.get('participants'))
+        ok(r.get('participants') == U_B + ',' + U_C,
+           '负责人可同为参与人：U_B 保留在参与人（%s）' % r.get('participants'))
         c = sqlite3.connect(DB)
         row = c.execute('SELECT owner,participants FROM boards WHERE board_id=?', (bid,)).fetchone()
         c.close()
-        ok(row[0] == U_B and row[1] == U_C, '落库 owner=%s parts=%s' % row)
+        ok(row[0] == U_B and row[1] == U_B + ',' + U_C, '落库 owner=%s parts=%s' % row)
 
-        # ── 4. 设参与人 → 剔除当前负责人 U_B（互斥；步骤3已把负责人设为 U_B） ──
-        print('\n【4】set_board_participants 互斥')
+        # ── 4. 设参与人 → 不再剔除当前负责人 U_B（2026-11-05 取消互斥） ──
+        print('\n【4】set_board_participants 不再互斥')
         code, r = http('/api/boards/%s/participants' % bid, 'PUT',
                        {'participants': U_A + ',' + U_B + ',' + U_C}, token=tok)
         ok(code == 200, '设参与人 [U_A,U_B,U_C]（实际 %s）' % code)
-        ok(r.get('participants') == U_A + ',' + U_C,
-           '当前负责人 U_B 被剔除（剩 %s）' % r.get('participants'))
+        ok(r.get('participants') == U_A + ',' + U_B + ',' + U_C,
+           '参与人含当前负责人 U_B（%s）' % r.get('participants'))
 
-        # ── 5. 换负责人不影响既有参与人（不再整体清空） ──
+        # ── 5. 换负责人不影响既有参与人（不再整体清空，也不剔除新负责人） ──
         print('\n【5】换负责人不清空参与人')
         code, r = http('/api/boards/%s/acl' % bid, 'PUT', {'owner': U_ADMIN}, token=tok)
-        ok(code == 200 and r.get('participants') == U_A + ',' + U_C,
+        ok(code == 200 and r.get('participants') == U_A + ',' + U_B + ',' + U_C,
            '换负责人后参与人保留（%s）' % r.get('participants'))
-        # 设新负责人为参与人之一 → 从参与人剔除
+        # 设新负责人为参与人之一 → 参与人保留（互斥已取消）
         code, r = http('/api/boards/%s/acl' % bid, 'PUT', {'owner': U_C}, token=tok)
-        ok(code == 200 and r.get('participants') == U_A,
-           '新负责人 U_C 从参与人剔除（剩 %s）' % r.get('participants'))
+        ok(code == 200 and r.get('participants') == U_A + ',' + U_B + ',' + U_C,
+           '新负责人 U_C 仍留在参与人（%s）' % r.get('participants'))
     finally:
         cleanup(bid)
     print('\n=== 结果：%d 通过 / %d 失败 ===' % (len(PASS), len(FAIL)))
