@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""截图留档：看板管理「+ 新建看板」按钮对架构负责人（部门长）可见（#69）。
+"""截图留档：架构管理「组员任命多选」面板（#72）。
 
-以部门长账号打开看板管理，截左上角区域 —— 供人工目视确认按钮出现在
-「真实看板 …… N 个」旁（用户截图标记位置）。不参与断言。
+夹具：财务中心 → __shot2_核算部（部门长）→ __shot2_收入一组（小组）。
+流程：部门长登录 → 打开架构管理 → 编辑小组节点 → 点组员行
+「🌳 选择成员（可多选）」→ 截树形多选面板。
+不参与断言。
 """
 import asyncio, base64, json, os, shutil, sqlite3, subprocess, sys, time, urllib.request
 sys.path.insert(0, r'E:/WB缓存/2026-10-26-15-55-08/src')
@@ -17,9 +19,10 @@ DB = r'E:/WB缓存/2026-10-26-15-55-08/src/app.db'
 P = '__shot2_'
 U_DEPT = P + 'dept'
 PWD = 'At159357'
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.shots', 'wg_add_child.png')
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.shots', 'org_member_multi.png')
 CENTER_NAME = '财务中心'
 DEPT_NAME = P + '核算部'
+GROUP_NAME = P + '收入一组'
 
 
 def setup():
@@ -27,30 +30,36 @@ def setup():
     now = '2026-11-05 12:00:00'
     c.execute("DELETE FROM users WHERE username=?", (U_DEPT,))
     c.execute("DELETE FROM team_members WHERE account=?", (U_DEPT,))
-    c.execute("DELETE FROM org_appointments WHERE node_id IN (SELECT id FROM org_nodes WHERE name=?)", (DEPT_NAME,))
-    c.execute("DELETE FROM org_nodes WHERE name=?", (DEPT_NAME,))
-    c.execute("DELETE FROM workgroups WHERE name=?", (DEPT_NAME,))
+    c.execute("DELETE FROM org_appointments WHERE node_id IN (SELECT id FROM org_nodes WHERE name IN (?,?))",
+              (DEPT_NAME, GROUP_NAME))
+    c.execute("DELETE FROM org_nodes WHERE name IN (?,?)", (DEPT_NAME, GROUP_NAME))
+    c.execute("DELETE FROM workgroups WHERE name IN (?,?)", (DEPT_NAME, GROUP_NAME))
     c.execute("INSERT INTO team_members (name,workgroups,account,created_at) VALUES (?,'',?,?)",
               (P + '部门长', U_DEPT, now))
     c.execute("INSERT INTO users (username,password_hash,role,allowed_boards,allowed_columns,created_at)"
               " VALUES (?,?,?,?,?,?)", (U_DEPT, hash_pw(PWD), 'editor', '*', '*', now))
-    # 挂到真实「财务中心」下的部门节点（arch_scope 才非空）
     center = c.execute("SELECT id FROM org_nodes WHERE name=? AND node_type='center'", (CENTER_NAME,)).fetchone()
     cid = center['id'] if center else 0
     wg = c.execute("INSERT INTO workgroups (name,parent_id,leader,function,boards) VALUES (?,0,'','', '')",
                    (DEPT_NAME,)).lastrowid
     nd = c.execute("INSERT INTO org_nodes (name,node_type,parent_id,wg_id) VALUES (?,?,?,?)",
                    (DEPT_NAME, 'dept', cid, wg)).lastrowid
+    mid = c.execute("SELECT id FROM team_members WHERE account=?", (U_DEPT,)).fetchone()[0]
     c.execute("INSERT INTO org_appointments (node_id,member_id,role_key,is_primary,created_at)"
-              " VALUES (?,?,?,1,?)", (nd, c.execute("SELECT id FROM team_members WHERE account=?", (U_DEPT,)).fetchone()[0], 'dept_head', now))
+              " VALUES (?,?,?,1,?)", (nd, mid, 'dept_head', now))
+    wg_g = c.execute("INSERT INTO workgroups (name,parent_id,leader,function,boards) VALUES (?,0,'','', '')",
+                     (GROUP_NAME,)).lastrowid
+    c.execute("INSERT INTO org_nodes (name,node_type,parent_id,wg_id) VALUES (?,?,?,?)",
+              (GROUP_NAME, 'group', nd, wg_g))
     c.commit(); c.close()
 
 
 def cleanup():
     c = sqlite3.connect(DB)
-    c.execute("DELETE FROM org_appointments WHERE node_id IN (SELECT id FROM org_nodes WHERE name=?)", (DEPT_NAME,))
-    c.execute("DELETE FROM org_nodes WHERE name=?", (DEPT_NAME,))
-    c.execute("DELETE FROM workgroups WHERE name=?", (DEPT_NAME,))
+    c.execute("DELETE FROM org_appointments WHERE node_id IN (SELECT id FROM org_nodes WHERE name IN (?,?))",
+              (DEPT_NAME, GROUP_NAME))
+    c.execute("DELETE FROM org_nodes WHERE name IN (?,?)", (DEPT_NAME, GROUP_NAME))
+    c.execute("DELETE FROM workgroups WHERE name IN (?,?)", (DEPT_NAME, GROUP_NAME))
     c.execute("DELETE FROM users WHERE username=?", (U_DEPT,))
     c.execute("DELETE FROM team_members WHERE account=?", (U_DEPT,))
     c.commit(); c.close()
@@ -105,16 +114,17 @@ async def main():
                     break
             await asyncio.sleep(2)
             await ev("openWgModal();")
-            await asyncio.sleep(1)
-            # 找一个部门节点（生产「核算部」或夹具部门），点其「+子节点」进入预览态
-            await ev("(function(){var n=ORG_FLAT.find(function(x){return x.name==='" + DEPT_NAME + "';});"
-                     "if(n){addWgChild(n.id);return 'ok';}return 'not found';})()")
-            await asyncio.sleep(2.5)
-            vis = await ev("(function(){var b=document.getElementById('bcNewBoardBtn');"
-                           "return {vis:b?(b.style.display!=='none'&&b.offsetParent!==null):false,"
-                           "disp:b?b.style.display:'<no btn>',arch:(ME.arch_scope||[]).length,"
-                           "ia:!!ME.is_admin};})()")
-            print('部门长视角探针:', vis)
+            await asyncio.sleep(2)
+            # 编辑小组节点（组员行在此）
+            r = await ev("(function(){var n=ORG_FLAT.find(function(x){return x.name==='" + GROUP_NAME + "';});"
+                         "if(n){editWg(n.id);return 'ok:'+n.id;}return 'not found';})()")
+            print('editWg:', r)
+            await asyncio.sleep(1.5)
+            # 点组员行「🌳 选择成员（可多选）」
+            r = await ev("(function(){var b=document.querySelector(\"button[onclick*='openOrgMemberPick']\");"
+                         "if(b){b.click();return 'clicked';}return 'no button';})()")
+            print('多选面板:', r)
+            await asyncio.sleep(1.5)
             shot = await send('Page.captureScreenshot', {'format': 'png'})
             data = shot.get('data')
             if data:
