@@ -132,7 +132,11 @@ def build_fixture():
     c = sqlite3.connect(os.path.join(ROOT, 'src', 'app.db'))
     now = '2026-11-02 23:00:00'
     c.execute("INSERT INTO boards (board_id,board_name,workspace_id,owner,participants,sort,created_at)"
-              " VALUES (?,?,?,?,'',0,?)", (BID, '【分级权限】看板', 'ws_pm', A_BOARD, now))
+              " VALUES (?,?,?,?,?,0,?)",
+              (BID, '【分级权限】看板', 'ws_pm', A_BOARD,
+               ','.join([A_COL, A_CARD, A_PART, A_BOTH]), now))
+    # 2026-11-05 新规则：部门成员不再自动继承部门看板 → 上述角色以【看板参与人】身份可见，
+    # 否则用例2/3 的写操作会被可见性准入（check_board_access）403
     c.execute("INSERT INTO board_config (board_id,dept,dept_node_id,attr,status,created_at)"
               " VALUES (?,?,?,?,?,?)", (BID, '核算部', NODE, '日常', '启用', now))
     # 板块负责人 = A_COL（正常）；另建一个板块给 A_BOTH —— 它**同时**是负责人与参与人
@@ -360,7 +364,11 @@ def run_tests(make_token):
     # 把负责人换成别人
     http('/api/cards/%s' % CARD, tk['col'], 'PUT', {'fields': {'owner': A_PART}})
     code, r = http('/api/cards/%s' % CARD, tk['card'], 'PUT', {'fields': {'status': 'open'}})
-    ok(code == 403, '被移除负责人后 → 权限**立即失效**（实际 %s）' % code)
+    # 2026-11-05：A_CARD 同时是【看板参与人】→ 内容编辑权保留（降级不失效）；
+    # 但删除需要事项负责人级 → 拒绝
+    ok(code == 200, '被移除事项负责人后 → 仍可改内容（看板参与人级，实际 %s）' % code)
+    code, r = http('/api/cards/%s' % CARD, tk['card'], 'DELETE')
+    ok(code == 403, '被移除事项负责人后 → 不可删除（需事项负责人级，实际 %s）' % code)
     # 恢复
     http('/api/cards/%s' % CARD, tk['col'], 'PUT', {'fields': {'owner': A_CARD}})
 

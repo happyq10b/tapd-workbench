@@ -121,16 +121,25 @@ def main():
         ok(9003 not in scope,
            '注意：展示用的 scope 仍按祖先算（%s）—— 那是展示语义，权限判定不用它' % sorted(scope))
 
-        print('\n【用例2】各成员可见看板符合「节点自己绑定的」语义')
+        print('\n【用例2】各成员可见看板符合「节点自己绑定的」语义（2026-11-05 新规则）')
+        # 公共看板 = 归属中心 / 未归属（生产「综合」已移入财务中心 → 全员可见）
+        c = sqlite3.connect(os.path.join(ROOT, 'src', 'app.db'))
+        center_ids = {r[0] for r in c.execute("SELECT id FROM org_nodes WHERE node_type='center'")}
+        all_ids = {r[0] for r in c.execute('SELECT board_id FROM boards')}
+        owned_ids = {r[0] for r in c.execute(
+            'SELECT board_id FROM board_config WHERE dept_node_id > 0 AND dept_node_id NOT IN (%s)'
+            % ','.join('?' * len(center_ids)), tuple(center_ids))} if True else set()
+        c.close()
+        public = all_ids - owned_ids
         b_dept, _c = user_allowed(PREFIX + 'dept')
-        ok(b_dept == {PREFIX + 'B1'},
-           '部门成员 → 可见该部门拥有的看板 B1（实际 %s）' % sorted(b_dept or []))
+        ok(b_dept == public,
+           '部门成员 → 不再自动继承部门看板，只见公共看板（实际 %s）' % sorted(b_dept or []))
         b_g1, _c = user_allowed(PREFIX + 'grp1')
-        ok(b_g1 == {PREFIX + 'B2'},
-           'G1 成员 → 可见 G1 自己绑定的 B2（实际 %s）' % sorted(b_g1 or []))
+        ok(b_g1 == public | {PREFIX + 'B2'},
+           'G1 成员 → 公共 + G1 自己绑定的 B2（实际 %s）' % sorted(b_g1 or []))
         b_g2, _c = user_allowed(PREFIX + 'grp2')
-        ok(b_g2 == set(),
-           'G2 成员（G2 未绑定任何看板）→ **0 个看板**（实际 %s）' % sorted(b_g2 or []))
+        ok(b_g2 == public,
+           'G2 成员（G2 未绑定任何看板）→ 只见公共看板（实际 %s）' % sorted(b_g2 or []))
 
         print('\n【用例3】关键回归：G2 成员不得继承父部门 D1 的看板')
         ok(PREFIX + 'B1' not in (b_g2 or set()),
@@ -147,12 +156,22 @@ def main():
     # ⚠️ 真实数据断言必须在**夹具清理之后**跑 ——
     #    否则夹具的看板会混进真实账号的可见集合，数字对不上。
     print('\n【用例5】真实数据回归（夹具已清理，避免干扰）')
+    # 生产公共看板 = 归属中心 / 未归属（2026-11-05：「综合」已移入财务中心 → 全员可见）
+    c = sqlite3.connect(os.path.join(ROOT, 'src', 'app.db'))
+    center_ids = {r[0] for r in c.execute("SELECT id FROM org_nodes WHERE node_type='center'")}
+    all_ids = {r[0] for r in c.execute('SELECT board_id FROM boards')}
+    owned_ids = {r[0] for r in c.execute(
+        'SELECT board_id FROM board_config WHERE dept_node_id > 0 AND dept_node_id NOT IN (%s)'
+        % ','.join('?' * len(center_ids)), tuple(center_ids))}
+    c.close()
+    _public_real = all_ids - owned_ids
     b_scj, _c = user_allowed('scj')
-    ok(not b_scj,
-       '苏春景（管理部 + 费用组 + 税务组，均未绑定看板）→ 0 个看板（修复前是 7 个）：%s' % sorted(b_scj or []))
+    ok(b_scj == _public_real,
+       '苏春景（管理部 + 费用组 + 税务组，均未绑定看板）→ 只见公共看板（%d 个）：%s'
+       % (len(b_scj or []), sorted(b_scj or [])))
     b_tyl, _c = user_allowed('tyl')
-    ok(not b_tyl,
-       '谭亚利（总账部部长，总账部不拥有看板 + 小组未绑定）→ 0 个：%s' % sorted(b_tyl or []))
+    ok(b_tyl == _public_real,
+       '谭亚利（总账部部长，总账部不拥有看板 + 小组未绑定）→ 只见公共看板：%s' % sorted(b_tyl or []))
     b_yh, _c = user_allowed('yh')
     ok(b_yh and len(b_yh) == _base_yh,
        '余河（财务中心）可见看板数 = 进入时基线 %d（管理层全范围不受夹具影响）：%d 个'

@@ -100,9 +100,9 @@ def build_fixture():
     # 看板负责人 = mgr；板块负责人 = peer（分开，才能验证「上级可指派下级负责人、
     # 下级不能自我授权」这两个方向）
     c.execute("INSERT INTO boards (board_id,board_name,workspace_id,owner,participants,sort,created_at)"
-              " VALUES (?,?,?,?,'',0,?)",
-              (BID, '【负责人】测试看板', 'ws_own', PREFIX + 'mgr', now))
-    # 归属核算部 → 核算部成员在架构授权范围内
+              " VALUES (?,?,?,?,?,0,?)",
+              (BID, '【负责人】测试看板', 'ws_own', PREFIX + 'mgr', PREFIX + 'peer', now))
+    # 2026-11-05 新规则：peer 以【看板参与人】身份可见（部门成员身份不再自动可见）
     c.execute("INSERT INTO board_config (board_id,dept,dept_node_id,attr,status,remark,created_at)"
               " VALUES (?,?,?,?,?,'',?)", (BID, '核算部', DEPT_NODE, '日常', '启用', now))
     c.execute("INSERT INTO board_columns (col_key,column_id,board_id,column_name,created_at,"
@@ -180,7 +180,7 @@ def run_tests(make_token):
     b = [x for x in http('/api/boards', tok_admin).get('boards', []) if x['board_id'] == BID]
     ok(b and b[0]['status'] == '封存', '修改已生效（status=%s）' % (b[0]['status'] if b else '?'))
 
-    print('\n【用例4】负责人不影响可见性 —— 架构绑定者照样看得见')
+    print('\n【用例4】可见性来源 = 任命链（mgr=看板负责人、peer=看板参与人，2026-11-05 新规则）')
     for name, tok, expect in (('负责人', tok_mgr, True),
                                ('同部门非负责人', tok_peer, True),
                                ('管理员', tok_admin, True),
@@ -189,11 +189,11 @@ def run_tests(make_token):
         ok((BID in ids) == expect,
            '%s：可见该看板 = %s（实际 %s）' % (name, expect, BID in ids))
 
-    print('\n【用例5】管理权不放大可见性 —— 无架构授权者即便被指定也不可见')
+    print('\n【用例5】看板负责人 = 可见性来源（2026-11-05）：无架构授权者被指定为负责人后可见')
     r = http('/api/boards/%s/acl' % BID, tok_admin, 'PUT', {'owner': PREFIX + 'out'})
     ok(r.get('ok') is True, '管理员可把负责人设为无架构授权账号')
     ids = [x['board_id'] for x in (http('/api/me', tok_out).get('boards') or [])]
-    ok(BID not in ids, '被指定为负责人但无架构授权 → 仍看不到该看板（fail-closed）')
+    ok(BID in ids, '被指定为看板负责人 → 可见（负责人是可见性来源，2026-11-05 新规则）')
     # 换回负责人
     http('/api/boards/%s/acl' % BID, tok_admin, 'PUT', {'owner': PREFIX + 'mgr'})
 
@@ -231,13 +231,14 @@ def run_tests(make_token):
     http('/api/columns/%s/acl' % urllib.parse.quote(colkey, safe=''), tok_admin, 'PUT',
          {'owner': PREFIX + 'peer'})
 
-    print('\n【用例9】参与人机制已下线：传入 participants 会被忽略并清空')
+    print('\n【用例9】取消互斥（2026-11-05）：participants 随 ACL 一起保存，不再清空')
     r = http('/api/boards/%s/acl' % BID, tok_admin, 'PUT',
              {'owner': PREFIX + 'mgr', 'participants': [PREFIX + 'peer']})
     ok(r.get('ok') is True, '管理员设置负责人成功')
-    ok(r.get('participants') == '', '响应中参与人已被清空（实际 %r）' % r.get('participants'))
+    ok(r.get('participants') == PREFIX + 'peer',
+       '响应中参与人保留（互斥已取消，实际 %r）' % r.get('participants'))
     ids = [x['board_id'] for x in (http('/api/me', tok_peer).get('boards') or [])]
-    ok(BID in ids, '参与人字段不影响可见性（peer 仍因架构绑定而可见）')
+    ok(BID in ids, 'peer 以看板参与人身份可见（2026-11-05：参与人是可见性来源）')
 
     print('\n【用例10】数据清理：无事项的板块删除，空看板一并删除')
     import sqlite3

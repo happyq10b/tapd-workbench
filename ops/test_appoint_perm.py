@@ -100,7 +100,7 @@ def setup():
     c.commit(); c.close()
     tk = {k: make_token(PREFIX + k) for k in roles}
     return {'mids': mids, 'accts': accts, 'tk': tk, 'nC': nC, 'nD': nD, 'nG': nG, 'nD2': nD2, 'nG2': nG2,
-            'm_noacc': m_noacc, 'm_target': m_target, 'bid': bid, 'wgD': wg_ids['D']}
+            'm_noacc': m_noacc, 'm_target': m_target, 'bid': bid, 'wgD': wg_ids['D'], 'wgG': wg_ids['G']}
 
 
 def cleanup(fx):
@@ -220,6 +220,32 @@ def main():
         ok(code == 403, '组长罢免组长 → 403（实际 %s）' % code)
         code, r = http('/api/org/appointments/%d' % aid, 'DELETE', token=t['dept'])
         ok(code == 200, '部门长罢免自己任命的组长 → 200（实际 %s）' % code)
+
+        # ── ⑥ 最高权限：多重身份取最高（wwn 案回归，2026-11-05）──
+        print('\n【⑥】部门长兼任组员 → 不被组绑定白名单收窄')
+        c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
+        # G（部门 D 下的组）只绑定 B_for 一个看板 —— 若按组员身份收窄，部门长将只剩 1 个
+        c.execute("UPDATE workgroups SET boards=? WHERE id=?", (bid, fx['wgG']))
+        c.commit(); c.close()
+        code, r = http('/api/org/appointments', 'POST',
+                       {'node_id': fx['nG'], 'member_id': fx['mids']['dept'], 'role_key': 'member'}, token=t['admin'])
+        ok(code == 200, '给部门长追加组员任命 → 200（实际 %s）' % code)
+        code, r = http('/api/boards', token=t['dept'])
+        bl = [x['board_id'] for x in (r.get('boards') or [])]
+        ok(bid2 in bl, '部门长兼任组员：可见性不被组绑定收窄（含归属看板 %s，实际可见 %d 个）' % (bid2, len(bl)))
+        # 纯组员仍被收窄：先罢免 target 的部门长/骨干任命 → 只剩「G 组员」
+        # 可见 = 公共看板（归属中心/未归属，全员可见）∪ G 绑定；不含其他归属看板
+        aid_head = _last_appt(fx['nD2'], 'dept_head')
+        code, _ = http('/api/org/appointments/%d' % aid_head, 'DELETE', token=t['admin'])
+        aid_bb = _last_appt(fx['nD'], 'dept_backbone')
+        code, _ = http('/api/org/appointments/%d' % aid_bb, 'DELETE', token=t['admin'])
+        sys.path.insert(0, 'src')
+        os.environ.setdefault('APP_SECRET', 'local-dev-secret-not-for-production')
+        from app.app import user_allowed
+        vb, _ = user_allowed(PREFIX + 'target')
+        ok(bid in vb, '纯组员可见组绑定看板（%s）' % bid)
+        ok('1162069797001000241' not in vb,
+           '纯组员不被豁免：其他归属看板不可见（豁免仅限负责人岗位，实际可见 %d 个）' % len(vb))
     finally:
         import gc; gc.collect()   # 确保残留连接释放，避免 cleanup 撞 database is locked
         cleanup(fx)

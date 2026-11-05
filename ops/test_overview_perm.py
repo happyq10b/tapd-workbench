@@ -86,12 +86,14 @@ def setup():
     cleanup()
     c = db()
     now = "2026-11-02 12:00:00"
-    for bid, name, dept, node in ((TEST_BOARD, '【测试】A看板', '资金部', NODE_ZICHU),
-                                  (TEST_BOARD2, '【测试】B看板', '管理部', NODE_GUANLI)):
-        c.execute("INSERT INTO boards (board_id, board_name, workspace_id, created_at) VALUES (?,?,?,?)",
-                  (bid, name, 'ws_ov', now))
+    for bid, name, dept, node, part in ((TEST_BOARD, '【测试】A看板', '资金部', NODE_ZICHU, USR_A),
+                                        (TEST_BOARD2, '【测试】B看板', '管理部', NODE_GUANLI, USR_B)):
+        c.execute("INSERT INTO boards (board_id, board_name, workspace_id, participants, created_at)"
+                  " VALUES (?,?,?,?,?)",
+                  (bid, name, 'ws_ov', part, now))
         c.execute("""INSERT INTO board_config (board_id, dept, dept_node_id, attr, status, created_at)
                      VALUES (?,?,?,?,?,?)""", (bid, dept, node, '日常', '启用', now))
+    # 2026-11-05 新规则：部门成员不再自动继承部门看板 → A/B 以【看板参与人】身份可见各自看板
     # A 看板里 4 条事项：2 done / 1 open / 1 progressing
     stats = [('done', '已完成'), ('done', '已完成'), ('open', '未完成'), ('progressing', '进行中')]
     for i, (st, stn) in enumerate(stats):
@@ -139,7 +141,9 @@ def main():
         _, ov_admin = http('/api/overview', token=tok_admin)
         ok(ov_a.get('total') != ov_b.get('total'),
            'A（资金部）与 B（核算部）统计不同：A=%s B=%s' % (ov_a.get('total'), ov_b.get('total')))
-        ok(ov_c.get('total') == 0, 'C（无架构归属）统计为 0：%s' % ov_c.get('total'))
+        ok(ov_a.get('total') - ov_c.get('total') == 4 and ov_b.get('total') - ov_c.get('total') == 2,
+           'C（无架构归属）只统计公共看板，A/B 各多出自己参与人看板的 4/2 条：C=%s A=%s B=%s'
+           % (ov_c.get('total'), ov_a.get('total'), ov_b.get('total')))
         ok(ov_admin.get('total') > ov_a.get('total'),
            'admin 统计大于受限账号：admin=%s A=%s' % (ov_admin.get('total'), ov_a.get('total')))
 
@@ -173,7 +177,8 @@ def main():
         tok_a2 = make_token(USR_A)
         _, ov_a2 = http('/api/overview', token=tok_a2)
         _, ov_a2_b = http('/api/overview?board_id=' + TEST_BOARD, token=tok_a2)
-        ok(ov_a2.get('total') == 0, '板块权限收窄后统计归零：%s' % ov_a2.get('total'))
+        ok(ov_a2.get('total') == ov_c.get('total'),
+           '板块权限收窄后 A 只剩公共看板统计（=%s）' % ov_a2.get('total'))
         ok(ov_a2_b.get('total') == 0, '板块权限收窄后带 board_id 也为 0：%s' % ov_a2_b.get('total'))
         # 恢复
         c = db()
@@ -196,21 +201,22 @@ def main():
         _, me_a = http('/api/me', token=tok_a)
         _, me_b = http('/api/me', token=tok_b)
         _, me_admin = http('/api/me', token=tok_admin)
-        ok(me_a.get('depts') == ['资金部'],
-           'A 只看到资金部（无权部门不出现）：%s' % (me_a.get('depts') or []))
+        ok(me_a.get('depts') == ['财务中心', '资金部'],
+           'A 只看到资金部 + 财务中心（公共看板归属，2026-11-05）：%s' % (me_a.get('depts') or []))
         ok('管理部' not in (me_a.get('depts') or []),
            'A 看不到「管理部」（该部门无其可见看板）')
         ok('核算部' not in (me_a.get('depts') or []),
            'A 看不到「核算部」')
-        ok('核算部' in (me_b.get('depts') or []),
-           'B 能看到「核算部」（有可见看板）：%s' % (me_b.get('depts') or []))
+        ok('管理部' in (me_b.get('depts') or []) and '核算部' not in (me_b.get('depts') or []),
+           'B 能看到「管理部」（参与人看板归属），看不到「核算部」（新规则，成员身份不授予可见性）：%s'
+           % (me_b.get('depts') or []))
         ok(len(me_admin.get('depts') or []) > len(me_a.get('depts') or []),
            'admin 看到的部门多于受限账号：admin=%s A=%s'
            % (me_admin.get('depts'), me_a.get('depts')))
-        # C 无任何架构归属 → 不该看到任何部门
+        # C 无任何架构归属 → 只看到公共看板归属的「财务中心」
         _, me_c = http('/api/me', token=tok_c)
-        ok(not (me_c.get('depts') or []),
-           'C 无可见看板 → 部门清单为空：%s' % (me_c.get('depts') or []))
+        ok(me_c.get('depts') == ['财务中心'],
+           'C 只见公共看板归属「财务中心」（2026-11-05 综合全员可见）：%s' % (me_c.get('depts') or []))
         # 部门清单必须与可见看板的归属部门一致
         a_depts_from_boards = {b.get('dept') for b in (me_a.get('boards') or []) if b.get('dept')}
         ok(set(me_a.get('depts') or []) == a_depts_from_boards,

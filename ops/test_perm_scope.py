@@ -170,6 +170,17 @@ def base_board_ids():
     return {r[0] for r in rows}
 
 
+def _owned_board_ids():
+    """**部门**归属的看板 id 集合（dept_node_id 指向非中心节点）；
+    公共看板 = 未归属 ∪ 归属中心（财务中心 → 全员可见）"""
+    c = db()
+    ids = {r[0] for r in c.execute(
+        "SELECT board_id FROM board_config WHERE dept_node_id > 0 AND dept_node_id NOT IN"
+        " (SELECT id FROM org_nodes WHERE node_type='center')")}
+    c.close()
+    return ids
+
+
 print('=== 基于架构的看板/板块可见性 ===')
 try:
     code, _ = http('/api/login')
@@ -201,17 +212,37 @@ try:
 
     # ---------- 2) 不同架构的普通用户 ----------
     print('\n【用例2】普通用户按所属架构过滤看板')
+    # 2026-11-05 新规则：部门成员不再自动继承部门看板；
+    # user_a 被任命为 TEST_BOARD 的【看板参与人】→ 可见（规则2）
+    c = db()
+    c.execute("UPDATE boards SET participants=? WHERE board_id=?", (USR_A, TEST_BOARD))
+    c.commit(); c.close()
     code, vis_a = board_ids_of_user(tok_a)
-    ok(code == 200 and vis_a == {TEST_BOARD},
-       '任命到资金部的 %s 只看到资金部看板：%s' % (USR_A, sorted(vis_a or [])))
+    # 公共看板（归属中心/未归属，如「综合」已移入财务中心）全员可见 —— 2026-11-05 用户确认
+    code_pub, r_all = http('/api/boards', token=tok_d)
+    admin_ids = {b['board_id'] for b in r_all.get('boards', [])}
+    public_now = admin_ids - _owned_board_ids()
+    ok(code == 200 and vis_a == {TEST_BOARD} | public_now,
+       '任命到资金部的 %s（=TEST_BOARD 看板参与人）看到参与人看板 + 公共看板：%s' % (USR_A, sorted(vis_a or [])))
     code, vis_b = board_ids_of_user(tok_b)
     ok(code == 200 and vis_b is not None and TEST_BOARD not in vis_b and TEST_BOARD2 not in vis_b,
        '任命到核算部的 %s 看不到资金部/管理部看板' % USR_B)
     ok(code == 200 and vis_b and vis_b <= origin_boards and vis_b,
        '任命到核算部的 %s 只看到核算部原有看板（%d 个）' % (USR_B, len(vis_b or [])))
     code, vis_c = board_ids_of_user(tok_c)
-    ok(code == 200 and vis_c == set(),
-       '无任何架构归属的 %s 看不到任何看板（fail-closed）：%s' % (USR_C, sorted(vis_c or [])))
+    ok(code == 200 and vis_c == public_now,
+       '无任何架构归属的 %s 只看到公共看板（fail-closed，归属看板全不可见）：%s' % (USR_C, sorted(vis_c or [])))
+    # 新规则正反向：部门成员（非看板负责人/参与人）→ 部门看板不可见
+    # （验证后**恢复**参与人身份 —— 用例4/5 依赖 user_a 可见 TEST_BOARD）
+    c = db()
+    c.execute("UPDATE boards SET participants='' WHERE board_id=?", (TEST_BOARD,))
+    c.commit(); c.close()
+    code, vis_a2 = board_ids_of_user(tok_a)
+    ok(code == 200 and vis_a2 == public_now,
+       '非看板负责人/参与人 → 部门看板不可见（只剩公共：%s）' % sorted(vis_a2 or []))
+    c = db()
+    c.execute("UPDATE boards SET participants=? WHERE board_id=?", (USR_A, TEST_BOARD))
+    c.commit(); c.close()
 
     # ---------- 3) 账号白名单只能收窄，不能越权授予 ----------
     print('\n【用例3】账号级白名单只能在架构授权范围内收窄')

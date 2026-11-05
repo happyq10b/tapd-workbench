@@ -96,9 +96,10 @@ def build_fixture():
     from app.app import hash_pw
     c = sqlite3.connect(os.path.join(ROOT, 'src', 'app.db'))
     now = '2026-11-02 22:00:00'
+    # 2026-11-05 新规则：部门成员不再自动可见部门看板 → __acl_in 以【看板参与人】身份可见
     c.execute("INSERT INTO boards (board_id,board_name,workspace_id,owner,participants,sort,created_at)"
-              " VALUES (?,?,?,?,'',0,?)",
-              (BID, '【可见性】测试看板', 'ws_acl', PREFIX + 'owner', now))
+              " VALUES (?,?,?,?,?,0,?)",
+              (BID, '【可见性】测试看板', 'ws_acl', PREFIX + 'owner', PREFIX + 'in', now))
     c.execute("INSERT INTO board_config (board_id,dept,dept_node_id,attr,status,created_at)"
               " VALUES (?,?,?,?,?,?)", (BID, '核算部', DEPT_NODE, '日常', '启用', now))
     for cid, cname in ((PREFIX + 'colA', '板块甲'), (PREFIX + 'colB', '板块乙'),
@@ -153,6 +154,17 @@ def run_tests(make_token):
         ids = [b['board_id'] for b in (http('/api/me', tok).get('boards') or [])]
         ok((BID in ids) == expect,
            '%s：可见该看板 = %s（实际 %s）' % (name, expect, BID in ids))
+
+    # 新规则反向：in 移出参与人 → 不可见（部门成员身份本身不授予可见性）
+    import sqlite3 as _s
+    _c = _s.connect(os.path.join(ROOT, 'src', 'app.db'))
+    _c.execute("UPDATE boards SET participants='' WHERE board_id=?", (BID,))
+    _c.commit(); _c.close()
+    ids = [b['board_id'] for b in (http('/api/me', tok_in).get('boards') or [])]
+    ok(BID not in ids, '非看板负责人/参与人 → 部门看板不可见（2026-11-05 新规则）')
+    _c = _s.connect(os.path.join(ROOT, 'src', 'app.db'))
+    _c.execute("UPDATE boards SET participants=? WHERE board_id=?", (PREFIX + 'in', BID))
+    _c.commit(); _c.close()
 
     print('\n【用例2】配了负责人**不额外收窄**可见性')
     # 该看板 owner = __acl_owner；若负责人语义仍是「仅负责人可见」，
