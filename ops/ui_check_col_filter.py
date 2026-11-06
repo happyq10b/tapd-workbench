@@ -136,12 +136,16 @@ async def main():
 
             # ② 板块状态面板
             await ev("toggleColStatusDrop({stopPropagation(){}});")
+            # #85 单击闪退回归：真实单击 = focus + click 两次触发同一函数——
+            # 旧 toggle 实现第二次触发会把面板关掉（闪烁一次消失）；幂等后必须仍展开
+            await ev("toggleColStatusDrop({stopPropagation(){}});")
             r = await ev("""(function(){
               const d=document.getElementById('colStatusDrop');
               return {open:!d.hidden,opts:[...d.querySelectorAll('[data-pick-cs]')].map(x=>x.getAttribute('data-pick-cs')),
                       hasAll:!!d.querySelector('[data-cs-all]'),hasClear:!!d.querySelector('[data-cs-clear]')};
             })()""")
             ok(r.get('open') is True, '状态面板展开')
+            ok(r.get('open') is True, '#85 单击（focus+click 双触发）后面板仍展开、不闪退')
             ok(r.get('opts') == ['open', 'progressing', 'done'], '三个状态选项')
             ok(r.get('hasAll') and r.get('hasClear'), '含全选/清空')
             await ev("toggleColStatusPick('progressing');")
@@ -161,6 +165,9 @@ async def main():
                       hasAll:!!d.querySelector('[data-year-all]'),hasClear:!!d.querySelector('[data-year-clear]')};
             })()""")
             ok(r.get('open') is True and r.get('opts'), '年份面板展开（选项 %s）' % r.get('opts'))
+            await ev('toggleYearDrop({stopPropagation(){}});')
+            r2 = await ev("(function(){return !document.getElementById('yearDrop').hidden;})()")
+            ok(r2 is True, '#85 年份单击（focus+click 双触发）后面板仍展开、不闪退')
             ok(r.get('hasAll') and r.get('hasClear'), '含全选/清空')
             # 勾选一个年份 → reload 请求带 years 参数（拦截 fetch 断言）
             # ⚠️ curYears 默认已含当前年份 → 先清空再勾，避免 toggle 成「取消」

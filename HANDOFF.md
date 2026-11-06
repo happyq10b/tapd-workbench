@@ -1153,6 +1153,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #82 | 2026-11-06 | **主设计师** | 前端 + 后端 | **导入导出交互改版**：①导出弹窗内页签切换「选择字段/导出模板」（exportTplModal 独立弹窗移除，「导出模板」菜单按钮移除）；②新增导入弹窗（点击选择+拖拽上传双通道、已选文件条、内嵌结果卡、模板下载整合），外部「下载导入模板」按钮移除；③导入模板 xlsx 提示样式校准：表头浅灰 F2F2F2+深色粗体+D0D0D0 边框（对齐 #79 导出规范），必填列红字 * 标注（不再红底），使用说明标题主色粗体 | `src/static/index.html`（exportModal 页签 + importModal + 菜单收敛）、`src/app/app.py`（download_import_template 样式）、`ops/ui_check_import_modal.py`（新增 16 断言 + 截图）、`ops/ui_check_export_tpl.py`（页签交互同步 11 断言）、`ops/ui_check_hp_feat.py`（菜单断言同步） | `HANDOFF.md §七 #82` |
 | #83 | 2026-11-06 | **主设计师** | 前端 | **板块筛选栏调整**：①移除状态/年份框占位提示；②标签改两字「🚦 状态」「🗓️ 年份」；③四框收窄（label 76→50、field 104→84，四框 153px 等宽），toolbar min-width 1503→1131——1200 视口无溢出无换行；④「清空筛选/操作」移到筛选明细行右端（margin-left:auto 恒定右靠；slot-ops width:auto 修 11px 溢出；搜索框 max-width 760→1200 放开修宽视口两行右缘错位） | `src/static/index.html`、`ops/ui_check_col_filter.py`（23 断言）、`ops/ui_check_filter_v2.py`（按钮行探针同步） | `HANDOFF.md §七 #83` |
 | #84 | 2026-11-06 | **主设计师** | 前端 | **板块筛选栏六项调整**：①人员/年份位置对调（搜索→状态→人员→年份→周数→日期）；②年份框改下拉多选+手动输入（normYearInput 接受 2026/2026年，_manualYear 保护手工年份，**顺带修 renderYearFilter 回落段丢弃手工年份的真 bug**）；③周数提示精简「可直接输入「2026-41」回车」；④状态提示改「板块完成情况」；⑤筛选明细纳入状态/年份（顺序与筛选栏一致）；⑥搜索栏 placeholder 加 🔍（min-width 167→187） | `src/static/index.html`、`ops/ui_check_col_filter.py`（30 断言） | `HANDOFF.md §七 #84` |
+| #85 | 2026-11-06 | **主设计师** | 前端 | **状态/年份下拉单击闪退修复**：输入框同时绑定 onfocus+onclick，而处理函数是 toggle 翻转——一次点击事件顺序 focus→click，focus 打开后 click 再翻转关闭 →「闪一下消失，第二次才展开」（周数框不闪因其 openFilterCombo 为幂等「确保打开」）。修复 = toggleColStatusDrop/toggleYearDrop 改幂等确保打开（函数名保留、调用点零改动），收起只由点击面板外的 document 委托承担；年份面板提示精简「可直接输入年份回车」 | `src/static/index.html`、`ops/ui_check_col_filter.py`（32 断言，含 #85 双触发回归） | `HANDOFF.md §七 #85` |
 | #55 | 2026-11-04 | **主设计师** | 前端 | **父子事项/板块行布局优化**：①字段列 648→446px（周数压缩「2026·W32」），省出的 202px 全给标题（实测 492px，约翻倍）；②周数移到负责人左侧（fieldItems 单一数据源调整，父子自动一致）；③板块行追加 负责人/创建/截止 字段 + 空槽位与事项行同构 → 字段列纵向对齐；进度条改弹性 → 右端 = 字段列左端 = 事项标题右端；④置顶/复制（板块行还有折叠/展开）合并为「操作 ▾」下拉菜单，tail 槽位与事项行同构 | `src/static/index.html`、`ops/ui_check_row_layout.py`（新增） | `HANDOFF.md §七 #55` |
 | #54 | 2026-11-04 | **主设计师** | 前端 + 后端 | **人员选择层级约束**：①看板负责人/参与人（参与人恢复）只能从**归属架构子树**选（保留 🌳，财务中心=顶层→全范围）；②板块负责人/参与人只能从**所属看板**的负责人与参与人选（🌳 架构按钮 → 👤 看板选人）；③事项负责人/参与人只能从**所属板块**的负责人与参与人选（移除「从架构选人」按钮，person picker 接池）；④负责人/参与人**互斥**（三层一致，负责人优先）；后端恢复 boards.participants 数据链路 + 双向互斥兜底 | `src/app/app.py`、`src/static/index.html`、`ops/test_hier_pool.py`（新增）、`ops/ui_check_hier_pick.py`（新增） | `HANDOFF.md §七 #54` |
 | #53 | 2026-11-04 | **主设计师** | 前端 | **筛选器改进三件**：①人员筛选树底栏加【清空】按钮（一键清空临时已选），并修 bug —— 全部取消勾选后点确定原来被 toast「未选择人员」拦截无法清空，改为允许空确认 = 清空该筛选（看板负责人筛选同理）；②周数筛选：提示改「可直接输入「2026-41」回车」，输入格式统一为年份-周数（移除纯数字「41」支持），面板加【全选】【清空】按钮（取代底部「清空全部」选项）；③按钮行：【展开板块/折叠板块】→【展开/折叠】，【新建板块】移到最后，原位置加【清空筛选】（一键清空搜索/人员/周数/日期区间），toolbar-right 锁宽 402→452px | `src/static/index.html`、`ops/ui_check_filter_v2.py`（新增） | `HANDOFF.md §七 #53` |
@@ -1227,6 +1228,18 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #85 · 2026-11-06 · 主设计师 · 状态/年份下拉「单击闪退」修复
+
+**用户反馈**：单击一次组件闪烁后消失，需点第二次才能正常展开；另要求年份面板提示精简。
+
+**根因**：两个输入框同时绑定了 `onfocus` 与 `onclick`，而 `toggleColStatusDrop` / `toggleYearDrop` 是 **toggle 翻转语义**——一次鼠标点击的事件顺序是 `focus → click`：focus 先打开面板，click 再翻转**关闭** → 「闪一下消失」；第二次点击时 focus 不再触发（焦点已在输入框上），click 翻转为打开 → 「第二次才展开」。周数框不闪退，因为它的 `openFilterCombo` 是**幂等「确保打开」**语义——同为 focus+click 双绑定却不冲突。
+
+**修复**：两个函数由翻转改为幂等确保打开（`_colStatusDropOpen=true` / `_yearDropOpen=true`），收起只由「点击面板外」的 document 委托承担——与周数 combo 交互完全一致；**函数名保留**（toggle 前缀），全部调用点零改动。年份面板提示精简为「可直接输入年份回车」（#85 第二项）。
+
+**验证**：`ui_check_col_filter.py` 增至 **32/0**——新增 #85 回归断言：模拟真实单击的 focus+click **双触发**（连续两次调用展开函数）后面板仍展开、不闪退（状态框与年份框各一条）。`ui_check_filter_v2` 16/0、`board_footer` 14/0；`verify.py` **7/7**。
+
+**教训（交互设计）**：同一输入框绑定 focus + click 双事件时，处理函数**必须幂等**（「确保打开」），不能做 toggle 翻转——toggle 在双事件下必然自相矛盾。排查口诀：「单击闪退、二击才开」≈ focus 与 click 各翻转了一次。
 
 ### #84 · 2026-11-06 · 主设计师 · 板块筛选栏六项调整
 
