@@ -76,11 +76,13 @@ for %%P in (
   )
 )
 
-rem ---------- encoding ----------
-rem cmd runs on code page 936 (GBK): Python must emit GBK; bash emits UTF-8,
-rem so bash output goes through iconv when available.
-set "PYTHONIOENCODING=gbk"
-set "PYTHONUTF8=0"
+rem ---------- encoding（2026-11-06 #87 重定） ----------
+rem 用户终端（WorkBuddy/VSCode 类集成终端）按 **UTF-8** 渲染字节流：
+rem 子脚本必须输出 UTF-8（GBK 字节在其下显示为乱码）。NO_COLOR=1 让
+rem verify.py / sync.sh 不发 ANSI 颜色码（终端不解析 VT 时会原样漏出）。
+rem cmd 自身的 echo 走 WriteConsoleW（Unicode API），不受代码页影响。
+set "PYTHONIOENCODING=utf-8"
+set "NO_COLOR=1"
 
 if not exist "%LOGDIR%" mkdir "%LOGDIR%" >nul 2>&1
 
@@ -151,12 +153,8 @@ echo   Stage 2 . Manual sync  (%TARGET%)
 echo ================================================================
 echo.
 
-if defined ICONV (
-  "%BASH%" "%SYNC_SH%" %TARGET% > "%LOGDIR%\sync.out" 2>&1
-  call :Drain "%LOGDIR%\sync.out"
-) else (
-  "%BASH%" "%SYNC_SH%" %TARGET%
-)
+rem sync.sh 输出 = UTF-8 字节，直通终端（与终端渲染一致），不再经 iconv 转 GBK
+"%BASH%" "%SYNC_SH%" %TARGET%
 set "SYNC_RC=%ERRORLEVEL%"
 
 echo.

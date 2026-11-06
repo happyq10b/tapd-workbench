@@ -60,7 +60,12 @@ STAMP = os.path.join(OPS, ".verify-stamp")
 TEST_PORT = int(os.environ.get("VERIFY_PORT", "8123"))
 TEST_HOST = "127.0.0.1"
 
-C_G = "\033[32m"; C_R = "\033[31m"; C_Y = "\033[33m"; C_B = "\033[36m"; C_D = "\033[2m"; C_0 = "\033[0m"
+# NO_COLOR=1（同步开关.bat 设置）→ 关闭 ANSI 颜色码：
+# 老式 conhost 不解析 VT，颜色码会原样漏出（2026-11-06 #87 乱码修复配套）
+if os.environ.get("NO_COLOR"):
+    C_G = C_R = C_Y = C_B = C_D = C_0 = ""
+else:
+    C_G = "\033[32m"; C_R = "\033[31m"; C_Y = "\033[33m"; C_B = "\033[36m"; C_D = "\033[2m"; C_0 = "\033[0m"
 
 _results = []      # (序号, 名称, 通过?, 详情)
 _failed = False

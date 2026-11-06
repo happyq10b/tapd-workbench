@@ -44,7 +44,12 @@ DIFF_TOLERANCE="${DIFF_TOLERANCE:-5}"
 STAMP="$SCRIPT_DIR/.verify-stamp"
 VERIFY_MAX_AGE="${VERIFY_MAX_AGE:-7200}"   # 凭证有效期（秒），默认 2 小时
 
-c_g=$'\033[32m'; c_y=$'\033[33m'; c_r=$'\033[31m'; c_b=$'\033[36m'; c_d=$'\033[2m'; c_0=$'\033[0m'
+# NO_COLOR=1（同步开关.bat 设置）→ 关闭 ANSI 颜色码（老式 conhost 不解析 VT）
+if [ -n "$NO_COLOR" ]; then
+  c_g=""; c_y=""; c_r=""; c_b=""; c_d=""; c_0=""
+else
+  c_g=$'\033[32m'; c_y=$'\033[33m'; c_r=$'\033[31m'; c_b=$'\033[36m'; c_d=$'\033[2m'; c_0=$'\033[0m'
+fi
 
 if [ ! -d "$LOCAL_DIR" ]; then
   echo "${c_r}本地源码目录不存在: $LOCAL_DIR${c_0}"
