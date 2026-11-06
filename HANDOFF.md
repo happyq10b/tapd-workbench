@@ -1151,6 +1151,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #80 | 2026-11-06 | **主设计师** | 前端 + 后端 | **导出模板**：①当前勾选+版式（fmt=xlsx）存为命名模板，每用户独立（export_templates 表，init_db SCHEMA 幂等建表），可查看/修改/删除；②导出弹窗下拉一键应用模板（字段按模板序填充勾选——**导出主链路零改动**，复用 #79 fields 机制）；③管理列表弹窗（操作▾ 直达）：卡片式展示 名称 / xlsx·字段数·更新时间 / 带序号字段 chips + 应用·编辑·删除（confirm 二次确认） | `src/app/init_db.py`（建表）、`src/app/app.py`（模板 CRUD）、`src/static/index.html`（导出弹窗模板区 + exportTplModal）、`ops/test_export_templates.py`（新增 16 断言）、`ops/ui_check_export_tpl.py`（新增 10 断言 + 截图） | `HANDOFF.md §七 #80` |
 | #81 | 2026-11-06 | **主设计师** | 前端 | **板块筛选栏改造**：①搜索栏后追加「🚦板块状态」下拉（未完成/进行中/已完成，多选+全选/清空，客户端按 cols.completion 过滤板块行）；②「🗓️归属年份」从【可选看板】带标题行移入本栏改 combo 多选（含全选/清空）——curYears/renderYearFilter 校验/years 参数零改动，仅渲染层换壳（id 保持）；③四下拉框等宽（cf-label 定宽 76px）+ 搜索框压缩 260→167（placeholder 完整）+ toolbar min-width 1319→1503；④【清空筛选】纳入两个新条件；其余筛选不动 | `src/static/index.html`、`ops/ui_check_col_filter.py`（新增 15 断言 + 截图）、`ops/test-dept.js`（年份断言同步） | `HANDOFF.md §七 #81` |
 | #82 | 2026-11-06 | **主设计师** | 前端 + 后端 | **导入导出交互改版**：①导出弹窗内页签切换「选择字段/导出模板」（exportTplModal 独立弹窗移除，「导出模板」菜单按钮移除）；②新增导入弹窗（点击选择+拖拽上传双通道、已选文件条、内嵌结果卡、模板下载整合），外部「下载导入模板」按钮移除；③导入模板 xlsx 提示样式校准：表头浅灰 F2F2F2+深色粗体+D0D0D0 边框（对齐 #79 导出规范），必填列红字 * 标注（不再红底），使用说明标题主色粗体 | `src/static/index.html`（exportModal 页签 + importModal + 菜单收敛）、`src/app/app.py`（download_import_template 样式）、`ops/ui_check_import_modal.py`（新增 16 断言 + 截图）、`ops/ui_check_export_tpl.py`（页签交互同步 11 断言）、`ops/ui_check_hp_feat.py`（菜单断言同步） | `HANDOFF.md §七 #82` |
+| #83 | 2026-11-06 | **主设计师** | 前端 | **板块筛选栏调整**：①移除状态/年份框占位提示；②标签改两字「🚦 状态」「🗓️ 年份」；③四框收窄（label 76→50、field 104→84，四框 153px 等宽），toolbar min-width 1503→1131——1200 视口无溢出无换行；④「清空筛选/操作」移到筛选明细行右端（margin-left:auto 恒定右靠；slot-ops width:auto 修 11px 溢出；搜索框 max-width 760→1200 放开修宽视口两行右缘错位） | `src/static/index.html`、`ops/ui_check_col_filter.py`（23 断言）、`ops/ui_check_filter_v2.py`（按钮行探针同步） | `HANDOFF.md §七 #83` |
 | #55 | 2026-11-04 | **主设计师** | 前端 | **父子事项/板块行布局优化**：①字段列 648→446px（周数压缩「2026·W32」），省出的 202px 全给标题（实测 492px，约翻倍）；②周数移到负责人左侧（fieldItems 单一数据源调整，父子自动一致）；③板块行追加 负责人/创建/截止 字段 + 空槽位与事项行同构 → 字段列纵向对齐；进度条改弹性 → 右端 = 字段列左端 = 事项标题右端；④置顶/复制（板块行还有折叠/展开）合并为「操作 ▾」下拉菜单，tail 槽位与事项行同构 | `src/static/index.html`、`ops/ui_check_row_layout.py`（新增） | `HANDOFF.md §七 #55` |
 | #54 | 2026-11-04 | **主设计师** | 前端 + 后端 | **人员选择层级约束**：①看板负责人/参与人（参与人恢复）只能从**归属架构子树**选（保留 🌳，财务中心=顶层→全范围）；②板块负责人/参与人只能从**所属看板**的负责人与参与人选（🌳 架构按钮 → 👤 看板选人）；③事项负责人/参与人只能从**所属板块**的负责人与参与人选（移除「从架构选人」按钮，person picker 接池）；④负责人/参与人**互斥**（三层一致，负责人优先）；后端恢复 boards.participants 数据链路 + 双向互斥兜底 | `src/app/app.py`、`src/static/index.html`、`ops/test_hier_pool.py`（新增）、`ops/ui_check_hier_pick.py`（新增） | `HANDOFF.md §七 #54` |
 | #53 | 2026-11-04 | **主设计师** | 前端 | **筛选器改进三件**：①人员筛选树底栏加【清空】按钮（一键清空临时已选），并修 bug —— 全部取消勾选后点确定原来被 toast「未选择人员」拦截无法清空，改为允许空确认 = 清空该筛选（看板负责人筛选同理）；②周数筛选：提示改「可直接输入「2026-41」回车」，输入格式统一为年份-周数（移除纯数字「41」支持），面板加【全选】【清空】按钮（取代底部「清空全部」选项）；③按钮行：【展开板块/折叠板块】→【展开/折叠】，【新建板块】移到最后，原位置加【清空筛选】（一键清空搜索/人员/周数/日期区间），toolbar-right 锁宽 402→452px | `src/static/index.html`、`ops/ui_check_filter_v2.py`（新增） | `HANDOFF.md §七 #53` |
@@ -1225,6 +1226,18 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #83 · 2026-11-06 · 主设计师 · 板块筛选栏调整（去占位 / 两字标签 / 四框收窄 / 按钮移明细行）
+
+**用户需求**（#81 的后续微调，中途追加反馈「清空筛选和操作太靠边了，没有和上面的日期框对齐」）：①移除状态/年份框占位提示；②标签改两字（状态/年份）；③缩小四个筛选项宽度确保整栏不超出页面排版宽度；④清空筛选/操作移到筛选明细行右端同行显示。
+
+**实现**
+- 占位置空、标签改两字「🚦 状态」「🗓️ 年份」；cf-label 定宽 76→**50px**、cf-field 104→**84px**——四框 153px 等宽；toolbar min-width 1503→**1131px**（1200 视口内容 1152 内完整放下，实测 docOverflow=False、单行）。
+- **按钮移明细行**：清空筛选/操作 ▾ 从 toolbar-right 移入 filterHint 所在明细行（flex:1 0 100% 的独立行）右端；三个连带修复（均为实测抓出）：①`margin-left:auto` 恒定右靠——`.filter-hint:empty{display:none}` 会在明细为空时让按钮塌向左端；②`.slot-ops{width:64px}` 定宽 < 按钮 75px → 溢出 11px，此处 `width:auto`；③搜索框 `max-width:760` 放开为 1200——宽视口下搜索触顶后日期框右缘缩进而按钮行贴满行宽 → 两行右缘错位（用户反馈根因），放开后搜索吸收全部剩余空间，日期框右缘 = 按钮行右缘恒对齐。
+
+**验证**：`ui_check_col_filter.py` 增至 **23/0**（标签两字 / 占位置空 / 四框等宽 155×4 / 单行 / 1200 视口无溢出无折行 / 有无明细两态下按钮右缘与日期框右缘差 ≤2 / 按钮明细同行）；`ui_check_filter_v2` **16/0**（按钮行探针从 .toolbar-right 同步到明细行容器）；`board_footer` 14/0、`test-dept.js` 125/0；`verify.py` **7/7**。截图 `ops/.shots/col_filter_1200.png`（1200 视口）人工确认 ✓。
+
+**UI 实测踩坑**：①`getBoundingClientRect().top` 逐像素比较会因 emoji 盒高差 1~2px 误报折行——改用**垂直中心 + 4px 容差**（真折行中心差 ≥ 行高）；②`.filter-hint:empty{display:none}` 使空明细时 hint 矩阵全 0——探针需先填充文本或按按钮位置断言。
 
 ### #82 · 2026-11-06 · 主设计师 · 导入导出交互改版
 

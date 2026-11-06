@@ -98,13 +98,39 @@ async def main():
             })()""")
             print('布局探针:', json.dumps(r, ensure_ascii=False))
             ok('searchInput|colStatusWrap|yearFilter|personFilterWrap|weekFilterWrap|dateFilterBox' in r.get('kids', ''),
-               '控件顺序 = 搜索→板块状态→归属年份→人员→周数→日期')
+               '控件顺序 = 搜索→状态→年份→人员→周数→日期')
             ok(r.get('rowH', 999) <= 46, '筛选行单行不换行（toolbar-left 高 %s）' % r.get('rowH'))
             wlist = r.get('widths') or []
             ok(len(wlist) == 4 and max(x['w'] for x in wlist) - min(x['w'] for x in wlist) <= 2,
                '四个下拉框等宽（%s）' % [x['w'] for x in wlist])
             ok(all(x['top'] == wlist[0]['top'] for x in wlist), '四框同一行（top 一致）')
             ok(r.get('searchW', 0) >= 165, '搜索框 ≥165px，提示词完整（实际 %s）' % r.get('searchW'))
+            # #83：占位提示移除 + 标签改两字
+            r = await ev("""(function(){
+              return {stPh:document.getElementById('colStatusInput').placeholder,
+                      yrPh:document.getElementById('yearFilterInput').placeholder,
+                      labels:[...document.querySelectorAll('.toolbar-left .cf-label')].map(x=>x.textContent.trim())};
+            })()""")
+            ok(r.get('stPh') == '' and r.get('yrPh') == '', '状态/年份输入框无占位提示')
+            ok(r.get('labels') == ['🚦 状态', '🗓️ 年份', '👤 人员', '📅 周数'],
+               '标签 = 状态/年份/人员/周数（实际 %s）' % r.get('labels'))
+            # #83：清空筛选/操作 恒定贴行右端，且右缘与日期框对齐（margin-left:auto，
+            #      不依赖明细有无）；max-width 放开后两行右缘恒对齐
+            await ev("document.getElementById('filterHint').textContent='人员：测试 | 周数：2026 · 第41周';")
+            r = await ev("""(function(){
+              function R(sel){const b=document.querySelector(sel).getBoundingClientRect();return Math.round(b.right);}
+              return {withTextDiff:R('#toolbarOpsBtn')-R('#dateFilterBox'),opsTop:Math.round(document.getElementById('toolbarOpsBtn').getBoundingClientRect().top)};
+            })()""")
+            await ev("document.getElementById('filterHint').textContent='';")
+            r2 = await ev("""(function(){
+              function R(sel){const b=document.querySelector(sel).getBoundingClientRect();return Math.round(b.right);}
+              return {emptyDiff:R('#toolbarOpsBtn')-R('#dateFilterBox'),
+                      opsRight:R('#toolbarOpsBtn'),opsTop:Math.round(document.getElementById('toolbarOpsBtn').getBoundingClientRect().top),
+                      rowTop:Math.round(document.getElementById('filterHint').parentElement.getBoundingClientRect().top)};
+            })()""")
+            ok(abs(r.get('withTextDiff', 999)) <= 2, '有明细时操作按钮右缘 = 日期框右缘（差 %s）' % r.get('withTextDiff'))
+            ok(abs(r2.get('emptyDiff', 999)) <= 2, '明细为空时按钮仍贴右缘 = 日期框右缘（差 %s）' % r2.get('emptyDiff'))
+            ok(abs(r2.get('opsTop', 0) - r2.get('rowTop', 0)) <= 6, '按钮与明细行同一行（top 差 %s）' % abs(r2.get('opsTop', 0) - r2.get('rowTop', 0)))
 
             # ② 板块状态面板
             await ev("toggleColStatusDrop({stopPropagation(){}});")
@@ -167,6 +193,25 @@ async def main():
                 with open(OUT, 'wb') as f:
                     f.write(base64.b64decode(data))
                 print('截图已保存：%s' % OUT)
+
+            # ⑦ #83：1200 视口下整栏不溢出（无横向滚动、无换行）
+            await send('Emulation.setDeviceMetricsOverride',
+                       {'width': 1200, 'height': 900, 'deviceScaleFactor': 1, 'mobile': False})
+            await asyncio.sleep(1)
+            r = await ev("""(function(){
+              const tb=document.querySelector('.toolbar');
+              const left=document.querySelector('.toolbar-left');
+              const kids=[...left.children].map(x=>{const b=x.getBoundingClientRect();return b.top+b.height/2;});
+              const tmin=Math.min.apply(null,kids);
+              // emoji 让各控件盒高差 1~2px（flex 居中）→ 用垂直中心 + 4px 容差判「同一行」
+              //（真折行的中心差 ≥ 一个行高 ~35px，4px 容差可干净区分）
+              return {docOverflow:document.documentElement.scrollWidth>1200,
+                      tbScroll:tb.scrollWidth-tb.clientWidth,
+                      rowTopSet:[...new Set(kids.map(t=>Math.round((t-tmin)/4)))].length};
+            })()""")
+            ok(r.get('docOverflow') is False, '1200 视口无横向溢出（docOverflow=%s）' % r.get('docOverflow'))
+            ok(r.get('tbScroll', 1) <= 1, '工具栏内部无横向溢出（%spx）' % r.get('tbScroll'))
+            ok(r.get('rowTopSet') == 1, '筛选控件单行不折行（top 集合 %s）' % r.get('rowTopSet'))
     finally:
         shutil.rmtree(profile, ignore_errors=True)
     print('\n=== 结果：%d 通过 / %d 失败 ===' % (len(PASS), len(FAIL)))

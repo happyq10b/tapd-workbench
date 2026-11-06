@@ -89,15 +89,16 @@ async def main():
             # ── 需求3：按钮行 ──
             print('\n【需求3】按钮行')
             r = await ev("""(function(){
-              var bar=document.querySelector('.toolbar-right');
-              // #56：操作按钮在 .slot-ops span 里
+              // 2026-11-06 #83：按钮行移到筛选明细行（filterHint 的父容器）右端
+              var bar=document.getElementById('filterHint').parentElement;
               var btns=[].slice.call(bar.querySelectorAll(':scope > button, :scope > .slot-ops > button')).map(function(b){return b.textContent.trim()});
               return {order:btns};
             })()""")
             order = r.get('order') or []
             # ⚠️ 2026-11-04 #56：展开/折叠/导入导出/新建板块 → 「操作 ▾」
+            #    2026-11-06 #83：按钮行移到筛选明细行右端（容器从 .toolbar-right 改为明细行）
             ok(order == ['清空筛选', '操作 ▾'],
-               '按钮顺序 = 清空筛选 + 操作 ▾（#56 归拢）：%s' % order)
+               '按钮顺序 = 清空筛选 + 操作 ▾（#83 明细行右端）：%s' % order)
 
             # ── 需求3：清空筛选一键清空 ──
             print('\n【需求3】清空筛选')
