@@ -114,8 +114,8 @@ ok(/boards = _arch_scope_boards\(username, dept_boards\)/.test(pySrc),
   'user_allowed 用架构授权集作为可见范围基线');
 ok(/boards &= set\(x for x in raw_b\.split\(','\) if x\)/.test(pySrc),
   '归属部门层与账号权限取交集（账号白名单只能收窄，不能越权授予）');
-ok(/if is_admin\(username\):\s*\n\s*return None, None/.test(pySrc),
-  'admin 超级管理员豁免架构权限过滤（拥有当前及未来新增的全部权限）');
+ok(/if is_admin\(username\) and not arch_only:\s*\n\s*return None, None/.test(pySrc),
+  'admin 超级管理员豁免架构权限过滤（arch_only=False 默认路径不变；#77 起评论 @ 候选池走 arch_only=True 只算架构内路径）');
 ok(/def _node_bound_boards\(node: dict/.test(pySrc),
   '节点绑定的看板按节点类型派生（中心=全部 / 部门=归属看板 / 小组=手工绑定）');
 ok(/return merged if bound else None/.test(pySrc),
