@@ -96,6 +96,20 @@ def main():
     fx = setup()
     tk = fx['tk']
     try:
+        print('\n【0】两级称谓 + 管理员权限独立于架构（2026-11-06 用户确认）')
+        sys.path.insert(0, 'src')
+        from app.app import user_allowed, is_admin, SUPER_ADMIN
+        ok(is_admin(PREFIX + 'admin') and is_admin('admin'),
+           'role=admin（__mp_admin/dsy 同款）与内置 admin 都是管理员')
+        ok(SUPER_ADMIN == 'admin', '超级管理员有且仅有内置 admin 账号（SUPER_ADMIN 常量唯一）')
+        b_admin, _ = user_allowed(PREFIX + 'admin')
+        ok(b_admin is None,
+           '管理员可见性独立于架构 → 全量（None）——与超管行为一致')
+        b_arch, _ = user_allowed(PREFIX + 'admin', arch_only=True)
+        ok(b_arch is not None,
+           'arch_only=True 时管理员走架构模型（@ 候选池口径）→ 显式集合（实际 %s）'
+           % ('None' if b_arch is None else '%d 个' % len(b_arch)))
+
         print('\n【1】管理员拉候选池（私有看板）')
         code, r = http('/api/cards/%s/mention_pool' % fx['cid'], token=tk['admin'])
         ok(code == 200, '请求候选池 → 200（实际 %s）' % code)
