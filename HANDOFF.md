@@ -1155,6 +1155,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #84 | 2026-11-06 | **主设计师** | 前端 | **板块筛选栏六项调整**：①人员/年份位置对调（搜索→状态→人员→年份→周数→日期）；②年份框改下拉多选+手动输入（normYearInput 接受 2026/2026年，_manualYear 保护手工年份，**顺带修 renderYearFilter 回落段丢弃手工年份的真 bug**）；③周数提示精简「可直接输入「2026-41」回车」；④状态提示改「板块完成情况」；⑤筛选明细纳入状态/年份（顺序与筛选栏一致）；⑥搜索栏 placeholder 加 🔍（min-width 167→187） | `src/static/index.html`、`ops/ui_check_col_filter.py`（30 断言） | `HANDOFF.md §七 #84` |
 | #85 | 2026-11-06 | **主设计师** | 前端 | **状态/年份下拉单击闪退修复**：输入框同时绑定 onfocus+onclick，而处理函数是 toggle 翻转——一次点击事件顺序 focus→click，focus 打开后 click 再翻转关闭 →「闪一下消失，第二次才展开」（周数框不闪因其 openFilterCombo 为幂等「确保打开」）。修复 = toggleColStatusDrop/toggleYearDrop 改幂等确保打开（函数名保留、调用点零改动），收起只由点击面板外的 document 委托承担；年份面板提示精简「可直接输入年份回车」 | `src/static/index.html`、`ops/ui_check_col_filter.py`（32 断言，含 #85 双触发回归） | `HANDOFF.md §七 #85` |
 | #86 | 2026-11-06 | **主设计师** | 后端 | **xlsx 导入改「仅新增」**：①模板移除全部 ID/编码类列（事项ID/看板ID/板块ID/工作空间ID，新增 XLSX_TEMPLATE_COLS），使用说明改「仅新增」口径；②导入忽略文件内 ID 类列（向后兼容旧文件），card_id 一律系统生成（C+微秒+序号）纯 INSERT——覆盖/更新路径不复存在，updated 恒 0；③看板按**名称**匹配（同名复用/不存在自动登记）；④板块 ensure_column 自动登记；⑤导入弹窗与 audit 文案同步。**旧行为确认**：原逻辑按 card_id INSERT OR REPLACE 覆盖整行 | `src/app/app.py`（模板 + import_xlsx）、`src/static/index.html`（弹窗提示）、`ops/test_import_xlsx_addonly.py`（新增 16 断言）、`ops/ui_check_import_modal.py`（样式探针同步新列序） | `HANDOFF.md §七 #86` |
+| #87 | 2026-11-06 | **主设计师** | 运维脚本 | **同步开关中文乱码修复**：用户终端为 UTF-8 渲染环境，而 bat 强制子脚本输出 GBK（PYTHONIOENCODING=gbk + iconv 转 GBK）→ GBK 字节全乱 + ANSI 颜色码原样漏出。修复：PYTHONIOENCODING 改 utf-8（verify.py reconfigure 分支自动跟随）、NO_COLOR=1 让 verify.py/sync.sh 不发颜色码、移除 iconv/Drain 转码环节（UTF-8 直通终端）；bat 菜单保持 GBK（cmd echo 走 WriteConsoleW 不受代码页影响，本就正常） | `同步开关.bat`、`ops/verify.py`（NO_COLOR）、`ops/sync.sh`（NO_COLOR） | `HANDOFF.md §七 #87` |
 | #55 | 2026-11-04 | **主设计师** | 前端 | **父子事项/板块行布局优化**：①字段列 648→446px（周数压缩「2026·W32」），省出的 202px 全给标题（实测 492px，约翻倍）；②周数移到负责人左侧（fieldItems 单一数据源调整，父子自动一致）；③板块行追加 负责人/创建/截止 字段 + 空槽位与事项行同构 → 字段列纵向对齐；进度条改弹性 → 右端 = 字段列左端 = 事项标题右端；④置顶/复制（板块行还有折叠/展开）合并为「操作 ▾」下拉菜单，tail 槽位与事项行同构 | `src/static/index.html`、`ops/ui_check_row_layout.py`（新增） | `HANDOFF.md §七 #55` |
 | #54 | 2026-11-04 | **主设计师** | 前端 + 后端 | **人员选择层级约束**：①看板负责人/参与人（参与人恢复）只能从**归属架构子树**选（保留 🌳，财务中心=顶层→全范围）；②板块负责人/参与人只能从**所属看板**的负责人与参与人选（🌳 架构按钮 → 👤 看板选人）；③事项负责人/参与人只能从**所属板块**的负责人与参与人选（移除「从架构选人」按钮，person picker 接池）；④负责人/参与人**互斥**（三层一致，负责人优先）；后端恢复 boards.participants 数据链路 + 双向互斥兜底 | `src/app/app.py`、`src/static/index.html`、`ops/test_hier_pool.py`（新增）、`ops/ui_check_hier_pick.py`（新增） | `HANDOFF.md §七 #54` |
 | #53 | 2026-11-04 | **主设计师** | 前端 | **筛选器改进三件**：①人员筛选树底栏加【清空】按钮（一键清空临时已选），并修 bug —— 全部取消勾选后点确定原来被 toast「未选择人员」拦截无法清空，改为允许空确认 = 清空该筛选（看板负责人筛选同理）；②周数筛选：提示改「可直接输入「2026-41」回车」，输入格式统一为年份-周数（移除纯数字「41」支持），面板加【全选】【清空】按钮（取代底部「清空全部」选项）；③按钮行：【展开板块/折叠板块】→【展开/折叠】，【新建板块】移到最后，原位置加【清空筛选】（一键清空搜索/人员/周数/日期区间），toolbar-right 锁宽 402→452px | `src/static/index.html`、`ops/ui_check_filter_v2.py`（新增） | `HANDOFF.md §七 #53` |
@@ -1229,6 +1230,18 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #87 · 2026-11-06 · 主设计师 · 同步开关中文乱码修复
+
+**用户反馈**：同步开关.bat 全程乱码——菜单英文正常，verify.py 输出「锟斤拷」，sync.sh 输出 `[36m` 颜色码原样可见。
+
+**根因（字节级实测定位）**：用户终端为 **UTF-8 渲染环境**（WorkBuddy 类集成终端），而 bat 的编码链路是老假设「控制台 = GBK」——`PYTHONIOENCODING=gbk` 强制 verify.py 输出 GBK 字节、sync.sh 输出经 iconv 转 GBK：GBK 字节进 UTF-8 终端 → 中文全乱（hex 实测 `a854` = GBK 的「═」）；ANSI 颜色码因终端不解析 VT 而**原样漏出**。bat 菜单正常是因为 cmd 的 echo 走 WriteConsoleW（Unicode API），与代码页无关——这条线索正是定位关键。
+
+**修复（最小改动）**：`PYTHONIOENCODING` gbk→**utf-8**（verify.py 的 `_setup_output_encoding` 分支自动跟随输出 UTF-8）；`NO_COLOR=1` 让 verify.py / sync.sh **不发 ANSI 颜色码**（两脚本新增对 NO_COLOR 的尊重）；移除 iconv 查找与 Drain 转码环节——sync.sh 的 UTF-8 输出直通终端。bat 菜单保持 GBK 编码不变（WriteConsoleW 显示正常）。
+
+**验证**：模拟用户环境（`PYTHONIOENCODING=utf-8` + `NO_COLOR=1`）实测 verify.py 输出——UTF-8 字节、无颜色码、中文正常；`bash -n sync.sh` / `ast.parse verify.py` 语法通过；GB 源 bat 的 GBK 编码完整性保持。**真机回归**：请在用户终端重跑「同步开关.bat」确认——预期菜单与验证输出全部正常、无颜色码。
+
+**教训（Windows 终端编码）**：①「同一控制台里 cmd echo 正常 + Python 输出乱」= 终端按 UTF-8 渲染而子进程写 GBK——echo 走 WriteConsoleW（Unicode API）不受代码页影响，这就是判据；②子进程输出编码应跟随**终端的渲染假设**而非系统代码页；③ANSI 颜色码在不解析 VT 的环境必须可用 NO_COLOR 关闭（https://no-color.org 约定）。
 
 ### #86 · 2026-11-06 · 主设计师 · xlsx 导入改「仅新增」
 
