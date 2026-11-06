@@ -1148,6 +1148,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #77 | 2026-11-06 | **主设计师** | 前端 + 后端 | **评论 @ 候选池按架构内可见路径过滤**：新增 GET /api/cards/{id}/mention_pool（user_allowed(arch_only=True) 唯一权威实现加显式开关）；**管理员的超管可见性不计入候选**（用户确认：管理员权限独立于架构外，不能因为是管理员就谁都能 @ 到——管理员只有同时具备架构内身份才进池）；前端 mentionCandidates 优先用服务端池、未加载兜底全员 | `src/app/app.py`（mention_pool + user_allowed 开关）、`src/static/index.html`、`ops/test_mention_pool.py`（新增 8 断言） | `HANDOFF.md §七 #77` |
 | #78 | 2026-11-06 | **主设计师** | 后端（文档澄清） | **管理员两级称谓确认（无行为改动）**：用户确认 dsy 应为管理员、超级管理员有且仅有内置 admin 账号——**核实现状即符合**（dsy role='admin' ✓；SUPER_ADMIN 常量唯一 + 不可删/改密/改角色保护 ✓）；中途一度误把管理员的可见性豁免摘掉（与 #77「管理员权限独立于架构外」矛盾，回归抓出后回滚）；仅澄清 is_admin / user_allowed docstring 两级称谓 + test_mention_pool 加【0】语义断言（12 断言） | `src/app/app.py`（仅 docstring）、`ops/test_mention_pool.py`（+4 断言） | `HANDOFF.md §七 #78` |
 | #79 | 2026-11-06 | **主设计师** | 前端 + 后端 | **导出字段选择弹窗**：导出入口 → 弹窗复选框勾选字段（数据源 = 新增 GET /api/export/fields，单一数据源 XLSX_COLUMNS）；仅导出勾选字段、**列顺序 = 勾选先后**（fields 参数按序传 key，后端按参数序取列）；每字段右侧蓝色序号徽标实时更新；未勾选导出 → toast 拦截；缺省兼容全量、未知字段 400 | `src/app/app.py`（fields 参数 + fields 接口）、`src/static/index.html`（exportModal + EXP_PICKS）、`ops/test_export_fields.py`（新增 8 断言）、`ops/ui_check_export_fields.py`（新增 9 断言 + 截图） | `HANDOFF.md §七 #79` |
+| #80 | 2026-11-06 | **主设计师** | 前端 + 后端 | **导出模板**：①当前勾选+版式（fmt=xlsx）存为命名模板，每用户独立（export_templates 表，init_db SCHEMA 幂等建表），可查看/修改/删除；②导出弹窗下拉一键应用模板（字段按模板序填充勾选——**导出主链路零改动**，复用 #79 fields 机制）；③管理列表弹窗（操作▾ 直达）：卡片式展示 名称 / xlsx·字段数·更新时间 / 带序号字段 chips + 应用·编辑·删除（confirm 二次确认） | `src/app/init_db.py`（建表）、`src/app/app.py`（模板 CRUD）、`src/static/index.html`（导出弹窗模板区 + exportTplModal）、`ops/test_export_templates.py`（新增 16 断言）、`ops/ui_check_export_tpl.py`（新增 10 断言 + 截图） | `HANDOFF.md §七 #80` |
 | #55 | 2026-11-04 | **主设计师** | 前端 | **父子事项/板块行布局优化**：①字段列 648→446px（周数压缩「2026·W32」），省出的 202px 全给标题（实测 492px，约翻倍）；②周数移到负责人左侧（fieldItems 单一数据源调整，父子自动一致）；③板块行追加 负责人/创建/截止 字段 + 空槽位与事项行同构 → 字段列纵向对齐；进度条改弹性 → 右端 = 字段列左端 = 事项标题右端；④置顶/复制（板块行还有折叠/展开）合并为「操作 ▾」下拉菜单，tail 槽位与事项行同构 | `src/static/index.html`、`ops/ui_check_row_layout.py`（新增） | `HANDOFF.md §七 #55` |
 | #54 | 2026-11-04 | **主设计师** | 前端 + 后端 | **人员选择层级约束**：①看板负责人/参与人（参与人恢复）只能从**归属架构子树**选（保留 🌳，财务中心=顶层→全范围）；②板块负责人/参与人只能从**所属看板**的负责人与参与人选（🌳 架构按钮 → 👤 看板选人）；③事项负责人/参与人只能从**所属板块**的负责人与参与人选（移除「从架构选人」按钮，person picker 接池）；④负责人/参与人**互斥**（三层一致，负责人优先）；后端恢复 boards.participants 数据链路 + 双向互斥兜底 | `src/app/app.py`、`src/static/index.html`、`ops/test_hier_pool.py`（新增）、`ops/ui_check_hier_pick.py`（新增） | `HANDOFF.md §七 #54` |
 | #53 | 2026-11-04 | **主设计师** | 前端 | **筛选器改进三件**：①人员筛选树底栏加【清空】按钮（一键清空临时已选），并修 bug —— 全部取消勾选后点确定原来被 toast「未选择人员」拦截无法清空，改为允许空确认 = 清空该筛选（看板负责人筛选同理）；②周数筛选：提示改「可直接输入「2026-41」回车」，输入格式统一为年份-周数（移除纯数字「41」支持），面板加【全选】【清空】按钮（取代底部「清空全部」选项）；③按钮行：【展开板块/折叠板块】→【展开/折叠】，【新建板块】移到最后，原位置加【清空筛选】（一键清空搜索/人员/周数/日期区间），toolbar-right 锁宽 402→452px | `src/static/index.html`、`ops/ui_check_filter_v2.py`（新增） | `HANDOFF.md §七 #53` |
@@ -1222,6 +1223,18 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #80 · 2026-11-06 · 主设计师 · 导出模板
+
+**用户需求**：①当前勾选的字段及导出版式保存为命名模板（多个，支持查看、修改、删除）；②导出时可直接选择模板一键应用；③单独的模板列表页面展示名称、包含字段及版式信息。
+
+**实现**
+- **数据**：`export_templates` 表（id / username / name / fields / fmt / created_at / updated_at），init_db SCHEMA 幂等建表（新旧库启动即建）；**每用户独立**（username 属主隔离）。
+- **后端**：`GET/POST /api/export/templates` + `PUT/DELETE /api/export/templates/{id}`——属主校验（非属主 404）、同名 409、字段校验复用 #79 的 key 合法性（未知 400、空 400，保序去重）、变更写 audit_log；列表返回 `titles`（key→中文由服务端解析）。
+- **应用零改导出主链路**：模板 = 字段按序填充勾选（`EXP_PICKS`）→ 走 `/api/export/xlsx?fields=...`（#79 机制直接复用），导出接口无任何新参数。
+- **前端**：①导出弹窗加模板区（下拉一键应用 + 「保存为模板/更新模板」编辑态 + 「管理模板」入口）；②新增 `exportTplModal` 管理列表：每模板一卡片（名称 / `xlsx · N 个字段 · 更新时间` 版式信息 / 带序号字段 chips / 应用到导出·编辑·删除，删除 confirm 二次确认）；③「操作 ▾」加「导出模板」直达入口。
+
+**验证**：`ops/test_export_templates.py` **16/0**（CRUD / 校验 / 属主隔离 / **模板序 = 导出列序**）；`ops/ui_check_export_tpl.py` **10/0**（存 → 下拉出现 / 应用 → 勾选按模板序 / 徽标 / 编辑态按钮切换 / 删除清空）+ 截图 `ops/.shots/export_tpl.png` 人工确认 ✓；#79 回归（test_export_fields 8/0、ui_check_export_fields 9/0）+ `test_hp_feat` 34/0；`verify.py` **7/7**（fingerprint 新签）。UI 实测初跑 6 失败均为跨 run 模板残留与断言写法（DOM 序 ≠ 勾选序），产品代码无缺陷——脚本已加「开工清残留」幂等保障。
 
 ### #79 · 2026-11-06 · 主设计师 · 导出字段选择弹窗
 
