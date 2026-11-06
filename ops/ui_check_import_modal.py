@@ -144,15 +144,15 @@ async def main():
         shutil.rmtree(profile, ignore_errors=True)
 
     print('\n【B】导入模板提示样式校准')
-    from app.app import make_token, XLSX_IMPORT_COLS, XLSX_REQUIRED
+    from app.app import make_token, XLSX_TEMPLATE_COLS, XLSX_REQUIRED
     tok = make_token('admin')
     req = urllib.request.Request(BASE + '/api/import/template', headers={'Authorization': 'Bearer ' + tok})
     body = urllib.request.urlopen(req, timeout=20).read()
     from openpyxl import load_workbook
     wb = load_workbook(io.BytesIO(body))
     ws = wb['导入数据']
-    req_idx = XLSX_IMPORT_COLS.index('card_name') + 1        # 必填列（事项名称 *）
-    opt_idx = XLSX_IMPORT_COLS.index('card_id') + 1          # 非必填列（第一列）
+    req_idx = XLSX_TEMPLATE_COLS.index('card_name') + 1        # 必填列（事项名称 *）
+    opt_idx = XLSX_TEMPLATE_COLS.index('column_name') + 1      # 非必填列（板块名称）
     h1 = ws.cell(1, req_idx)
     h2 = ws.cell(1, opt_idx)
     ok('事项名称' in str(h1.value) and '*' in str(h1.value), '必填表头带 * 号（实际 %r）' % h1.value)
