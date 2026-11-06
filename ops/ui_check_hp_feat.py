@@ -215,7 +215,9 @@ async def main():
             labels = r or []
             ok(any('导出（xlsx）' == l for l in labels), '菜单含「导出（xlsx）」（%s）' % labels)
             ok(any('导入（xlsx）' == l for l in labels), '菜单含「导入（xlsx）」')
-            ok(any('下载导入模板' == l for l in labels), '菜单含「下载导入模板」')
+            # 2026-11-06 #82：模板下载并入导入弹窗、模板管理并入导出弹窗 → 外部按钮移除
+            ok(not any('下载导入模板' == l for l in labels), '「下载导入模板」独立按钮已移除（并入导入弹窗）')
+            ok(not any('导出模板' == l for l in labels), '「导出模板」独立按钮已移除（并入导出弹窗页签）')
             ok(not any(l.startswith('📄') or l.startswith('📊') or l.startswith('📥') for l in labels),
                '导入/导出/模板三项已去掉 emoji（%s）' % labels)
 

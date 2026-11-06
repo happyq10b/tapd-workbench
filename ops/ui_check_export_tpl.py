@@ -105,14 +105,18 @@ async def main():
             })()""")
             ok(r == '1,2,3', '序号徽标集合 = 1..3（展示序与勾选序解耦，实际 %s）' % r)
 
-            # ③ 管理弹窗列表
+            # ③ 模板管理（#82：并入导出弹窗「导出模板」页签）
             await ev("openExportTplManager();")
             await asyncio.sleep(1)
             r = await ev("""(function(){
+              const m=document.getElementById('exportModal');
+              const tplView=document.getElementById('exp_view_tpls');
               const rows=[...document.querySelectorAll('#exp_tpl_list > div')];
-              return {rows:rows.length,chip:rows[0]?rows[0].querySelectorAll('span[style*=eef5ff]').length:0,
+              return {modalShown:m&&m.style.display==='flex',tplView:tplView&&tplView.style.display!=='none',
+                      rows:rows.length,chip:rows[0]?rows[0].querySelectorAll('span[style*=eef5ff]').length:0,
                       hasFmt:rows[0]?(rows[0].textContent.indexOf('xlsx')>=0):false};
             })()""")
+            ok(r.get('tplView') is True, '模板管理在导出弹窗内页签展示（#82）')
             ok(r.get('rows') == 1, '管理列表 1 行（实际 %s）' % r.get('rows'))
             ok(r.get('chip') == 3, '字段 chips 3 个')
             ok(r.get('hasFmt') is True, '版式信息（xlsx）展示')
@@ -141,7 +145,7 @@ async def main():
             created = []
 
             # ⑥ 截图：造 2 个模板 → 管理列表
-            await ev("closeModal('exportTplModal');openExportModal();")
+            await ev("openExportModal();")
             await asyncio.sleep(0.8)
             await ev("expNone();expToggle('week_no');expToggle('card_name');"
                      "document.getElementById('exp_tpl_name').value='__uitpl_周报';saveExpTpl();")
