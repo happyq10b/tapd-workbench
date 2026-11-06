@@ -205,6 +205,13 @@ docs/handoff/records/R00NN-<标题>.md ← 单条完整正文（一次只读一�
 > 🔴 **「★ 当前状态摘要」与 §3.1 由「交接管家」独占写权限**（规则见 §0.5.2）。
 > 其他 Agent 的意见不丢 —— 写在 §七 记录里并标注建议编号，管家合并。
 
+> 🔴 **HANDOFF / 工作日志的写入方式（2026-11-06 立规 · #74 实踩）**：
+> **禁止用 bash heredoc（`cat <<'EOF'` / `python - <<'PYEOF'`）追加留痕内容**——
+> 含中文引号、反斜杠（`\n` / `\\`）或多行转义的内容会被 shell 环境吃掉转义，
+> 轻则 Python SyntaxError、重则**静默写丢**（#74：提交成功但 HANDOFF 整段没写进去）。
+> → **一律用 Edit / Write 工具直接编辑文件**；写完必须**回读校验**
+> （`grep` 锚点行确认内容真的落盘）再 commit。实踩记录见 §七 #74 / #75。
+
 ### ④ 交接检查项（交出前逐条打勾 · 交给别人之前必须全绿）
 
 ```
@@ -220,6 +227,8 @@ docs/handoff/records/R00NN-<标题>.md ← 单条完整正文（一次只读一�
   ③ git diff --numstat HANDOFF.md  → 行数与预期相符（异常大 = 可能整篇重写 → 停）
   ④ git status --short → 没有把别人的文件顺手带进这次提交
 □ git commit 完成；`.workbuddy/memory/YYYY-MM-DD.md` 已追加自己那段
+□ 留痕写入方式合规（2026-11-06 立规）：HANDOFF / 日志用 **Edit/Write 工具**写入，
+  **没有**用 bash heredoc 追加；写后已 grep 回读确认内容落盘（heredoc 转义会静默写丢）
 □ 写后回读：自己条目在 + 索引表行数没减少 + 他人条目未丢失
 □ 提交后复核：`git log -1 --stat` 只含预期文件；`git show --numstat HEAD -- HANDOFF.md` 行数合理
 ```
