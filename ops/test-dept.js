@@ -353,22 +353,28 @@ function getLetSet(name) { return [...vm.runInContext(name, sandbox)]; }
     { column_name: '板块B', year: '2025' },
   ];
   sandbox.renderYearFilter(COLS);
-  const chips = getEl('yearFilter').innerHTML;
-  ok((chips.match(/class="year-chip"/g) || []).length === 2, '两个已选年份 → 两个 chip');
-  ok((chips.match(/class="yc-x"/g) || []).length === 2, '每个 chip 都有独立的移除入口');
-  ok(chips.includes('data-all="1"'), '提供「全部年份」清空入口');
+  // 2026-11-06 #81：年份筛选 UI 从【可选看板】chips 带改为筛选工具栏 combo 框 ——
+  // chips 渲染进 #yearFilterChips，全选/清空入口在面板 #yearDrop（paintYearDrop）
+  const chips = getEl('yearFilterChips').innerHTML;
+  ok((chips.match(/class="cf-chip"/g) || []).length === 2, '两个已选年份 → 两个 chip');
+  ok((chips.match(/removeYearChip/g) || []).length === 2, '每个 chip 都有独立的移除入口');
+  vm.runInContext('_yearDropOpen=true;', sandbox);   // 面板守卫：展开态才渲染
+  sandbox.paintYearDrop();
+  ok(getEl('yearDrop').innerHTML.includes('data-year-clear="1"'), '提供「清空」入口（= 全部年份）');
   // 单个移除
   setLetSet('curYears', ['2025', '2026']);
   vm.runInContext("curYears.delete('2025');", sandbox);
   sandbox.renderYearFilter(COLS);
-  const chips2 = getEl('yearFilter').innerHTML;
-  ok((chips2.match(/class="year-chip"/g) || []).length === 1, '移除单个年份后只剩一个 chip');
+  const chips2 = getEl('yearFilterChips').innerHTML;
+  ok((chips2.match(/class="cf-chip"/g) || []).length === 1, '移除单个年份后只剩一个 chip');
   // 清空全部
   setLetSet('curYears', []);
   sandbox.renderYearFilter(COLS);
-  const chips3 = getEl('yearFilter').innerHTML;
-  ok(!chips3.includes('data-year='), '清空全部后不再渲染年份 chip');
-  ok(chips3.includes('data-all="1"'), '「全部年份」入口常驻');
+  const chips3 = getEl('yearFilterChips').innerHTML;
+  ok(!chips3.includes('cf-chip'), '清空全部后不再渲染年份 chip');
+  vm.runInContext('_yearDropOpen=true;', sandbox);   // 面板守卫：展开态才渲染
+  sandbox.paintYearDrop();
+  ok(getEl('yearDrop').innerHTML.includes('data-year-clear="1"'), '清空入口常驻（面板渲染）');
 
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);

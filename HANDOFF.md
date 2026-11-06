@@ -1149,6 +1149,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #78 | 2026-11-06 | **主设计师** | 后端（文档澄清） | **管理员两级称谓确认（无行为改动）**：用户确认 dsy 应为管理员、超级管理员有且仅有内置 admin 账号——**核实现状即符合**（dsy role='admin' ✓；SUPER_ADMIN 常量唯一 + 不可删/改密/改角色保护 ✓）；中途一度误把管理员的可见性豁免摘掉（与 #77「管理员权限独立于架构外」矛盾，回归抓出后回滚）；仅澄清 is_admin / user_allowed docstring 两级称谓 + test_mention_pool 加【0】语义断言（12 断言） | `src/app/app.py`（仅 docstring）、`ops/test_mention_pool.py`（+4 断言） | `HANDOFF.md §七 #78` |
 | #79 | 2026-11-06 | **主设计师** | 前端 + 后端 | **导出字段选择弹窗**：导出入口 → 弹窗复选框勾选字段（数据源 = 新增 GET /api/export/fields，单一数据源 XLSX_COLUMNS）；仅导出勾选字段、**列顺序 = 勾选先后**（fields 参数按序传 key，后端按参数序取列）；每字段右侧蓝色序号徽标实时更新；未勾选导出 → toast 拦截；缺省兼容全量、未知字段 400 | `src/app/app.py`（fields 参数 + fields 接口）、`src/static/index.html`（exportModal + EXP_PICKS）、`ops/test_export_fields.py`（新增 8 断言）、`ops/ui_check_export_fields.py`（新增 9 断言 + 截图） | `HANDOFF.md §七 #79` |
 | #80 | 2026-11-06 | **主设计师** | 前端 + 后端 | **导出模板**：①当前勾选+版式（fmt=xlsx）存为命名模板，每用户独立（export_templates 表，init_db SCHEMA 幂等建表），可查看/修改/删除；②导出弹窗下拉一键应用模板（字段按模板序填充勾选——**导出主链路零改动**，复用 #79 fields 机制）；③管理列表弹窗（操作▾ 直达）：卡片式展示 名称 / xlsx·字段数·更新时间 / 带序号字段 chips + 应用·编辑·删除（confirm 二次确认） | `src/app/init_db.py`（建表）、`src/app/app.py`（模板 CRUD）、`src/static/index.html`（导出弹窗模板区 + exportTplModal）、`ops/test_export_templates.py`（新增 16 断言）、`ops/ui_check_export_tpl.py`（新增 10 断言 + 截图） | `HANDOFF.md §七 #80` |
+| #81 | 2026-11-06 | **主设计师** | 前端 | **板块筛选栏改造**：①搜索栏后追加「🚦板块状态」下拉（未完成/进行中/已完成，多选+全选/清空，客户端按 cols.completion 过滤板块行）；②「🗓️归属年份」从【可选看板】带标题行移入本栏改 combo 多选（含全选/清空）——curYears/renderYearFilter 校验/years 参数零改动，仅渲染层换壳（id 保持）；③四下拉框等宽（cf-label 定宽 76px）+ 搜索框压缩 260→167（placeholder 完整）+ toolbar min-width 1319→1503；④【清空筛选】纳入两个新条件；其余筛选不动 | `src/static/index.html`、`ops/ui_check_col_filter.py`（新增 15 断言 + 截图）、`ops/test-dept.js`（年份断言同步） | `HANDOFF.md §七 #81` |
 | #55 | 2026-11-04 | **主设计师** | 前端 | **父子事项/板块行布局优化**：①字段列 648→446px（周数压缩「2026·W32」），省出的 202px 全给标题（实测 492px，约翻倍）；②周数移到负责人左侧（fieldItems 单一数据源调整，父子自动一致）；③板块行追加 负责人/创建/截止 字段 + 空槽位与事项行同构 → 字段列纵向对齐；进度条改弹性 → 右端 = 字段列左端 = 事项标题右端；④置顶/复制（板块行还有折叠/展开）合并为「操作 ▾」下拉菜单，tail 槽位与事项行同构 | `src/static/index.html`、`ops/ui_check_row_layout.py`（新增） | `HANDOFF.md §七 #55` |
 | #54 | 2026-11-04 | **主设计师** | 前端 + 后端 | **人员选择层级约束**：①看板负责人/参与人（参与人恢复）只能从**归属架构子树**选（保留 🌳，财务中心=顶层→全范围）；②板块负责人/参与人只能从**所属看板**的负责人与参与人选（🌳 架构按钮 → 👤 看板选人）；③事项负责人/参与人只能从**所属板块**的负责人与参与人选（移除「从架构选人」按钮，person picker 接池）；④负责人/参与人**互斥**（三层一致，负责人优先）；后端恢复 boards.participants 数据链路 + 双向互斥兜底 | `src/app/app.py`、`src/static/index.html`、`ops/test_hier_pool.py`（新增）、`ops/ui_check_hier_pick.py`（新增） | `HANDOFF.md §七 #54` |
 | #53 | 2026-11-04 | **主设计师** | 前端 | **筛选器改进三件**：①人员筛选树底栏加【清空】按钮（一键清空临时已选），并修 bug —— 全部取消勾选后点确定原来被 toast「未选择人员」拦截无法清空，改为允许空确认 = 清空该筛选（看板负责人筛选同理）；②周数筛选：提示改「可直接输入「2026-41」回车」，输入格式统一为年份-周数（移除纯数字「41」支持），面板加【全选】【清空】按钮（取代底部「清空全部」选项）；③按钮行：【展开板块/折叠板块】→【展开/折叠】，【新建板块】移到最后，原位置加【清空筛选】（一键清空搜索/人员/周数/日期区间），toolbar-right 锁宽 402→452px | `src/static/index.html`、`ops/ui_check_filter_v2.py`（新增） | `HANDOFF.md §七 #53` |
@@ -1223,6 +1224,19 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #81 · 2026-11-06 · 主设计师 · 板块筛选栏改造
+
+**用户需求**（附截图，明确「板块筛选栏 ≠ 事项筛选栏」）：①搜索栏后追加「板块状态」下拉；②「归属年份」从【可选看板】带标题行移入本栏，改多选下拉（含全选）；③两个新框与周数/人员等宽、emoji 对称（四框长宽一致），压缩搜索栏保持同行；④其余不动。
+
+**实现**
+- **板块状态**：`COL_STATUS_SEL`（open/progressing/done ↔ 未完成/进行中/已完成，与后端 COLUMN_COMPLETIONS 同套），**客户端过滤**——/api/cards 的 cols 载荷自带 completion（visible_columns `SELECT *`），renderBoard 的 names 过滤链在年份过滤后追加状态过滤（空值视同 open）；combo 交互复用周数/人员同款 cf-* 体系（多选 chips + 计数 + 面板全选/清空）。
+- **归属年份移入**：**状态机零改动**（curYears / renderYearFilter 的年份有效性校验 / buildFilterParams 的 years 参数）——仅渲染层从「chips 带」换成「combo 框」，id 保持 `yearFilter`/`yearDrop` → 全局点击委托零改动；旧「＋年份/全部年份」chips 由面板的「全选/清空」+ placeholder「全部年份」（空集合语义）承接；paintYearChips/paintYearDrop/onYearFilterClick 原地重写。
+- **布局**：`.toolbar-left .cf-label` 统一定宽 76px（四字标签「板块状态/归属年份」与两字「人员/周数」同宽对称）→ 四框实测 201×4 等宽；搜索框 min 260→**167**（placeholder 完整显示宽度，canvas 实测）；`.toolbar min-width` 1319→**1503**（1200 视口横滚承载，#56 既定方案）；【清空筛选】范围纳入两个新条件。
+
+**验证**：`ops/ui_check_col_filter.py` **15/0**（控件顺序 / 四框等宽 201×4 / 单行 top 一致 / 搜索 347 完整 / 状态过滤真实生效（内容区「没有符合状态条件的板块」）/ years 参数随请求 / 旧位置移除 / 清空筛选）+ 截图 `ops/.shots/col_filter.png` 人工确认 ✓；`test-dept.js` **125/0**（多年份筛选断言同步 combo 渲染——chips 容器改 `#yearFilterChips`、清空入口在面板、探针需置 `_yearDropOpen`）；`ui_check_filter_v2` 16/0、`ui_check_board_footer` 14/0；`verify.py` **7/7**（fingerprint 新签）。**既有失败登记**：`ui_check_copy` 5 项（板块/看板复制入口类，stash 对照确认与本轮无关）。
+
+**UI 实测踩坑**：主列表页未选看板时 `renderEmptyBoardState` 短路 → renderBoard 不跑、`_yearOptions` 为空、年份 combo 隐藏——测试必须先 `pickBoard`（与真实用户路径一致，也与旧 chips 行为一致）。
 
 ### #80 · 2026-11-06 · 主设计师 · 导出模板
 
