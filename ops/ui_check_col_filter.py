@@ -3,7 +3,7 @@
 """#81 板块筛选栏改造 UI 实测（2026-11-06 用户需求）：
 
 ① 布局：搜索 → 🚦板块状态 → 🗓️归属年份 → 👤人员 → 📅周数 → 日期，同行不换行；
-   四个下拉框等宽；搜索框宽度 ≥165px（提示词完整）
+   四个下拉框等宽；搜索框宽度 ≥186px（🔍 占位完整）
 ② 板块状态：面板 3 选项 + 全选/清空；勾选「进行中」→ COL_STATUS_SEL 生效 +
    请求发出（reload）；再勾「已完成」→ chips 两枚
 ③ 归属年份：面板含 全选/清空 + 年份列表；勾选 → curYears 生效 + years 参数随请求
@@ -94,26 +94,28 @@ async def main():
               const sinp=document.getElementById('searchInput').getBoundingClientRect();
               return {kids:kids.join('|'),rowH:Math.round(sr.height),
                       widths:w4,searchW:Math.round(sinp.width),
-                      ph:document.getElementById('searchInput').placeholder};
+                      };
             })()""")
             print('布局探针:', json.dumps(r, ensure_ascii=False))
-            ok('searchInput|colStatusWrap|yearFilter|personFilterWrap|weekFilterWrap|dateFilterBox' in r.get('kids', ''),
-               '控件顺序 = 搜索→状态→年份→人员→周数→日期')
+            ok('searchInput|colStatusWrap|personFilterWrap|yearFilter|weekFilterWrap|dateFilterBox' in r.get('kids', ''),
+               '控件顺序 = 搜索→状态→人员→年份→周数→日期（#84 人员/年份对调）')
             ok(r.get('rowH', 999) <= 46, '筛选行单行不换行（toolbar-left 高 %s）' % r.get('rowH'))
             wlist = r.get('widths') or []
             ok(len(wlist) == 4 and max(x['w'] for x in wlist) - min(x['w'] for x in wlist) <= 2,
                '四个下拉框等宽（%s）' % [x['w'] for x in wlist])
             ok(all(x['top'] == wlist[0]['top'] for x in wlist), '四框同一行（top 一致）')
-            ok(r.get('searchW', 0) >= 165, '搜索框 ≥165px，提示词完整（实际 %s）' % r.get('searchW'))
+            ok(r.get('searchW', 0) >= 186, '搜索框 ≥186px（🔍 占位完整，实际 %s）' % r.get('searchW'))
             # #83：占位提示移除 + 标签改两字
             r = await ev("""(function(){
               return {stPh:document.getElementById('colStatusInput').placeholder,
                       yrPh:document.getElementById('yearFilterInput').placeholder,
+                      searchPh:document.getElementById('searchInput').placeholder,
                       labels:[...document.querySelectorAll('.toolbar-left .cf-label')].map(x=>x.textContent.trim())};
             })()""")
             ok(r.get('stPh') == '' and r.get('yrPh') == '', '状态/年份输入框无占位提示')
-            ok(r.get('labels') == ['🚦 状态', '🗓️ 年份', '👤 人员', '📅 周数'],
-               '标签 = 状态/年份/人员/周数（实际 %s）' % r.get('labels'))
+            ok(r.get('labels') == ['🚦 状态', '👤 人员', '🗓️ 年份', '📅 周数'],
+               '标签两字、顺序 = 状态/人员/年份/周数（实际 %s）' % r.get('labels'))
+            ok((r.get('searchPh') or '').find(chr(0x1F50D))>=0, '搜索栏占位带 🔍 emoji（实际 %s）' % r.get('searchPh'))
             # #83：清空筛选/操作 恒定贴行右端，且右缘与日期框对齐（margin-left:auto，
             #      不依赖明细有无）；max-width 放开后两行右缘恒对齐
             await ev("document.getElementById('filterHint').textContent='人员：测试 | 周数：2026 · 第41周';")
@@ -181,6 +183,36 @@ async def main():
             await ev("clearAllRowFilters();")
             r = await ev("(function(){return {cs:COL_STATUS_SEL.size,y:curYears.size}})()")
             ok(r.get('cs') == 0 and r.get('y') == 0, '清空筛选 → 板块状态与归属年份一并清空')
+
+            # ⑤b #84：提示文案
+            await ev("openFilterCombo('week');")
+            await asyncio.sleep(0.5)
+            r = await ev("(function(){return document.getElementById('weekFilterDrop').textContent.indexOf('可直接输入「2026-41」回车')>=0 && document.getElementById('weekFilterDrop').textContent.indexOf('点击勾选')<0;})()")
+            ok(r is True, '周数提示改为「可直接输入「2026-41」回车」')
+            await ev("toggleColStatusDrop({stopPropagation(){}});")
+            r = await ev("(function(){return document.getElementById('colStatusDrop').textContent.indexOf('板块完成情况')>=0;})()")
+            ok(r is True, '状态提示改为「板块完成情况」')
+            await ev("closeColStatusDrop();closeFilterCombo();")
+
+            # ⑤c #84：年份手动输入（「2027」非当前看板候选 → _manualYear 保护）
+            await ev("toggleYearDrop({stopPropagation(){}});")
+            await ev("var yi=document.getElementById('yearFilterInput');yi.value='2027';onYearKey({key:'Enter',preventDefault(){},stopPropagation(){}});")
+            await asyncio.sleep(1)
+            r = await ev("(function(){return {sel:[...curYears],manual:_manualYear.has('2027'),chip:document.getElementById('yearFilterChips').textContent.indexOf('2027')>=0}})()")
+            ok(r.get('sel') == ['2027'] and r.get('manual') is True, '手动输入 2027 回车 → 加入已选（手工年份保护）')
+            ok(r.get('chip') is True, 'chip 渲染 2027')
+            # 非法输入被拒
+            await ev("var yi=document.getElementById('yearFilterInput');yi.value='abc';onYearKey({key:'Enter',preventDefault(){},stopPropagation(){}});")
+            r = await ev("(function(){return {sel:[...curYears],toast:document.getElementById('toast').textContent}})()")
+            ok(r.get('sel') == ['2027'] and '年份格式' in (r.get('toast') or ''), '非法年份输入被拦截并提示')
+
+            # ⑤d #84：筛选明细包含状态与年份
+            await ev("toggleColStatusPick('progressing');")
+            await asyncio.sleep(1)
+            await ev("syncFilterHint();")
+            r = await ev("document.getElementById('filterHint').textContent")
+            ok('状态：进行中' in r and '年份：2027 年' in r,
+               '筛选明细含状态与年份（实际 %r）' % r)
 
             # ⑥ 截图：勾选状态 + 面板展开
             await ev("toggleColStatusPick('progressing');toggleYearDrop===0;")
