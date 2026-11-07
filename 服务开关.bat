@@ -10,7 +10,9 @@ rem    LOCAL     http://127.0.0.1:8100   (dev server, offline copy of DB)
 rem    SERVER    https://123.207.252.195 (production, real data)
 rem
 rem  Local  : 1 start / 2 stop / 3 restart / 4 status / 5 open browser
-rem  Server : 6 status / 7 restart prod / 8 switch to dev / 9 back to prod / 10 logs
+rem  Server PROD : 6 status / 7 restart / 8 logs / A stop / B start
+rem  Server DEV  : C stop / D start / E restart / F prod-data-to-dev
+rem  DEV URL: https://123.207.252.195:8443   PROD URL: https://123.207.252.195
 rem ================================================================
 
 cd /d "%~dp0"
@@ -82,29 +84,31 @@ echo   [3] Restart    重启本地开发服务
 echo   [4] Status     查看本地服务状态
 echo   [5] Open       打开浏览器
 echo.
-echo   --- SERVER (https://123.207.252.195) ---
-echo   [6] Status     查看服务器服务状态
+echo   --- SERVER PROD (https://123.207.252.195) ---
+echo   [6] Status     双环境状态与健康检查
 echo   [7] Restart    重启生产服务
-rem   [8] To Dev     切到开发模式（占用 8000）  <- 已隐藏，日常用同步开关
-rem   [9] To Prod    切回生产模式                 <- 已隐藏，日常用同步开关
-echo   [8] Logs      查看服务器日志
+echo   [8] Logs       查看生产日志(15秒)
+echo   [A] Stop       生产停服（发布窗口用）
+echo   [B] Start      生产恢复
 echo.
-echo   备注: [8] 切开发 / [9] 切生产 已从菜单隐藏（保留代码与备查注释）。
-echo         日常切环境请用根目录「同步开关.bat」：选项 1 = 开发，选项 2 = 生产。
-echo         如需手动切：cd ops ^&^& python srv-ctl.py dev   （切回用 stopdev）
+echo   --- SERVER DEV (https://123.207.252.195:8443) ---
+echo   [C] Dev-Stop     开发停服
+echo   [D] Dev-Start    开发恢复
+echo   [E] Dev-Restart  开发重启（代码改动后）
+echo   [F] Data-Sync    生产数据回迁开发库
 echo.
 echo   [Q] Quit
 echo ================================================================
 echo.
 rem 选项里刻意不含 8/9：这两个功能已从菜单隐藏，仅保留代码供直接调用
 rem 退出用 Q 而不是 0 —— 数字 0 在 choice 里会与最后一个数字键的 errorlevel 撞车
-choice /c 12345678Q /n /m "   Select: "
+choice /c 12345678ABCDEFQ /n /m "   Select: "
 set "PICK=%ERRORLEVEL%"
 
 rem 'choice' returns 1..10 for a valid pick; 0 for key 0.
 rem On EOF / aborted input it returns 1 as well, so validate the value
 rem explicitly instead of relying on 'if errorlevel N' ranges.
-if "%PICK%"=="9" goto :QUIT
+if "%PICK%"=="15" goto :QUIT
 if "%PICK%"=="1" goto :LOC_START
 if "%PICK%"=="2" goto :LOC_STOP
 if "%PICK%"=="3" goto :LOC_RESTART
@@ -113,6 +117,12 @@ if "%PICK%"=="5" goto :OPEN_BROWSER
 if "%PICK%"=="6" goto :SRV_STATUS
 if "%PICK%"=="7" goto :SRV_RESTART
 if "%PICK%"=="8" goto :SRV_LOGS
+if "%PICK%"=="9" goto :SRV_PROD_STOP
+if "%PICK%"=="10" goto :SRV_PROD_START
+if "%PICK%"=="11" goto :SRV_DEV_STOP
+if "%PICK%"=="12" goto :SRV_DEV_START
+if "%PICK%"=="13" goto :SRV_DEV_RESTART
+if "%PICK%"=="14" goto :SRV_DEVDB
 echo   Invalid selection.
 goto :MENU
 
@@ -158,27 +168,45 @@ goto :AFTER
 echo.
 echo   Restarting production service on server ...
 call :SRV restart
+:SRV_LOGS
+echo.
+call :SRV logs 60
+
+:SRV_PROD_STOP
+echo.
+echo   停止生产服务（发布窗口）。期间用户无法访问，恢复请选 [B]。
+call :SRV stopprod
 goto :AFTER
 
-rem ---- 以下两个分支已从菜单隐藏（编号 8/9 不在 choice 选项里，无法从菜单触发）----
-rem 保留是为了代码完整与备查；日常切环境用「同步开关.bat」，或直接：
-rem   cd ops && python srv-ctl.py dev      切开发模式
-rem   cd ops && python srv-ctl.py stopdev  切回生产模式
-:SRV_DEV
+:SRV_PROD_START
 echo.
-echo   Switching server to DEV mode ...
-call :SRV dev
+echo   恢复生产服务 ...
+call :SRV startprod
 goto :AFTER
 
-:SRV_PROD
+:SRV_DEV_STOP
 echo.
-echo   Switching server back to PROD mode ...
+echo   停止开发服务（https://123.207.252.195:8443 将不可访问）...
 call :SRV stopdev
 goto :AFTER
 
-:SRV_LOGS
+:SRV_DEV_START
 echo.
-call :SRV logs 60   ← 用带行数的 logs（不带行数是 tail -f，会一直挂着不返回）
+echo   恢复开发服务 ...
+call :SRV startdev
+goto :AFTER
+
+:SRV_DEV_RESTART
+echo.
+echo   重启开发服务 ...
+call :SRV devrestart
+goto :AFTER
+
+:SRV_DEVDB
+echo.
+echo   生产数据回迁开发库（一致性快照，dev 停机几秒，生产不受影响）...
+call :SRV devdb-sync
+goto :AFTER   ← 用带行数的 logs（不带行数是 tail -f，会一直挂着不返回）
 goto :AFTER
 
 rem ---------- run a command on the server via SSH ----------

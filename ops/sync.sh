@@ -19,11 +19,12 @@
 #    紧急绕过：SKIP_VERIFY=1 ./sync.sh --dev（打印警告，仅限故障恢复）
 #
 #  前置: 配置好 SSH 免密登录
-#  用法:
-#     ./sync.sh --dev        # 同步代码 + 切开发模式
-#     ./sync.sh --prod       # 同步代码 + 切回生产模式
-#     ./sync.sh --pull       # 从服务器拉回代码（只拉不推，不受门禁约束）
-#     ./sync.sh --db-local   # 用本地 app.db 覆盖服务器（危险，会丢服务器新数据）
+#  用法（三环境版 2026-11-06）:
+#     ./sync.sh --dev        # 同步代码到服务器开发环境（/opt/tapd-dev，重启 tapd-dev，不碰生产）
+#     ./sync.sh --prod       # 发布到生产（快照→停服→推代码→启动→健康检查，全程向导）
+#     ./sync.sh --db-local   # 用本地 app.db 覆盖【开发环境】库（仅 dev；生产永不允许）
+#     ./sync.sh --pull       # 从生产拉回代码（只拉不推，不受门禁约束）
+#     ./sync.sh --pull-dev   # 从开发环境拉回代码
 # ============================================================
 set -euo pipefail
 
@@ -31,13 +32,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVER_IP=123.207.252.195
 SSH_USER=root
 KEY="$SCRIPT_DIR/secrets/tapd_deploy_key"
-REMOTE_DIR=/opt/tapd-workbench
 LOCAL_DIR="$SCRIPT_DIR/../src"
 SSH_OPTS=(-i "$KEY" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=20)
 # ssh 会消耗 stdin，导致后续 read 拿不到用户输入。-n 把 stdin 重定向到 /dev/null 解决此问题
 SSH_READ_OPTS=(-n "${SSH_OPTS[@]}")
 
 MODE="${1:-prod}"
+# ── 三环境目标解析（2026-11-06 #89）：dev 与 prod 完全独立（目录/DB/服务/端口）──
+#   dev : /opt/tapd-dev        tapd-dev   8001  ← nginx 8443   https://123.207.252.195:8443
+#   prod: /opt/tapd-workbench  tapd-web   8000  ← nginx 443    https://123.207.252.195
+case "$MODE" in
+  --dev|--db-local|--pull-dev) REMOTE_DIR=/opt/tapd-dev;      SVC=tapd-dev ;;
+  *)                           REMOTE_DIR=/opt/tapd-workbench; SVC=tapd-web ;;
+esac
 # 行数差异容忍阈值：差异在此范围内视为本地微调，自动继续；超过则强制确认
 DIFF_TOLERANCE="${DIFF_TOLERANCE:-5}"
 # 验证凭证（阶段一产出）
@@ -65,10 +72,10 @@ fi
 #  门禁：阶段一验证凭证校验
 # ============================================================
 enforce_gate() {
-  # --pull 是从服务器往回拉，不涉及推送，无需门禁
-  if [ "$MODE" = "--pull" ]; then
-    return 0
-  fi
+  # --pull / --pull-dev 是从服务器往回拉，不涉及推送，无需门禁
+  case "$MODE" in
+    --pull|--pull-dev) return 0 ;;
+  esac
   if [ "${SKIP_VERIFY:-0}" = "1" ]; then
     echo "${c_y}! 已跳过验证门禁（SKIP_VERIFY=1）—— 仅限紧急故障恢复${c_0}"
     echo ""
@@ -164,9 +171,9 @@ for f in "$LOCAL_DIR"/app/*.py "$LOCAL_DIR"/static/*.html; do
   [ -f "$f" ] && normalize_lf "$f"
 done
 
-# ---- 分叉：--pull 只拉不推，避免把服务器改动冲掉 ----
-if [ "$MODE" = "--pull" ]; then
-  echo "${c_g}[1/3]${c_0} 从服务器拉取代码（不推送）"
+# ---- 分叉：--pull / --pull-dev 只拉不推，避免把服务器改动冲掉 ----
+if [ "$MODE" = "--pull" ] || [ "$MODE" = "--pull-dev" ]; then
+  echo "${c_g}[1/3]${c_0} 从 $MODE 目标（$REMOTE_DIR）拉取代码（不推送）"
   mkdir -p "$LOCAL_DIR/app" "$LOCAL_DIR/static"
   # 排除 __pycache__，否则 scp 会因目录项报错
   scp "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP:$REMOTE_DIR/app/*.py" "$LOCAL_DIR/app/"
@@ -192,7 +199,23 @@ if [ "$MODE" = "--pull" ]; then
 fi
 
 # 1. 同步代码（不动数据库）
-echo "${c_g}[1/3]${c_0} 同步代码 app/ static/ manage_users.py requirements.txt"
+# ── 生产发布前置（#89）：确认 → 快照 → 停服，全部在推代码之前完成 ──
+#    这样「停服窗口内推送」，即使中途取消/断网，生产也不会出现半新半旧状态。
+if [ "$MODE" = "--prod" ]; then
+  echo "${c_y}==============================================================${c_0}"
+  echo "${c_y}  生产发布向导（https://123.207.252.195）${c_0}"
+  echo "${c_y}  流程: 确认 → 发布快照(代码+DB) → 停服 → 推代码 → 启动 → 健康检查${c_0}"
+  echo "${c_y}  回滚: 发布回滚.bat / ssh 后 tapd rollback prod <快照名>${c_0}"
+  echo "${c_y}==============================================================${c_0}"
+  read -p "  已在开发环境(https://123.207.252.195:8443)完成验证，确认发布？(yes/no) " ans || ans=""
+  [ "$ans" = "yes" ] || { echo "已取消，未做任何变更"; exit 1; }
+  echo "${c_b}[0/4]${c_0} 拍发布快照（代码 + 一致性数据库）"
+  ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "NO_COLOR=1 tapd snap prod"
+  echo "${c_b}[1/4]${c_0} 停止生产服务（进入发布窗口）"
+  ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "systemctl stop tapd-web && echo '  tapd-web 已停止'"
+fi
+
+echo "${c_g}[2/4]${c_0} 同步代码 app/ static/ manage_users.py requirements.txt"
 scp "${SSH_OPTS[@]}" -r "$LOCAL_DIR/app" "$LOCAL_DIR/static" \
     "$LOCAL_DIR/manage_users.py" "$LOCAL_DIR/requirements.txt" \
     "$SSH_USER@$SERVER_IP:$REMOTE_DIR/"
@@ -201,33 +224,37 @@ ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "find $REMOTE_DIR/app $REMOTE_D
 
 # 2. 可选：覆盖数据库
 if [ "$MODE" = "--db-local" ]; then
-  echo "${c_y}[2/3]${c_0} 覆盖服务器数据库（本地版本）"
-  read -p "    这会丢弃服务器上的新数据，确认？(yes/no) " ans || ans=""
+  echo "${c_y}[3/4]${c_0} 覆盖【开发环境】数据库（本地版本）"
+  echo "${c_y}  目标: $REMOTE_DIR/app.db —— 生产库永不允许被本地库覆盖${c_0}"
+  read -p "    这会丢弃开发环境当前数据，确认？(yes/no) " ans || ans=""
   if [ "$ans" = "yes" ]; then
     scp "${SSH_OPTS[@]}" "$LOCAL_DIR/app.db" "$SSH_USER@$SERVER_IP:$REMOTE_DIR/app.db"
-    ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "rm -f $REMOTE_DIR/app.db-wal $REMOTE_DIR/app.db-shm; systemctl restart tapd-web"
+    ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "rm -f $REMOTE_DIR/app.db-wal $REMOTE_DIR/app.db-shm; systemctl restart tapd-dev; sleep 3; systemctl is-active tapd-dev"
   else
     echo "    已跳过数据库覆盖"
   fi
 else
-  echo "[2/3] 跳过数据库（服务器数据保留）"
+  echo "[3/4] 跳过数据库（服务器数据保留）"
 fi
 
-# 3. 切换运行模式
+# 3. 按环境执行发布动作（三环境版 #89）
 case "$MODE" in
-  --dev)
-    echo "${c_g}[3/3]${c_0} 切到开发模式"
-    ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "systemctl enable --now tapd-dev; sleep 1; systemctl restart tapd-dev; sleep 4; systemctl is-active tapd-dev; tail -5 /var/log/tapd-dev.log"
+  --dev|--db-local)
+    echo "${c_g}[4/4]${c_0} 重启开发服务（tapd-dev，公网 https://123.207.252.195:8443）"
+    ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "systemctl restart tapd-dev; sleep 4; systemctl is-active tapd-dev; curl -s -o /dev/null -w 'dev 本机健康 HTTP %{http_code}\n' --max-time 6 http://127.0.0.1:8001/login"
     echo "    跟踪日志: ssh -i $KEY $SSH_USER@$SERVER_IP 'tail -f /var/log/tapd-dev.log'"
-    echo "    改代码后重跑 ./sync.sh --dev 即可生效（dev 模式不用 --reload，改为显式重启）"
+    echo "    生产环境全程未受影响。测试通过后执行 ./sync.sh --prod 发布。"
     ;;
   --prod)
-    echo "${c_g}[3/3]${c_0} 切回生产模式"
-    ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "systemctl stop tapd-dev; systemctl disable tapd-dev 2>/dev/null; systemctl start tapd-web; sleep 2; systemctl is-active tapd-web"
+    echo "${c_g}[3/4]${c_0} 启动生产服务（启动时 init_db 自动完成表结构迁移）"
+    ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "systemctl start tapd-web && sleep 4; systemctl is-active tapd-web; curl -s -o /dev/null -w '  prod 本机健康 HTTP %{http_code}\n' --max-time 6 http://127.0.0.1:8000/login"
+    echo ""
+    echo "  发布完成。请浏览器打开 https://123.207.252.195 做最终人工验收。"
+    echo "  异常时运行 发布回滚.bat（选最近快照，全程约 20 秒）。"
     ;;
   *)
-    echo "${c_g}[3/3]${c_0} 重启生产服务"
-    ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "systemctl restart tapd-web; sleep 2; systemctl is-active tapd-web"
+    echo "${c_g}[4/4]${c_0} 重启生产服务"
+    ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "systemctl restart tapd-web; sleep 2; systemctl is-active tapd-web; curl -s -o /dev/null -w '  prod 本机健康 HTTP %{http_code}\n' --max-time 6 http://127.0.0.1:8000/login"
     ;;
 esac
 

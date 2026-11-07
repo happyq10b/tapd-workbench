@@ -1157,6 +1157,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #86 | 2026-11-06 | **主设计师** | 后端 | **xlsx 导入改「仅新增」**：①模板移除全部 ID/编码类列（事项ID/看板ID/板块ID/工作空间ID，新增 XLSX_TEMPLATE_COLS），使用说明改「仅新增」口径；②导入忽略文件内 ID 类列（向后兼容旧文件），card_id 一律系统生成（C+微秒+序号）纯 INSERT——覆盖/更新路径不复存在，updated 恒 0；③看板按**名称**匹配（同名复用/不存在自动登记）；④板块 ensure_column 自动登记；⑤导入弹窗与 audit 文案同步。**旧行为确认**：原逻辑按 card_id INSERT OR REPLACE 覆盖整行 | `src/app/app.py`（模板 + import_xlsx）、`src/static/index.html`（弹窗提示）、`ops/test_import_xlsx_addonly.py`（新增 16 断言）、`ops/ui_check_import_modal.py`（样式探针同步新列序） | `HANDOFF.md §七 #86` |
 | #87 | 2026-11-06 | **主设计师** | 运维脚本 | **同步开关中文乱码修复**：用户终端为 UTF-8 渲染环境，而 bat 强制子脚本输出 GBK（PYTHONIOENCODING=gbk + iconv 转 GBK）→ GBK 字节全乱 + ANSI 颜色码原样漏出。修复：PYTHONIOENCODING 改 utf-8（verify.py reconfigure 分支自动跟随）、NO_COLOR=1 让 verify.py/sync.sh 不发颜色码、移除 iconv/Drain 转码环节（UTF-8 直通终端）；bat 菜单保持 GBK（cmd echo 走 WriteConsoleW 不受代码页影响，本就正常） | `同步开关.bat`、`ops/verify.py`（NO_COLOR）、`ops/sync.sh`（NO_COLOR） | `HANDOFF.md §七 #87` |
 | #88 | 2026-11-06 | **主设计师** | 服务器运维（SSH） | **安全审计 R1 落地：签名密钥轮换 + systemd EnvironmentFile**。先查后改的发现：生产密钥**并非出厂默认**（此前 tapd-run 已从 /etc/tapd-workbench.secret 读取 65 字节随机值）——但存在次级隐患：tapd-run 回退链里有公开写死的 'tapd-fallback-secret'。执行：①96 字符新随机密钥双落点（/etc/tapd-workbench.secret + /etc/tapd/env，均 600）；②systemd drop-in override.conf 注入 EnvironmentFile；③tapd-run 回退链加固（systemd 注入值优先→secret 文件→fallback 兜底）；④备份后 daemon-reload+restart。复查全过：进程环境非默认（末 6 位指纹 95e3cf）/ EnvironmentFiles 已加载 / /login 200 / 两落点一致。副作用：全体用户重新登录一次 | 服务器 `/etc/tapd-workbench.secret`、`/etc/tapd/env`、`/etc/systemd/system/tapd-web.service.d/override.conf`、`/usr/local/bin/tapd-run`（均有 .bak-20261106 备份） | `HANDOFF.md §七 #88` |
+| #89 | 2026-11-07 | **主设计师** | 运维框架（服务器 + 本地脚本 + 文档） | **三环境开发发布流程落地**：①服务器独立开发环境（/opt/tapd-dev 独立代码+DB 种子+venv、tapd-dev-run 绑 127.0.0.1:8001、tapd-dev.service 改独立运行去掉与 prod 互斥、nginx 8443→8001、云防火墙白名单放行 8443）→ **开发环境网址 https://123.207.252.195:8443**；②工具箱 tapd v2：stopprod/startprod/stopdev/startdev（独立启停）、snap/rollbacklist/rollback（发布快照=代码 tar+一致性DB，回滚前自动再拍快照）、devdb-sync（生产数据回迁 dev）；③sync.sh 双环境：--dev 推 /opt/tapd-dev 不碰 prod、--prod 改「确认→快照→停服→推码→启动→健康检查」向导（修掉先推码后确认的顺序缺陷）、--db-local 锁定仅 dev、--pull-dev；④服务开关.bat 菜单扩展（A/B 生产停/恢复、C/D 开发停/恢复、E 开发重启、F 数据回迁）；⑤新建发布回滚.bat（菜单式快照/回滚）；⑥docs/RELEASE_PIPELINE.md 操作链条文档 | `ops/server/`（tapd 工具箱 v2 + tapd-dev-run + tapd-dev.service + nginx-tapd-dev.conf 归档）、`ops/sync.sh`（双环境）、`服务开关.bat`、`发布回滚.bat`（新建）、`docs/RELEASE_PIPELINE.md` | `HANDOFF.md §七 #89` |
 | #55 | 2026-11-04 | **主设计师** | 前端 | **父子事项/板块行布局优化**：①字段列 648→446px（周数压缩「2026·W32」），省出的 202px 全给标题（实测 492px，约翻倍）；②周数移到负责人左侧（fieldItems 单一数据源调整，父子自动一致）；③板块行追加 负责人/创建/截止 字段 + 空槽位与事项行同构 → 字段列纵向对齐；进度条改弹性 → 右端 = 字段列左端 = 事项标题右端；④置顶/复制（板块行还有折叠/展开）合并为「操作 ▾」下拉菜单，tail 槽位与事项行同构 | `src/static/index.html`、`ops/ui_check_row_layout.py`（新增） | `HANDOFF.md §七 #55` |
 | #54 | 2026-11-04 | **主设计师** | 前端 + 后端 | **人员选择层级约束**：①看板负责人/参与人（参与人恢复）只能从**归属架构子树**选（保留 🌳，财务中心=顶层→全范围）；②板块负责人/参与人只能从**所属看板**的负责人与参与人选（🌳 架构按钮 → 👤 看板选人）；③事项负责人/参与人只能从**所属板块**的负责人与参与人选（移除「从架构选人」按钮，person picker 接池）；④负责人/参与人**互斥**（三层一致，负责人优先）；后端恢复 boards.participants 数据链路 + 双向互斥兜底 | `src/app/app.py`、`src/static/index.html`、`ops/test_hier_pool.py`（新增）、`ops/ui_check_hier_pick.py`（新增） | `HANDOFF.md §七 #54` |
 | #53 | 2026-11-04 | **主设计师** | 前端 | **筛选器改进三件**：①人员筛选树底栏加【清空】按钮（一键清空临时已选），并修 bug —— 全部取消勾选后点确定原来被 toast「未选择人员」拦截无法清空，改为允许空确认 = 清空该筛选（看板负责人筛选同理）；②周数筛选：提示改「可直接输入「2026-41」回车」，输入格式统一为年份-周数（移除纯数字「41」支持），面板加【全选】【清空】按钮（取代底部「清空全部」选项）；③按钮行：【展开板块/折叠板块】→【展开/折叠】，【新建板块】移到最后，原位置加【清空筛选】（一键清空搜索/人员/周数/日期区间），toolbar-right 锁宽 402→452px | `src/static/index.html`、`ops/ui_check_filter_v2.py`（新增） | `HANDOFF.md §七 #53` |
@@ -1231,6 +1232,21 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > **归档七步执行流程**见 §0.5.4。归档是本项目**最典型的长距离编辑** ——
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
+
+### #89 · 2026-11-07 · 主设计师 · 三环境开发发布流程框架
+
+**背景**：原服务器「开发模式」是同一目录/同一端口的互斥切换（tapd-dev Conflicts=tapd-web 争 8000），不是独立环境。
+
+**落地**：
+1. 独立开发环境：/opt/tapd-dev（代码 + DB 种子 = 生产一致性快照 + 独立 venv），tapd-dev-run 绑 127.0.0.1:8001，tapd-dev.service 独立运行，nginx 8443→8001，云防火墙（白名单制）放行 8443 → **https://123.207.252.195:8443**
+2. tapd 工具箱 v2（归档于 ops/server/ 可复现）：独立启停四命令、发布快照（代码 tar + 一致性 DB）、回滚（回滚前自动再拍快照，可反复）、devdb-sync（生产→dev 数据回迁，sqlite backup API，prod 不停服）
+3. sync.sh：--dev 推 /opt/tapd-dev 重启 tapd-dev（零影响 prod）；--prod 改为「确认→快照→停服→推码→启动(init_db 迁移)→健康检查」——修掉原「先推码后确认」顺序缺陷（取消时会留半新代码在 prod 盘）；--db-local 锁定仅 dev；--pull-dev
+4. 服务开关.bat：A/B 生产停/恢复、C/D 开发停/恢复、E 开发重启、F 生产数据回迁；发布回滚.bat（新建）：菜单式快照查看/创建/回滚
+5. 文档 docs/RELEASE_PIPELINE.md：环境总览、日常循环、数据库同步策略（devdb-sync / --db-local / init_db 幂等迁移 / ops/migrations 数据补丁约定）、发布链条、回滚、风险控制
+
+**实测**：dev 公网 200/prod 公网 200、stopdev→startdev、snap prod/dev、**dev 真实回滚全链路**（含 rollback-before 自动快照）、devdb-sync、sync.sh --dev 端到端（凭证门禁→推码→重启→健康 200）、两个 bat 菜单实测。
+
+---
 
 ### #88 · 2026-11-06 · 主设计师 · 安全审计 R1 落地：签名密钥轮换 + systemd EnvironmentFile
 

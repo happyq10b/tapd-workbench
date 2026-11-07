@@ -1,0 +1,246 @@
+#!/usr/bin/env bash
+# ============================================================
+#  TAPD Workbench 运维工具箱 v2（三环境版，2026-11-06）
+#  放置: /usr/local/bin/tapd        （本文件 = ops/server/tapd 的服务器副本）
+#
+#  三环境布局:
+#    本地        127.0.0.1:8100   （本地电脑，不在本机）
+#    服务器开发  /opt/tapd-dev    8001  systemd: tapd-dev   nginx 8443
+#    服务器生产  /opt/tapd-workbench  8000  systemd: tapd-web  nginx 443
+#  dev 与 prod 完全独立（目录/DB/venv/服务），可同时运行。
+#
+#  NO_COLOR=1 时关闭 ANSI 颜色码。
+# ============================================================
+set -euo pipefail
+
+PROD_DIR=/opt/tapd-workbench
+DEV_DIR=/opt/tapd-dev
+BACKUP_DIR=/var/backups/tapd-workbench
+RELEASE_DIR=$BACKUP_DIR/release          # 发布快照根: release/<prod|dev>/<name>/
+PROD_SVC=tapd-web
+DEV_SVC=tapd-dev
+SECRET_FILE=/etc/tapd-workbench.secret
+
+if [ -n "${NO_COLOR:-}" ]; then
+  c_g=""; c_y=""; c_r=""; c_b=""; c_0=""
+else
+  c_g=$'\033[32m'; c_y=$'\033[33m'; c_r=$'\033[31m'; c_b=$'\033[36m'; c_0=$'\033[0m'
+fi
+
+usage() {
+cat <<EOF
+${c_b}TAPD Workbench 运维工具（三环境版）${c_0}
+
+  ${c_g}status${c_0}                  双环境状态 + 健康检查（prod/dev）
+  ${c_g}stopprod${c_0} / ${c_g}startprod${c_0}      生产服务 停止 / 恢复（发布窗口用）
+  ${c_g}stopdev${c_0}  / ${c_g}startdev${c_0}       开发服务 停止 / 恢复
+  ${c_g}restart${c_0}                 重启生产服务
+  ${c_g}devrestart${c_0}              重启开发服务（代码改动后生效）
+  ${c_g}logs${c_0} [行数]             跟踪生产日志
+  ${c_g}devlog${c_0}                  跟踪开发日志
+  ${c_g}devdb-sync${c_0}              生产数据 → 开发库（一致性快照回迁，停 dev 几秒）
+  ${c_g}snap${c_0} <prod|dev> [名称]  发布前快照（代码tar + 一致性DB），缺省名=时间戳
+  ${c_g}rollbacklist${c_0} <prod|dev> 列出该环境的发布快照
+  ${c_g}rollback${c_0} <prod|dev> <名称>  回滚代码+数据库到快照（回滚前自动再拍一次快照）
+  ${c_g}backup${c_0}                  立即备份生产库（每日例行）
+  ${c_g}backups${c_0}                 列出历史例行备份
+  ${c_g}restore${c_0} <文件>          从例行备份恢复生产库（会停服）
+  ${c_g}shell${c_0} / ${c_g}version${c_0}          交互 shell / 部署版本信息
+EOF
+}
+
+# ---------- 公共函数 ----------
+svc_of()      { case "$1" in prod) echo $PROD_SVC ;; dev) echo $DEV_SVC ;; *) return 1 ;; esac; }
+dir_of()      { case "$1" in prod) echo $PROD_DIR ;; dev) echo $DEV_DIR ;; *) return 1 ;; esac; }
+port_of()     { case "$1" in prod) echo 8000 ;; dev) echo 8001 ;; esac; }
+
+db_snapshot() { # 一致性 DB 拷贝: $1=源库路径 $2=目标文件
+  local py
+  if [ -x "$DEV_DIR/venv/bin/python" ]; then py="$DEV_DIR/venv/bin/python"
+  else py="$PROD_DIR/venv/bin/python"; fi
+  cat > /tmp/_tapd_bk.py <<'PYEOF'
+import sqlite3, sys
+src = sqlite3.connect(sys.argv[1]); dst = sqlite3.connect(sys.argv[2])
+src.backup(dst); dst.close(); src.close()
+PYEOF
+  "$py" /tmp/_tapd_bk.py "$1" "$2"
+  rm -f /tmp/_tapd_bk.py
+}
+
+health() { # health <prod|dev>
+  local port; port=$(port_of "$1")
+  curl -s -o /dev/null -w '%{http_code}' --max-time 6 "http://127.0.0.1:$port/login" || echo FAIL
+}
+
+do_snap() { # do_snap <prod|dev> <name>
+  local env="$1" name="$2" dir svc appdir
+  svc=$(svc_of "$env"); appdir=$(dir_of "$env")
+  dir="$RELEASE_DIR/$env/$name"
+  mkdir -p "$dir"
+  echo "${c_b}[$env] 拍发布快照 → $dir${c_0}"
+  tar -czf "$dir/code.tar.gz" -C "$appdir" app static manage_users.py requirements.txt 2>/dev/null
+  db_snapshot "$appdir/app.db" "$dir/app.db"
+  rm -f "$appdir/app.db-wal" "$appdir/app.db-shm"   # 快照后清 wal，保持单文件语义
+  cat > "$dir/meta.txt" <<EOF
+env=$env
+ts=$name
+date=$(date '+%F %T')
+svc=$svc
+appdir=$appdir
+EOF
+  du -sh "$dir" | awk '{print "  大小: "$1}'
+}
+
+do_rollback() { # do_rollback <prod|dev> <name>
+  local env="$1" name="$2" dir svc appdir
+  svc=$(svc_of "$env"); appdir=$(dir_of "$env")
+  dir="$RELEASE_DIR/$env/$name"
+  [ -f "$dir/app.db" ] && [ -f "$dir/code.tar.gz" ] || {
+    echo "${c_r}快照不存在: $dir（tapd rollbacklist $env 查看）${c_0}"; exit 1; }
+  echo "${c_y}[$env] 回滚 → 快照 $name（过程约 10~20 秒）${c_0}"
+  echo "  1/5 回滚前先拍当前状态快照 rollback-before-$name"
+  do_snap "$env" "rollback-before-$name" >/dev/null 2>&1 || true
+  echo "  2/5 停服 $svc"
+  systemctl stop "$svc"
+  echo "  3/5 恢复数据库 + 代码"
+  cp "$dir/app.db" "$appdir/app.db"
+  rm -f "$appdir/app.db-wal" "$appdir/app.db-shm"
+  rm -rf "$appdir/app" "$appdir/static"
+  tar -xzf "$dir/code.tar.gz" -C "$appdir"
+  find "$appdir/app" "$appdir/static" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+  echo "  4/5 启动 $svc"
+  systemctl start "$svc"
+  sleep 4
+  echo "  5/5 健康检查"
+  local code; code=$(health "$env")
+  if [ "$code" = "200" ]; then
+    echo "${c_g}回滚完成，$env 健康（HTTP $code）。日志: journalctl -u $svc -n 50${c_0}"
+  else
+    echo "${c_r}健康检查异常（HTTP $code）！查看: journalctl -u $svc -n 80${c_0}"
+    exit 1
+  fi
+}
+
+# ---------- 子命令 ----------
+case "${1:-}" in
+  status)
+    echo "== 生产 prod（/opt/tapd-workbench :8000 ← nginx 443）=="
+    systemctl is-active $PROD_SVC || true
+    echo -n "  本机 HTTP: "; health prod; echo ""
+    echo "  公网入口: https://123.207.252.195（自测请从办公网本机发起）"
+    echo "== 开发 dev（/opt/tapd-dev :8001 ← nginx 8443）=="
+    systemctl is-active $DEV_SVC || true
+    echo -n "  本机 HTTP: "; health dev; echo ""
+    echo "  公网入口: https://123.207.252.195:8443（自测请从办公网本机发起）"
+    echo "== 数据库 =="
+    echo "  prod: $(ls -la $PROD_DIR/app.db | awk '{print $5" bytes  "$6" "$7" "$8}')"
+    echo "  dev : $(ls -la $DEV_DIR/app.db 2>/dev/null | awk '{print $5" bytes  "$6" "$7" "$8}' || echo '不存在')"
+    ;;
+
+  stopprod)
+    echo "${c_y}停止生产服务 $PROD_SVC（发布窗口）${c_0}"
+    systemctl stop $PROD_SVC
+    systemctl is-active $PROD_SVC || echo "已停止。恢复: tapd startprod"
+    ;;
+  startprod)
+    systemctl start $PROD_SVC && sleep 2
+    echo "生产服务: $(systemctl is-active $PROD_SVC)，健康 HTTP $(health prod)"
+    ;;
+  stopdev)
+    systemctl stop $DEV_SVC
+    systemctl is-active $DEV_SVC || echo "开发服务已停止。恢复: tapd startdev"
+    ;;
+  startdev)
+    systemctl start $DEV_SVC && sleep 3
+    echo "开发服务: $(systemctl is-active $DEV_SVC)，健康 HTTP $(health dev)"
+    ;;
+
+  restart)
+    systemctl restart $PROD_SVC && sleep 2
+    echo "生产: $(systemctl is-active $PROD_SVC)，HTTP $(health prod)"
+    ;;
+  devrestart)
+    systemctl restart $DEV_SVC && sleep 4
+    echo "开发: $(systemctl is-active $DEV_SVC)，HTTP $(health dev)"
+    tail -3 /var/log/tapd-dev.log 2>/dev/null || true
+    ;;
+
+  logs)
+    journalctl -u $PROD_SVC -n "${2:-100}" -f --no-pager
+    ;;
+  devlog)
+    tail -n "${2:-100}" -f /var/log/tapd-dev.log
+    ;;
+
+  devdb-sync)
+    echo "${c_y}生产数据 → 开发库（一致性快照；dev 停机几秒，prod 不受影响）${c_0}"
+    systemctl stop $DEV_SVC
+    db_snapshot "$PROD_DIR/app.db" "$DEV_DIR/app.db"
+    rm -f "$DEV_DIR/app.db-wal" "$DEV_DIR/app.db-shm"
+    systemctl start $DEV_SVC && sleep 3
+    echo "完成: dev 健康 HTTP $(health dev)，dev 库已与生产 $(date '+%F %T') 时点一致"
+    ls -la "$DEV_DIR/app.db" | awk '{print "  dev 库大小: "$5" bytes"}'
+    ;;
+
+  snap)
+    ENV="${2:?用法: tapd snap <prod|dev> [名称]}"
+    NAME="${3:-$(date +%Y%m%d-%H%M%S)}"
+    do_snap "$ENV" "$NAME"
+    echo "完成。回滚到此快照: tapd rollback $ENV $NAME"
+    ;;
+  rollbacklist)
+    ENV="${2:?用法: tapd rollbacklist <prod|dev>}"
+    D="$RELEASE_DIR/$ENV"
+    [ -d "$D" ] && ls -1t "$D" | while read -r n; do
+      echo "  $n  ($(du -sh "$D/$n" 2>/dev/null | awk '{print $1}'))"
+    done || echo "  （暂无快照）"
+    ;;
+  rollback)
+    ENV="${2:?用法: tapd rollback <prod|dev> <名称>}"
+    NAME="${3:?用法: tapd rollback <prod|dev> <名称>}"
+    do_rollback "$ENV" "$NAME"
+    ;;
+
+  backup)
+    mkdir -p "$BACKUP_DIR"
+    TS=$(date +%Y%m%d-%H%M%S)
+    db_snapshot "$PROD_DIR/app.db" "$BACKUP_DIR/app.db.$TS"
+    find "$BACKUP_DIR" -maxdepth 1 -name 'app.db.*' -mtime +7 -delete
+    echo "备份完成: $BACKUP_DIR/app.db.$TS"
+    ;;
+  backups)
+    ls -la "$BACKUP_DIR" 2>/dev/null | grep 'app.db.' || echo "还没有备份，先跑 tapd backup"
+    ;;
+  restore)
+    F="${2:?用法: tapd restore <备份文件路径>}"
+    [ -f "$F" ] || { echo "${c_r}文件不存在: $F${c_0}"; exit 1; }
+    echo "${c_y}非交互模式：直接恢复 $F → 生产库（停服进行中）${c_0}"
+    systemctl stop $PROD_SVC
+    cp "$F" "$PROD_DIR/app.db"
+    rm -f "$PROD_DIR/app.db-wal" "$PROD_DIR/app.db-shm"
+    systemctl start $PROD_SVC
+    sleep 2
+    echo "恢复完成: 生产 $(systemctl is-active $PROD_SVC)，HTTP $(health prod)"
+    ;;
+
+  shell)
+    cd "$PROD_DIR"
+    export APP_SECRET=$(cat $SECRET_FILE 2>/dev/null || echo dev-secret)
+    echo "已进入 $PROD_DIR，APP_SECRET 已注入"
+    exec bash
+    ;;
+  version)
+    for e in prod dev; do
+      d=$(dir_of "$e")
+      [ -d "$d" ] || continue
+      echo "== $e ($d) =="
+      echo "  代码更新: $(date -r $d/app/app.py '+%F %T' 2>/dev/null || echo '-')"
+      echo "  DB 更新:  $(date -r $d/app.db '+%F %T' 2>/dev/null || echo '-')"
+    done
+    $PROD_DIR/venv/bin/pip list 2>/dev/null | grep -Ei 'fastapi|uvicorn|websockets' || true
+    ;;
+
+  *)
+    usage
+    ;;
+esac

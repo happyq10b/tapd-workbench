@@ -1,0 +1,8 @@
+#!/bin/sh
+# TAPD 开发环境启动器（服务器 /usr/local/bin/tapd-dev-run）
+# dev 独立目录 /opt/tapd-dev、独立端口 8001、仅绑 127.0.0.1（公网入口走 nginx 8443）
+export APP_SECRET="$(cat /etc/tapd-workbench.secret 2>/dev/null || echo dev-secret)"
+export LANG=C.UTF-8
+export PYTHONUNBUFFERED=1
+cd /opt/tapd-dev
+exec /opt/tapd-dev/venv/bin/uvicorn app.app:app --host 127.0.0.1 --port 8001
