@@ -1233,6 +1233,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 > 本项目历史上出现过"并行 Edit 同一文件 5 次、每次都返回成功、实际 0 改动"的静默失败
 > （见 `工作转移手册.md` §2.3），所以**归档后必须回读校验**。
 
+| #90 | 2026-11-07 | **主设计师** | 运维工具（本地脚本 + bat） | **数据库快照同步与回滚开关（数据库同步回滚.bat）**：①Pull——服务器 tapd backup 一致性快照（不停服）→ scp 拉取 → data/db-snapshots/<时间戳>/app.db+meta；②List——本地快照清单；③Apply——选定快照→本地开发库 src/app.db（自动停 8100、当前本地库留底 local-before-*、替换后可选自动重启）；④Rollback——本地快照→生产库（高危双确认；服务器先自动拍 rollback-before-* 留底 → scp 上传 → tapd restore 停服恢复 → 公网健康复查 200）。实测：pull/list/apply/push 全链路真实跑通；**实测事故与自救**：push 测试误选 local-before（旧本地库 1263 cards）覆盖生产（原 1135）→ 用服务器自动留底快照 rollback-before-push-* 立即还原成功——自动留底机制被真实触发并证明有效 | `数据库同步回滚.bat`（新建）、`ops/db-sync-ctl.py`（新建）、`data/db-snapshots/`（快照存储，不入库） | `HANDOFF.md §七 #90` |
 ### #89 · 2026-11-07 · 主设计师 · 三环境开发发布流程框架
 
 **背景**：原服务器「开发模式」是同一目录/同一端口的互斥切换（tapd-dev Conflicts=tapd-web 争 8000），不是独立环境。
