@@ -212,15 +212,22 @@ case "${1:-}" in
     ls -la "$BACKUP_DIR" 2>/dev/null | grep 'app.db.' || echo "还没有备份，先跑 tapd backup"
     ;;
   restore)
-    F="${2:?用法: tapd restore <备份文件路径>}"
+    # 用法: tapd restore <文件>              → 生产库（兼容旧签名）
+    #       tapd restore <prod|dev> <文件>   → 指定环境库
+    if [ "${2:-}" = "prod" ] || [ "${2:-}" = "dev" ]; then
+      ENV="$2"; F="${3:?用法: tapd restore <prod|dev> <备份文件路径>}"
+    else
+      ENV=prod; F="${2:?用法: tapd restore <备份文件路径>}"
+    fi
     [ -f "$F" ] || { echo "${c_r}文件不存在: $F${c_0}"; exit 1; }
-    echo "${c_y}非交互模式：直接恢复 $F → 生产库（停服进行中）${c_0}"
-    systemctl stop $PROD_SVC
-    cp "$F" "$PROD_DIR/app.db"
-    rm -f "$PROD_DIR/app.db-wal" "$PROD_DIR/app.db-shm"
-    systemctl start $PROD_SVC
-    sleep 2
-    echo "恢复完成: 生产 $(systemctl is-active $PROD_SVC)，HTTP $(health prod)"
+    SVC=$(svc_of "$ENV"); APPDIR=$(dir_of "$ENV")
+    echo "${c_y}非交互模式：直接恢复 $F → $ENV 库（停服进行中）${c_0}"
+    systemctl stop $SVC
+    cp "$F" "$APPDIR/app.db"
+    rm -f "$APPDIR/app.db-wal" "$APPDIR/app.db-shm"
+    systemctl start $SVC
+    sleep 3
+    echo "恢复完成: $ENV $(systemctl is-active $SVC)，HTTP $(health $ENV)"
     ;;
 
   shell)

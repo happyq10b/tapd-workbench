@@ -26,8 +26,10 @@ SSH_CFG = os.path.join(HERE, "secrets", "sshcfg").replace("\\", "/")
 SNAP_ROOT = os.path.join(ROOT, "data", "db-snapshots")
 LOCAL_DB = os.path.join(ROOT, "src", "app.db")
 LOCAL_CTL = os.path.join(HERE, "local-ctl.py")
-REMOTE_DIR = "/opt/tapd-workbench"
 PROD_URL = "https://123.207.252.195/login"
+DEV_URL = "https://123.207.252.195:8443/login"
+ENV_DIR = {"prod": "/opt/tapd-workbench", "dev": "/opt/tapd-dev"}
+ENV_URL = {"prod": PROD_URL, "dev": DEV_URL}
 
 
 def find_bash():
@@ -199,39 +201,57 @@ def cmd_apply():
             print("本地服务已启动，浏览器打开 http://127.0.0.1:8100/login 验证。")
 
 
-# ---------------- push（回滚到生产）----------------
+# ---------------- push（回滚到服务器生产/开发库）----------------
 def cmd_push():
+    print("回滚目标环境：")
+    print("  [1] 生产（https://123.207.252.195，高危，影响真实用户）")
+    print("  [2] 开发（https://123.207.252.195:8443，仅测试环境）")
+    v = input("选择环境序号（直接回车取消）: ").strip()
+    if v == "1":
+        env = "prod"
+    elif v == "2":
+        env = "dev"
+    else:
+        print("已取消。")
+        return
     name = pick_snapshot()
     if not name:
         print("已取消。")
         return
     snap_db = os.path.join(SNAP_ROOT, name, "app.db")
-    print()
-    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    print("!! 高危操作：将用本地快照【%s】覆盖服务器生产库" % name)
-    print("!! 影响: 生产停服约 10~20 秒；快照之后生产产生的新数据将不可见")
-    print("!! 兜底: 回滚前服务器会自动拍当前生产快照（rollback-before-*）")
-    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    if env == "prod":
+        print()
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("!! 高危操作：将用本地快照【%s】覆盖服务器【生产】库" % name)
+        print("!! 影响: 生产停服约 10~20 秒；快照之后生产产生的新数据将不可见")
+        print("!! 兜底: 回滚前服务器会自动拍当前生产快照（rollback-before-*）")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    else:
+        print()
+        print("========================================================")
+        print("!! 将用本地快照【%s】覆盖服务器【开发】库" % name)
+        print("!! 影响: 开发环境停机几秒；开发库当前数据被覆盖（自动留底）")
+        print("========================================================")
     if not ask("  确认继续？输入 yes: "):
         print("已取消。")
         return
 
     ts = now_ts()
-    print("==> [1/4] 服务器自动拍当前生产快照（留底）...")
-    rc, out = ssh_run("tapd snap prod rollback-before-push-%s" % ts, timeout=180)
+    print("==> [1/4] 服务器自动拍当前 %s 快照（留底）..." % ("生产" if env == "prod" else "开发"))
+    rc, out = ssh_run("tapd snap %s rollback-before-push-%s" % (env, ts), timeout=180)
     if rc != 0:
-        print("[ERROR] 留底快照失败，中止（生产未做任何变更）")
+        print("[ERROR] 留底快照失败，中止（服务器未做任何变更）")
         sys.exit(1)
 
     print("==> [2/4] 上传快照到服务器...")
     remote_tmp = "/tmp/tapd-push-%s.db" % ts
     scp_push(snap_db, remote_tmp)
 
-    print("==> [3/4] 恢复生产库（停服→覆盖→启动）...")
-    rc, out = ssh_run("tapd restore %s" % remote_tmp, timeout=180)
+    print("==> [3/4] 恢复 %s 库（停服→覆盖→启动）..." % ("生产" if env == "prod" else "开发"))
+    rc, out = ssh_run("tapd restore %s %s" % (env, remote_tmp), timeout=180)
     if rc != 0:
         print("[ERROR] 服务器恢复失败（rc=%s），请立即人工检查：" % rc)
-        print("  ssh -F ops/secrets/sshcfg tapd 'systemctl status tapd-web'")
+        print("  ssh -F ops/secrets/sshcfg tapd 'systemctl status tapd-%s'" % env)
         sys.exit(1)
     ssh_run("rm -f %s" % remote_tmp)
 
@@ -240,21 +260,41 @@ def cmd_push():
     import ssl
     try:
         code = urllib.request.urlopen(
-            urllib.request.Request(PROD_URL, method="GET"),
+            urllib.request.Request(ENV_URL[env], method="GET"),
             timeout=15, context=ssl._create_unverified_context()).status
     except Exception as ex:
         code = "ERR:%s" % ex
+    env_cn = "生产" if env == "prod" else "开发"
     print()
     if code == 200:
-        print("√ 回滚完成：生产 https://123.207.252.195 健康（HTTP 200），内容 = 快照 %s" % name)
-        print("  留底: 服务器 release/prod/rollback-before-push-%s（可再次回滚）" % ts)
+        print("√ 回滚完成：%s环境 https://123.207.252.195%s 健康（HTTP 200），内容 = 快照 %s"
+              % (env_cn, "" if env == "prod" else ":8443", name))
+        print("  留底: 服务器 release/%s/rollback-before-push-%s（可再次回滚）" % (env, ts))
     else:
         print("!! 回滚已执行但健康检查异常（%s）——请打开浏览器人工确认，或用发布回滚.bat 再回滚" % code)
 
 
+# ---------------- delete（删除本地快照）----------------
+def cmd_delete():
+    name = pick_snapshot()
+    if not name:
+        print("已取消。")
+        return
+    d = os.path.join(SNAP_ROOT, name)
+    size = sum(os.path.getsize(os.path.join(dp, f))
+               for dp, _, fs in os.walk(d) for f in fs)
+    print("即将删除本地快照：%s（%.1f KB）" % (name, size / 1024.0))
+    print("仅删除本地文件，不影响服务器上的任何快照。")
+    if not ask("  确认删除？输入 yes: "):
+        print("已取消。")
+        return
+    shutil.rmtree(d)
+    print("已删除：%s" % d)
+
+
 def main():
     if len(sys.argv) < 2:
-        print("用法: db-sync-ctl.py <pull|list|apply|push> [参数]")
+        print("用法: db-sync-ctl.py <pull|list|apply|push|delete> [参数]")
         return 2
     cmd = sys.argv[1]
     if cmd == "pull":
@@ -265,8 +305,10 @@ def main():
         cmd_apply()
     elif cmd == "push":
         cmd_push()
+    elif cmd == "delete":
+        cmd_delete()
     else:
-        print("未知命令: %s" % cmd)
+        print("未知命令: %s（可用: pull|list|apply|push|delete）" % cmd)
         return 2
     return 0
 

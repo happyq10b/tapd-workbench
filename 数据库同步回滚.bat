@@ -40,20 +40,24 @@ echo.
 echo   --- 本地使用 ---
 echo   [3] Apply       应用快照为本地开发环境数据源（8100）
 echo.
-echo   --- 本地 → 服务器（高危）---
-echo   [4] Rollback    本地快照回滚到服务器生产库
+echo   --- 本地 → 服务器 ---
+echo   [4] Rollback    本地快照回滚到服务器库（选：生产 / 开发）
+echo.
+echo   --- 本地快照管理 ---
+echo   [5] Delete      删除本地快照（只删本地，不影响服务器）
 echo.
 echo   [Q] Quit
 echo ================================================================
 echo.
-choice /c 1234Q /n /m "   Select: "
+choice /c 12345Q /n /m "   Select: "
 set "PICK=%ERRORLEVEL%"
 
-if "%PICK%"=="5" goto :QUIT
+if "%PICK%"=="6" goto :QUIT
 if "%PICK%"=="1" "%VENV_PY%" "%CTL_PY%" pull & goto :AFTER
 if "%PICK%"=="2" "%VENV_PY%" "%CTL_PY%" list & goto :AFTER
 if "%PICK%"=="3" "%VENV_PY%" "%CTL_PY%" apply & goto :AFTER
 if "%PICK%"=="4" "%VENV_PY%" "%CTL_PY%" push & goto :AFTER
+if "%PICK%"=="5" "%VENV_PY%" "%CTL_PY%" delete & goto :AFTER
 goto :MENU
 
 :AFTER
