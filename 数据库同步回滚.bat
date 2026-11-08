@@ -42,6 +42,7 @@ echo   [3] Apply       应用快照为本地开发环境数据源（8100）
 echo.
 echo   --- 本地 → 服务器 ---
 echo   [4] Rollback    本地快照回滚到服务器库（选：生产 / 开发）
+echo   [6] Org-Rollback 按架构部门回滚（核算/商务/总账/管理/资金/财务中心）
 echo.
 echo   --- 本地快照管理 ---
 echo   [5] Delete      删除本地快照（只删本地，不影响服务器）
@@ -49,15 +50,16 @@ echo.
 echo   [Q] Quit
 echo ================================================================
 echo.
-choice /c 12345Q /n /m "   Select: "
+choice /c 123456Q /n /m "   Select: "
 set "PICK=%ERRORLEVEL%"
 
-if "%PICK%"=="6" goto :QUIT
+if "%PICK%"=="7" goto :QUIT
 if "%PICK%"=="1" "%VENV_PY%" "%CTL_PY%" pull & goto :AFTER
 if "%PICK%"=="2" "%VENV_PY%" "%CTL_PY%" list & goto :AFTER
 if "%PICK%"=="3" "%VENV_PY%" "%CTL_PY%" apply & goto :AFTER
 if "%PICK%"=="4" "%VENV_PY%" "%CTL_PY%" push & goto :AFTER
 if "%PICK%"=="5" "%VENV_PY%" "%CTL_PY%" delete & goto :AFTER
+if "%PICK%"=="6" "%VENV_PY%" "%CTL_PY%" orgpush & goto :AFTER
 goto :MENU
 
 :AFTER
