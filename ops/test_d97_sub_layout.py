@@ -101,8 +101,13 @@ async def main():
         await asyncio.sleep(0.3)
         await ev("toggleSubTree('" + pid + "', true); 'x'", aw=True)
         await asyncio.sleep(1.5)
-        tree_week = await ev("(function(){const row=document.querySelector('#subtree_" + pid +
-                             " .sub-node');const fc=row?row.querySelector('.fcols'):null;return fc?fc.textContent:'';})()")
+        tree_week = ''
+        for _ in range(20):
+            tree_week = await ev("(function(){const row=document.querySelector('#subtree_" + pid +
+                                 " .sub-node');const fc=row?row.querySelector('.fcols'):null;return fc?fc.textContent:'';})()")
+            if tree_week and new_week in tree_week:
+                break
+            await asyncio.sleep(0.5)
         print('  目录子树行字段:', (tree_week or '')[:60])
         ok(new_week in (tree_week or ''), '目录子树行周数已同步为新值（缓存清理生效）')
 
