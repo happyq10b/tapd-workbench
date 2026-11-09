@@ -68,9 +68,11 @@ ok(dl == expect, 'ME.depts（目录部门顺序）= 架构新顺序 %s' % dl)
 r = req(admin_tok, '/api/org/nodes/%d/reorder' % ids0[target], 'POST', {'direction': 'down'})
 
 print('【C】边界与权限')
-first = kids1[0]
+# 取**当前**树的首位子节点（kids1 在 B 段的移动后已陈旧——曾致误报）
+kids_cur = [c['name'] for c in req(admin_tok, '/api/org/tree')['tree'][0].get('children', [])]
+first = kids_cur[0]
 r = req(admin_tok, '/api/org/nodes/%d/reorder' % ids0[first], 'POST', {'direction': 'up'})
-ok(r.get('ok') and r.get('moved') is False, '首行上移 → moved=False 不变')
+ok(r.get('ok') and r.get('moved') is False, '首行（%s）上移 → moved=False 不变' % first)
 r = req(admin_tok, '/api/org/nodes/%d/reorder' % ids0[target], 'POST', {'direction': 'sideways'})
 ok(r.get('__http__') == 400, '非法 direction → 400')
 r = req(admin_tok, '/api/org/nodes/999999/reorder', 'POST', {'direction': 'up'})
