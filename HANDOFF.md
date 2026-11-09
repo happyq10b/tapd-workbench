@@ -1240,6 +1240,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #96 | 2026-11-09 | **主设计师** | 前端 | **事项周数框对齐板块筛选**：①双框根因 = e_week/n_week 缺 autocomplete=off（浏览器原生自动填充下拉与 combo 并存，板块筛选有所以无双框）→ 补齐；②placeholder 清空与板块筛选一致（说明在面板 cf-tip），tip 文案同步「可直接输入「2026-41」回车」；③为兑现简写承诺，saveEdit/createCard/createSubCard 三处保存前规范化 2026-41 → 2026年第41周 | `src/static/index.html` | `HANDOFF.md §七 #96` |
 | #97 | 2026-11-09 | **主设计师** | 前端 | **子事项周数生效 + 弹窗布局统一**：①reload 清空 SUBTREE_CACHE（子树展开后编辑周数/代办，目录重绘仍显示旧缓存值——「改了没生效」观感根因，库其实已写入）；②applyOwnerSlot 搬移 hack 移除（旧：子事项模式负责人搬进周数行+参与人整行隐藏 → 布局错乱），两模式同布局；③newModal 重排对齐 editModal（标题提前/看板+周数一行/人员一行/父事项上下文行，子事项看板隐藏周数占满） | `src/static/index.html` | `ops/test_d97_sub_layout.py`（11 断言；headless 对 openDetailEdit 弹窗可见性时序不稳定已记录） | `HANDOFF.md §七 #97` |
 | #98 | 2026-11-09 | **主设计师** | 前端 | **点击子事项即刻弹出**：「点两次才出来」根因 = openSubModal/openDetail/openEdit 全 async，同步段只有 API 发起，弹窗显示要等 4~6 个串行 API 往返，用户以为没点上而反复点击。修复（先亮壳后填数+并行化）：openSubModal 同步帧亮详情壳（加载中…）；openDetail comments/actions 并行；openEdit 开头亮编辑弹窗+applySubContext/cardPickPool 并行；失败路径统一关回 | `src/static/index.html` | `ops/test_d98_instant.py`（同步帧探针） | `HANDOFF.md §七 #98` |
+| #100 | 2026-11-09 | **主设计师** | 前端 | **父事项信息边框盒**：子事项编辑/新增弹窗的父事项描述从裸文字改为 .parent-box 边框盒（1px 边框+圆角+浅底，与板块弹窗选人框同视觉语言），父事项名 .pv 加粗 | `src/static/index.html` | `ops/test_d99b_parentbox.py`（2 断言+截图） | `HANDOFF.md §七 #100` |
 ### #89 · 2026-11-07 · 主设计师 · 三环境开发发布流程框架
 
 **背景**：原服务器「开发模式」是同一目录/同一端口的互斥切换（tapd-dev Conflicts=tapd-web 争 8000），不是独立环境。
