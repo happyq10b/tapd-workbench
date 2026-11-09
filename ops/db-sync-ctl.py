@@ -116,6 +116,38 @@ def cmd_pull():
     return ts
 
 
+# ---------------- snaplocal（拍本地库快照）----------------
+def cmd_snaplocal():
+    """把本地开发环境（src/app.db，8100 数据源）的当前数据拍成快照留存。
+
+    与菜单 [1]（从服务器拉取）对称：本地库在 apply/日常使用后会产生新数据，
+    在应用别的快照或推回服务器之前，先把当前本地数据留存一份。
+    """
+    if not os.path.isfile(LOCAL_DB):
+        print("[ERROR] 本地库不存在: %s" % LOCAL_DB)
+        sys.exit(1)
+    ts = now_ts()
+    dest = os.path.join(SNAP_ROOT, ts)
+    os.makedirs(dest, exist_ok=True)
+    print("==> [1/2] 本地库一致性快照（sqlite backup API，允许服务运行中）...")
+    import sqlite3
+    src = sqlite3.connect(LOCAL_DB)
+    dst = sqlite3.connect(os.path.join(dest, "app.db"))
+    src.backup(dst)
+    dst.close()
+    src.close()
+    size = os.path.getsize(os.path.join(dest, "app.db"))
+    with open(os.path.join(dest, "meta.txt"), "w", encoding="utf-8") as f:
+        f.write("source=local:src/app.db\n")
+        f.write("pulled_at=%s\n" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        f.write("bytes=%d\n" % size)
+    print("==> [2/2] 完成")
+    print("  快照: data/db-snapshots/%s/app.db（%d bytes）" % (ts, size))
+    print("  后续: 菜单 [3] 应用回本地开发；菜单 [4]/[6] 回滚到服务器")
+    return ts
+
+
+
 # ---------------- list ----------------
 def snapshots():
     if not os.path.isdir(SNAP_ROOT):
@@ -440,7 +472,7 @@ def cmd_delete():
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: db-sync-ctl.py <pull|list|apply|push|delete|orgpush> [参数]")
+        print("用法: db-sync-ctl.py <pull|list|apply|push|delete|orgpush|snaplocal> [参数]")
         return 2
     cmd = sys.argv[1]
     if cmd == "pull":
@@ -455,6 +487,8 @@ def main():
         cmd_delete()
     elif cmd == "orgpush":
         cmd_orgpush()
+    elif cmd == "snaplocal":
+        cmd_snaplocal()
     else:
         print("未知命令: %s（可用: pull|list|apply|push|delete）" % cmd)
         return 2

@@ -1,11 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
-title TAPD Workbench - DB Sync && Rollback
+title TAPD Workbench - DB Sync ^&^& Rollback
 
 rem ================================================================
 rem  TAPD Workbench - 数据库快照 同步与回滚开关（2026-11-07）
 rem
-rem  快照存储: data\db-snapshots\<YYYYMMDD-HHMMSS>\app.db + meta.txt
+rem  快照存储: data\db-snapshots\YYYYMMDD-HHMMSS\app.db + meta.txt
 rem
 rem  [1] 拉取  : 服务器生产库 → 本地快照库（服务器先拍一致性快照，不停服）
 rem  [2] 列表  : 查看本地已有快照
@@ -45,21 +45,23 @@ echo   [4] Rollback    本地快照回滚到服务器库（选：生产 / 开发）
 echo   [6] Org-Rollback 按架构部门回滚（核算/商务/总账/管理/资金/财务中心）
 echo.
 echo   --- 本地快照管理 ---
+echo   [7] Snap-Local  拉取本地库快照（留存本地当前数据）
 echo   [5] Delete      删除本地快照（只删本地，不影响服务器）
 echo.
 echo   [Q] Quit
 echo ================================================================
 echo.
-choice /c 123456Q /n /m "   Select: "
+choice /c 1234567Q /n /m "   Select: "
 set "PICK=%ERRORLEVEL%"
 
-if "%PICK%"=="7" goto :QUIT
+if "%PICK%"=="8" goto :QUIT
 if "%PICK%"=="1" "%VENV_PY%" "%CTL_PY%" pull & goto :AFTER
 if "%PICK%"=="2" "%VENV_PY%" "%CTL_PY%" list & goto :AFTER
 if "%PICK%"=="3" "%VENV_PY%" "%CTL_PY%" apply & goto :AFTER
 if "%PICK%"=="4" "%VENV_PY%" "%CTL_PY%" push & goto :AFTER
 if "%PICK%"=="5" "%VENV_PY%" "%CTL_PY%" delete & goto :AFTER
 if "%PICK%"=="6" "%VENV_PY%" "%CTL_PY%" orgpush & goto :AFTER
+if "%PICK%"=="7" "%VENV_PY%" "%CTL_PY%" snaplocal & goto :AFTER
 goto :MENU
 
 :AFTER
