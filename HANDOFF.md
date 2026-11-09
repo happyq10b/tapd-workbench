@@ -1254,6 +1254,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #111 | 2026-11-09 | **主设计师** | 前端 + 后端 | **超管专属在线用户管理**：【更多】菜单 🟢 在线用户（applyPermissionUI 按 ME.is_super——me() 补下发的字段，此前 is_super 只在权限判定参数里）；users 加 last_login_at/ip（幂等迁移，login 随 active_seq 写入）；GET /api/admin/online（require_super，ws_count>0=在线）+ POST kick（禁踢自己，seq+1+WS force_logout 即时生效）；弹窗六列表格复用 auditModal 视觉 | `src/app/app.py`、`src/app/init_db.py`、`src/static/index.html` | `ops/test_d111_online.py`（16 断言）+ `test_d111_online_ui.py`（8 断言+截图） | `HANDOFF.md §七 #111` |
 | #112 | 2026-11-09 | **主设计师** | 前端 | **在线用户弹窗刷新**：标题栏 ✕ 左侧加「🔄 刷新」按钮（loadOnlineList 手动重拉）；kickOnline 下线后立即刷新 + 800ms 二次刷新（等 WS 断开传播，状态归准） | `src/static/index.html` | CDP 3/3 | `HANDOFF.md §七 #112` |
 | #113 | 2026-11-09 | **主设计师** | 前端 + 后端 | **单点登录策略修订**：「后来者踢先者」→「先在线者占位，后来者拒绝」：login 查 WS 在线表 conns 非空 → 409 + 指定文案（登录页 alert）；seq+1 保留（关浏览器重登作废旧设备残留 token）；**半开连接治理**（核心工程量）：uvicorn/websockets 对断电/强杀不产生 disconnect 事件 → 半开连接卡死在线判定；探活 send 实测与 receive 循环并发冲突误杀活连接（全登录被拒事故，回滚）→ 终版 last_seen（touch）+ 后台 reaper 30s 扫描清 last_seen>70s（零 send）；kick 补 disconnect 消除解封窗口 | 、 | （12 断言）+  v2（12 断言） |  |
+| #114 | 2026-11-09 | **主设计师** | 前端 | **登录态改会话级 cookie**：token 从 localStorage 迁移到 session cookie（无过期时间，浏览器进程结束即清除）——浏览器未关时新开页面保持登录（cookie 跨标签共享）、关闭重开必重登（满足两条需求）；login.html 写 cookie、index.html 读 cookie + 一次性迁移老用户（迁后即删 localStorage）、logout 清 cookie；服务端零改动 | 、 | （9 断言+截图） |  |
 ### #89 · 2026-11-07 · 主设计师 · 三环境开发发布流程框架
 
 **背景**：原服务器「开发模式」是同一目录/同一端口的互斥切换（tapd-dev Conflicts=tapd-web 争 8000），不是独立环境。
