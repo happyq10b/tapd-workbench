@@ -1242,6 +1242,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #98 | 2026-11-09 | **主设计师** | 前端 | **点击子事项即刻弹出**：「点两次才出来」根因 = openSubModal/openDetail/openEdit 全 async，同步段只有 API 发起，弹窗显示要等 4~6 个串行 API 往返，用户以为没点上而反复点击。修复（先亮壳后填数+并行化）：openSubModal 同步帧亮详情壳（加载中…）；openDetail comments/actions 并行；openEdit 开头亮编辑弹窗+applySubContext/cardPickPool 并行；失败路径统一关回 | `src/static/index.html` | `ops/test_d98_instant.py`（同步帧探针） | `HANDOFF.md §七 #98` |
 | #100 | 2026-11-09 | **主设计师** | 前端 | **父事项信息边框盒**：子事项编辑/新增弹窗的父事项描述从裸文字改为 .parent-box 边框盒（1px 边框+圆角+浅底，与板块弹窗选人框同视觉语言），父事项名 .pv 加粗 | `src/static/index.html` | `ops/test_d99b_parentbox.py`（2 断言+截图） | `HANDOFF.md §七 #100` |
 | #101 | 2026-11-09 | **主设计师** | 前端 + 后端 | **看板拖拽排序（个人级）**：↑↓ 点击排序移除改 HTML5 拖拽（拖起半透明/落位指示线）；排序=个人层面设置——新表 user_board_sorts（username+board_id 主键）固化个人完整顺序，仅本人生效，布局外看板按默认序追加尾部；默认布局=boards.sort（超管拖拽=更新默认）；me()/api/boards 统一 _apply_board_order → 管理列表/顶部目录带/外部目录同源同序；筛选生效时仍上报全量顺序（拖拽项按目标项在完整列表落位，筛选只影响可见行）；reorder API 重写为 {order}（空400/重复400/未知404）。test_d95_board_sort 删除（被本版取代） | `src/app/app.py`、`src/app/init_db.py`、`src/static/index.html`、`ops/test_d101_board_drag.py`（15 断言）、`ops/test_d101_board_drag_ui.py`（6 断言） | `HANDOFF.md §七 #101` |
+| #102 | 2026-11-09 | **主设计师** | 前端 | **交互降噪**：①拖拽排序保存后的 toast 移除（用户反馈繁琐；失败仍报错）；②事项详情操作记录动作转中文（ACT_CN 映射：create 新建事项/update 修改事项/subtask_add 新增代办 等 13 种，未知动作兜底原样；actCn 提顶层作用域） | `src/static/index.html` | `ops/test_d102_actions_cn.py`（5 断言） | `HANDOFF.md §七 #102` |
 ### #89 · 2026-11-07 · 主设计师 · 三环境开发发布流程框架
 
 **背景**：原服务器「开发模式」是同一目录/同一端口的互斥切换（tapd-dev Conflicts=tapd-web 争 8000），不是独立环境。
