@@ -1256,6 +1256,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #113 | 2026-11-09 | **主设计师** | 前端 + 后端 | **单点登录策略修订**：「后来者踢先者」→「先在线者占位，后来者拒绝」：login 查 WS 在线表 conns 非空 → 409 + 指定文案（登录页 alert）；seq+1 保留（关浏览器重登作废旧设备残留 token）；**半开连接治理**（核心工程量）：uvicorn/websockets 对断电/强杀不产生 disconnect 事件 → 半开连接卡死在线判定；探活 send 实测与 receive 循环并发冲突误杀活连接（全登录被拒事故，回滚）→ 终版 last_seen（touch）+ 后台 reaper 30s 扫描清 last_seen>70s（零 send）；kick 补 disconnect 消除解封窗口 | 、 | （12 断言）+  v2（12 断言） |  |
 | #114 | 2026-11-09 | **主设计师** | 前端 | **登录态改会话级 cookie**：token 从 localStorage 迁移到 session cookie（无过期时间，浏览器进程结束即清除）——浏览器未关时新开页面保持登录（cookie 跨标签共享）、关闭重开必重登（满足两条需求）；login.html 写 cookie、index.html 读 cookie + 一次性迁移老用户（迁后即删 localStorage）、logout 清 cookie；服务端零改动 | 、 | （9 断言+截图） |  |
 | #115 | 2026-11-09 | **主设计师** | 前端 + 后端 | **在线用户姓名列/角色中文 + 全弹窗动效**：online 接口 JOIN team_members 带姓名（未绑定显示 —），表格加姓名列 + ROLE_CN 角色中文；全弹窗开合动效：overlay 淡入 animation + closeModal 统一淡出（closing 类 170ms）+ 统一入口 openModal（清 closing 防重开隐形），批量替换 25 处 display 直调 | src/app/app.py、src/static/index.html | ops/test_d115_online_ui.py（6/7，唯一 FAIL 为探针等待不足已抓实） | HANDOFF.md §七 #115 |
+| #116 | 2026-11-09 | **主设计师** | 前端 | **操作记录限 12 条 + 日志引导**：详情弹窗 d_actions 渲染 slice 10→12 条，操作数 >12 时尾部追加提示行「仅显示最近 12 条，更早的完整操作日志请通过【更多 → 操作日志】查询（管理员权限）」；后端 actions 接口 LIMIT 30 不变（前端截断，余量留给将来加载更多） | src/static/index.html | ops/test_d116_actions12.py（3 断言，测试卡与日志已清理） | HANDOFF.md §七 #116 |
 ### #89 · 2026-11-07 · 主设计师 · 三环境开发发布流程框架
 
 **背景**：原服务器「开发模式」是同一目录/同一端口的互斥切换（tapd-dev Conflicts=tapd-web 争 8000），不是独立环境。
