@@ -17,7 +17,7 @@ def js_click(subtree_pid):
             ' .s-title");if(!t)return{noTitle:true};'
             'window.__t0=performance.now();t.click();'
             'return{clicked:true,immediate:(function(){'
-            'const em=document.getElementById("editModal");'
+            'const em=document.getElementById("detailModal");'
             'return{shown:em.style.display==="flex",'
             'elapsed:Math.round(performance.now()-window.__t0)};})()};})()')
 
@@ -85,11 +85,14 @@ async def main():
            '点击后同步帧内弹窗已 display=flex（elapsed %sms）'
            % r.get('immediate', {}).get('elapsed'))
         await asyncio.sleep(1.5)
-        r2 = await ev("(function(){return {name:document.getElementById('e_name').value,"
-                      "week:document.getElementById('e_week').value,"
-                      "sub:EDIT_IS_SUB};})()")
-        ok(bool(r2.get('name')), '数据异步填充完成（标题=%s）' % (r2.get('name') or '')[:16])
-        ok(r2.get('sub') is True, '子事项模式正确')
+        r2 = await ev("(function(){return {title:document.getElementById('d_title').textContent,"
+                      "did:DETAIL_ID};})()")
+        ok(bool(r2.get('title')), '数据异步填充完成（标题=%s）' % (r2.get('title') or '')[:16])
+        con3 = sqlite3.connect(r'E:/WB缓存/2026-10-26-15-55-08/src/app.db')
+        is_child = con3.execute("SELECT COUNT(*) FROM cards WHERE card_id=? AND parent_id=?",
+                                (r2.get('did'), pid)).fetchone()[0]
+        con3.close()
+        ok(is_child == 1, '详情定位到 pid 的某个子事项（DOM 首个 .s-title 顺序可能与 DB LIMIT 不同）')
         await ev("closeEdit();")
         await asyncio.sleep(1)
         r = await ev(js_click(pid))
