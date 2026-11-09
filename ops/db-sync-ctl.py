@@ -97,11 +97,11 @@ def cmd_pull():
         print(out[-500:].encode("gbk", errors="replace").decode("gbk"))
         sys.exit(1)
     remote_snap = m.group(1)
-    ts = now_ts()
-    dest = os.path.join(SNAP_ROOT, ts)
+    ts = now_ts().replace("-", "_")
+    dest = os.path.join(SNAP_ROOT, "prod_%s" % ts)   # 编号规则（#109）：来源前缀_YYYYMMDD_HHMMSS
     os.makedirs(dest, exist_ok=True)
 
-    print("==> [2/3] 拉取快照 → data/db-snapshots/%s/" % ts)
+    print("==> [2/3] 拉取快照 → data/db-snapshots/prod_%s/" % ts)
     scp_pull(remote_snap, os.path.join(dest, "app.db"))
 
     size = os.path.getsize(os.path.join(dest, "app.db"))
@@ -111,7 +111,7 @@ def cmd_pull():
         f.write("pulled_at=%s\n" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         f.write("bytes=%d\n" % size)
     print("==> [3/3] 完成")
-    print("  快照: data/db-snapshots/%s/app.db（%d bytes）" % (ts, size))
+    print("  快照: data/db-snapshots/prod_%s/app.db（%d bytes）" % (ts, size))
     print("  用途: 菜单 [3] 应用为本地开发数据源；菜单 [4] 回滚到服务器生产")
     return ts
 
@@ -126,8 +126,8 @@ def cmd_snaplocal():
     if not os.path.isfile(LOCAL_DB):
         print("[ERROR] 本地库不存在: %s" % LOCAL_DB)
         sys.exit(1)
-    ts = now_ts()
-    dest = os.path.join(SNAP_ROOT, ts)
+    ts = now_ts().replace("-", "_")
+    dest = os.path.join(SNAP_ROOT, "local_%s" % ts)   # 编号规则（#109）：来源前缀_YYYYMMDD_HHMMSS
     os.makedirs(dest, exist_ok=True)
     print("==> [1/2] 本地库一致性快照（sqlite backup API，允许服务运行中）...")
     import sqlite3
@@ -142,7 +142,7 @@ def cmd_snaplocal():
         f.write("pulled_at=%s\n" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         f.write("bytes=%d\n" % size)
     print("==> [2/2] 完成")
-    print("  快照: data/db-snapshots/%s/app.db（%d bytes）" % (ts, size))
+    print("  快照: data/db-snapshots/local_%s/app.db（%d bytes）" % (ts, size))
     print("  后续: 菜单 [3] 应用回本地开发；菜单 [4]/[6] 回滚到服务器")
     return ts
 
@@ -163,7 +163,7 @@ def snapshots():
 def cmd_list():
     names = snapshots()
     if not names:
-        print("（暂无本地快照。先用菜单 [1] 从服务器拉取）")
+        print("（暂无本地快照。菜单 [1] 拉服务器 / [7] 拍本地）")
         return
     print("本地快照（新→旧）：")
     for i, n in enumerate(names, 1):
@@ -209,14 +209,14 @@ def cmd_apply():
 
     # ② 当前本地库自动留底（防误覆盖丢本地开发数据）
     ts = now_ts()
-    keep = os.path.join(SNAP_ROOT, "local-before-%s-%s" % (name, ts))
+    keep = os.path.join(SNAP_ROOT, "bak-local_%s" % ts)   # 编号规则（#109）：应用前本地留底
     os.makedirs(keep, exist_ok=True)
     if os.path.isfile(LOCAL_DB):
         src = __import__("sqlite3").connect(LOCAL_DB)
         dst = __import__("sqlite3").connect(os.path.join(keep, "app.db"))
         src.backup(dst)
         dst.close(); src.close()
-        print("==> [2/3] 当前本地库已留底: data/db-snapshots/local-before-%s-%s/" % (name, ts))
+        print("==> [2/3] 当前本地库已留底: data/db-snapshots/bak-local_%s/" % ts)
 
     # ③ 替换
     shutil.copyfile(snap_db, LOCAL_DB)
