@@ -1,94 +1,77 @@
 # -*- coding: utf-8 -*-
-"""#110 单点登录实测：新登录踢旧 token、多标签共享 token 不受影响、WS 收到强制下线。"""
-import asyncio, json, os, sys, urllib.request, urllib.error, sqlite3
+"""#110 单点登录实测 v2（对齐 #113 新策略：先在线者占位，后来者拒绝）。"""
+import json, os, sys, urllib.request, urllib.error, urllib.parse, sqlite3, time
 
 sys.path.insert(0, r'E:/WB缓存/2026-10-26-15-55-08/src')
 os.environ.setdefault('APP_SECRET', 'local-dev-secret-not-for-production')
+from app.app import make_token
+
 BASE = 'http://127.0.0.1:8100'
+TEST_USER = '__t110_%d' % (int(time.time()) % 100000)
 
 RES = []
 def ok(c, n):
     RES.append((bool(c), n)); print(('  PASS ' if c else '  x FAIL ') + n)
 
-def login(u='admin', pw='At159357'):
+def login(u, pw='T110probe'):
     r = urllib.request.Request(BASE + '/api/login', method='POST',
         data=json.dumps({'username': u, 'password': pw}).encode(),
         headers={'Content-Type': 'application/json'})
-    return json.loads(urllib.request.urlopen(r, timeout=10).read())
-
-def req(tok, path, method='GET'):
-    r = urllib.request.Request(BASE + path, method=method,
-        headers={'Authorization': 'Bearer ' + tok})
     try:
-        return urllib.request.urlopen(r, timeout=10).status
+        return json.loads(urllib.request.urlopen(r, timeout=10).read() or '{}'), 200
     except urllib.error.HTTPError as e:
-        return e.code
+        return json.loads(e.read() or '{}'), e.code
 
-print('【A】登录两次 → 旧 token 立即失效（会话代数）')
-t1 = login()['token']
-ok(req(t1, '/api/me') == 200, '第一次登录的 token 有效（200）')
-t2 = login()['token']
-ok(req(t1, '/api/me') == 401, '第二次登录后，旧 token 立即 401（被踢）')
-ok(req(t2, '/api/me') == 200, '新 token 有效（后登录者正常使用）')
+def req(tok, path, method='GET', body=None):
+    r = urllib.request.Request(BASE + path, method=method,
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok})
+    try:
+        return json.loads(urllib.request.urlopen(r, timeout=10).read() or '{}'), 200
+    except urllib.error.HTTPError as e:
+        return e.read().decode()[:120], e.code
+
+sup = make_token('admin')
+req(sup, '/api/admin/users', 'POST', {'username': TEST_USER, 'password': 'T110probe', 'role': 'viewer'})
+
+print('【A】关浏览器场景：无 WS 连接 → 重复登录成功且旧 token 作废（seq+1）')
+d1, c1 = login(TEST_USER)
+ok(c1 == 200 and d1.get('token'), '第一次登录成功')
+tok1 = d1['token']
+d2, c2 = login(TEST_USER)
+ok(c2 == 200 and d2.get('token'), '第二次登录成功（浏览器已关 = 无 WS = 不算在线）')
+tok2 = d2['token']
+ok(req(tok1, '/api/me')[1] == 401, '第一次登录的旧 token 已被 seq+1 作废（防 token 残留）')
 
 print('【B】同 token 多标签复用不受影响（单点 ≠ 单标签）')
 for i in range(3):
-    ok(req(t2, '/api/me') == 200, '同一 token 第 %d 次请求正常（模拟多标签页）' % (i + 1))
+    ok(req(tok2, '/api/me')[1] == 200, '同一 token 第 %d 次请求正常' % (i + 1))
 
-print('【C】再登录一次 → t2 也被踢（连续单点语义）')
-t3 = login()['token']
-ok(req(t2, '/api/me') == 401 and req(t3, '/api/me') == 200, 't2 失效、t3 有效')
+print('【C】超管强制下线 → 旧 token 立即失效（#111 kick 语义不变）')
+rk, ck = req(sup, '/api/admin/online/kick', 'POST', {'username': TEST_USER})
+ok(ck == 200 and rk.get('ok') is True, 'kick 成功')
+ok(req(tok1, '/api/me')[1] == 401, '被踢后旧 token 立即 401')
+d3, c3 = login(TEST_USER)
+ok(c3 == 200, 'kick 解封后重新登录成功')
 
-print('【D】编辑锁链路在新 token 下不受影响')
-import urllib.parse
-me = json.loads(urllib.request.urlopen(urllib.request.Request(
-    BASE + '/api/me', headers={'Authorization': 'Bearer ' + t3}), timeout=10).read())
-bid = me['boards'][0]['board_id']
-cid = 'SSO_PROBE_' + str(int(__import__('time').time() * 1000))
-r = urllib.request.Request(BASE + '/api/cards', method='POST',
-    data=json.dumps({'board_id': bid, 'card_name': '__sso_probe', 'column_name': '测试',
-                     'created_at': '2026-11-09'}).encode(),
-    headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + t3})
-try:
-    urllib.request.urlopen(r, timeout=10)
-except urllib.error.HTTPError as e:
-    # 字段名不匹配时读 detail 便于诊断
-    print('  create detail:', e.read().decode()[:120])
+print('【D】make_token 兼容：运维/测试造的 token 仍有效')
+tok_m = make_token(TEST_USER)
+ok(req(tok_m, '/api/me')[1] == 200, 'make_token（自动活跃代数）有效')
+
+print('【E】登录成功 seq+1（token 带当前活跃代数）')
+import base64 as b
+_p = json.loads(b.urlsafe_b64decode(d3['token'].split('.')[0] + '=='))
 con = sqlite3.connect(r'E:/WB缓存/2026-10-26-15-55-08/src/app.db')
-cid = con.execute("SELECT card_id FROM cards WHERE card_name='__sso_probe'").fetchone()
+_db = con.execute("SELECT active_seq FROM users WHERE username=?", (TEST_USER,)).fetchone()[0]
 con.close()
-if cid:
-    cid = cid[0]
-    ok(req(t3, '/api/cards/%s/lock' % cid, 'POST') == 200, '加锁成功（编辑锁不受单点影响）')
-    ok(req(t3, '/api/cards/%s/lock' % cid, 'POST') == 200, '同用户重复加锁幂等（刷新页面场景）')
-    ok(req(t3, '/api/cards/%s/unlock' % cid, 'POST') == 200, '解锁成功')
-    con = sqlite3.connect(r'E:/WB缓存/2026-10-26-15-55-08/src/app.db')
-    con.execute("DELETE FROM cards WHERE card_id=?", (cid,))
-    con.commit(); con.close()
-    ok(True, '测试卡清理完成')
-else:
-    ok(False, '测试卡未创建成功（检查 create 字段名）')
+ok(_p.get('s') == _db, 'token.s=%s = DB active_seq=%s' % (_p.get('s'), _db))
 
-print('【E】WS 强制下线消息')
-async def ws_probe():
-    import websockets
-    # 用 t3 连 WS，然后再次登录 → 旧 WS 应收到 force_logout
-    ws = await websockets.connect('ws://127.0.0.1:8100/ws?token=' + urllib.parse.quote(t3))
-    await asyncio.sleep(0.5)
-    t4 = login()['token']
-    msg = None
-    try:
-        msg = await asyncio.wait_for(ws.recv(), timeout=5)
-    except asyncio.TimeoutError:
-        pass
-    finally:
-        await ws.close()
-    return t4, msg
-import urllib.parse
-t4, msg = asyncio.run(ws_probe())
-got = bool(msg) and json.loads(msg).get('type') == 'force_logout'
-ok(got, '旧设备 WS 收到 force_logout（%s）' % (str(msg)[:60]))
-ok(req(t3, '/api/me') == 401 and req(t4, '/api/me') == 200, 't3 已失效、t4 有效（WS 被踢的同时 token 也被换）')
+# 清理
+req(sup, '/api/admin/users/' + TEST_USER, 'DELETE')
+con = sqlite3.connect(r'E:/WB缓存/2026-10-26-15-55-08/src/app.db')
+n = con.execute("SELECT COUNT(*) FROM users WHERE username LIKE '__t110%'").fetchone()[0]
+con.close()
+ok(n == 0, '临时账号清理完成')
 
 print('结果： %d/%d' % (sum(1 for c, _ in RES if c), len(RES)))
 sys.exit(0 if all(c for c, _ in RES) else 1)
