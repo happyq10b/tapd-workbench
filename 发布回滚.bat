@@ -54,38 +54,30 @@ echo.
 echo   --- 快照查看 ---
 echo   [1] 列出生产快照（prod）
 echo   [2] 列出开发快照（dev）
-echo   [3] 列出本地快照（local）
 echo.
 echo   --- 快照创建 ---
-echo   [4] 立即拍生产快照
-echo   [5] 立即拍开发快照
-echo   [6] 立即拍本地快照
+echo   [3] 立即拍生产快照（发布/变更前手动留底）
+echo   [4] 立即拍开发快照
 echo.
 echo   --- 回滚（危险操作，恢复代码+数据库，约20秒停机）---
-echo   [7] 回滚生产  → 选择快照
-echo   [8] 回滚开发  → 选择快照
-echo   [9] 回滚本地  → 选择快照
+echo   [5] 回滚生产  → 选择快照
+echo   [6] 回滚开发  → 选择快照
 echo.
-echo   --- 删除---
-echo   [10] 删除本地快照 → 选择快照（仅删本地文件，需输入 yes 确认）
+echo   （本地快照/回滚已并入「同步开关.bat」菜单 [4]）
 echo.
 echo   [Q] Quit
 echo ================================================================
 echo.
-choice /c 1234567890Q /n /m "   Select: "
+choice /c 123456Q /n /m "   Select: "
 set "PICK=%ERRORLEVEL%"
 
-if "%PICK%"=="11" goto :QUIT
-if "%PICK%"=="10" "%VENV_PY%" "%~dp0ops\db-sync-ctl.py" delete & goto :AFTER
-if "%PICK%"=="9" "%VENV_PY%" "%~dp0ops\db-sync-ctl.py" apply & goto :AFTER
-if "%PICK%"=="6" "%VENV_PY%" "%~dp0ops\db-sync-ctl.py" snaplocal & goto :AFTER
-if "%PICK%"=="3" "%VENV_PY%" "%~dp0ops\db-sync-ctl.py" list & goto :AFTER
+if "%PICK%"=="7" goto :QUIT
 if "%PICK%"=="1" call :SRV rollbacklist prod & goto :AFTER
 if "%PICK%"=="2" call :SRV rollbacklist dev & goto :AFTER
-if "%PICK%"=="4" call :SRV snap prod & goto :AFTER
-if "%PICK%"=="5" call :SRV snap dev & goto :AFTER
-if "%PICK%"=="7" goto :RB_PROD
-if "%PICK%"=="8" goto :RB_DEV
+if "%PICK%"=="3" call :SRV snap prod & goto :AFTER
+if "%PICK%"=="4" call :SRV snap dev & goto :AFTER
+if "%PICK%"=="5" goto :RB_PROD
+if "%PICK%"=="6" goto :RB_DEV
 goto :MENU
 
 :RB_PROD

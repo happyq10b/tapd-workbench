@@ -86,6 +86,8 @@ set "NO_COLOR=1"
 
 if not exist "%LOGDIR%" mkdir "%LOGDIR%" >nul 2>&1
 
+rem ---------- 主菜单（本地快照子菜单 [B] 返回时经 :MAIN_MENU 回到这里）----------
+:MAIN_MENU
 echo.
 echo ================================================================
 echo   TAPD Workbench . Sync Switch
@@ -99,15 +101,17 @@ echo.
 echo     [1] Dev  (--dev)    推送到服务器开发环境
 echo     [2] Prod (--prod)   推送到生产环境
 echo     [3] Verify only     仅本地检查，不推送
-echo     [4] Cancel          取消
+echo     [4] Local snapshots 本地快照：拍 / 列 / 回滚 / 删（对象=src/app.db）
+echo     [5] Cancel          取消
 echo.
-choice /c 1234 /n /m "   Enter 1-4: "
+choice /c 12345 /n /m "   Enter 1-5: "
 
 rem NOTE: 'if errorlevel N' means "errorlevel >= N", so they must be tested from
 rem high to low AND each must be mutually exclusive. Using separate 'if' lines
 rem for the two targets lets a later line overwrite an earlier match, so we
 rem use goto labels instead.
-if errorlevel 4 goto :CANCEL
+if errorlevel 5 goto :CANCEL
+if errorlevel 4 goto :LOCAL_MENU
 if errorlevel 3 goto :ONLY_VERIFY
 if errorlevel 2 goto :PICK_PROD
 if errorlevel 1 goto :PICK_DEV
@@ -178,6 +182,34 @@ echo.
 pause
 call :restore_cp
 exit /b 0
+
+rem ---------- local snapshots（2026-11-10 #137 并入：本地快照/回滚）----------
+rem 对象 = src/app.db（8100 数据源），不含代码。db-sync-ctl.py 的编码约定是
+rem PYTHONIOENCODING=gbk（数据库同步回滚.bat 同款），进子菜单先切 gbk，返回再切回。
+:LOCAL_MENU
+set "PYTHONIOENCODING=gbk"
+echo.
+echo ================================================================
+echo   Local snapshots . 本地快照（对象=src/app.db 数据库，不含代码）
+echo ================================================================
+echo.
+echo     [1] List      列出本地快照（时间倒序 + 来源标签）
+echo     [2] Snap      立即拍本地快照（8100 运行中可拍）
+echo     [3] Rollback  回滚本地库 → 选择快照（停 8100 → 当前库自动留底 → 恢复）
+echo     [4] Delete    删除本地快照（需输入 yes 确认）
+echo     [B] Back      返回上级菜单
+echo.
+choice /c 1234B /n /m "   Select: "
+if errorlevel 5 goto :LOCAL_BACK
+if errorlevel 4 "%VENV_PY%" "%~dp0ops\db-sync-ctl.py" delete & goto :LOCAL_MENU
+if errorlevel 3 "%VENV_PY%" "%~dp0ops\db-sync-ctl.py" apply & goto :LOCAL_MENU
+if errorlevel 2 "%VENV_PY%" "%~dp0ops\db-sync-ctl.py" snaplocal & goto :LOCAL_MENU
+if errorlevel 1 "%VENV_PY%" "%~dp0ops\db-sync-ctl.py" list & goto :LOCAL_MENU
+goto :LOCAL_MENU
+
+:LOCAL_BACK
+set "PYTHONIOENCODING=utf-8"
+goto :MAIN_MENU
 
 rem ---------- drain a UTF-8 file to the console as GBK ----------
 rem iconv -c is required: without it, a single unconvertible char (e.g. U+2713)
