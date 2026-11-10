@@ -63,15 +63,21 @@ echo   --- 回滚（危险操作，恢复代码+数据库，约20秒停机）---
 echo   [5] 回滚生产  → 选择快照
 echo   [6] 回滚开发  → 选择快照
 echo.
-echo   （本地快照/回滚已并入「同步开关.bat」菜单 [4]）
+echo   --- 删除（不可恢复）---
+echo   [7] 删除生产快照 → 选择快照（需输入 yes 确认）
+echo   [8] 删除开发快照 → 选择快照（需输入 yes 确认）
+echo.
+echo   （本地快照/回滚见「数据库同步回滚.bat」）
 echo.
 echo   [Q] Quit
 echo ================================================================
 echo.
-choice /c 123456Q /n /m "   Select: "
+choice /c 12345678Q /n /m "   Select: "
 set "PICK=%ERRORLEVEL%"
 
-if "%PICK%"=="7" goto :QUIT
+if "%PICK%"=="9" goto :QUIT
+if "%PICK%"=="7" goto :DEL_PROD
+if "%PICK%"=="8" goto :DEL_DEV
 if "%PICK%"=="1" call :SRV rollbacklist prod & goto :AFTER
 if "%PICK%"=="2" call :SRV rollbacklist dev & goto :AFTER
 if "%PICK%"=="3" call :SRV snap prod & goto :AFTER
@@ -110,6 +116,36 @@ if not "%CONFIRM%"=="yes" (
 echo.
 echo   开始回滚 ...
 call :SRV rollback %ENV% %SNAP%
+goto :AFTER
+
+:DEL_PROD
+set "ENV=prod"
+set "ENVCN=生产"
+goto :DEL_DO
+
+:DEL_DEV
+set "ENV=dev"
+set "ENVCN=开发"
+goto :DEL_DO
+
+:DEL_DO
+echo.
+echo   当前%ENVCN%快照（新→旧）：
+call :SRV rollbacklist %ENV%
+echo.
+set "SNAP="
+set /p SNAP=   输入要删除的快照名称（直接回车取消）: 
+if "%SNAP%"=="" goto :AFTER
+echo.
+echo   !! 将从服务器永久删除 %ENVCN% 快照：%SNAP%（不可恢复）
+set "CONFIRM="
+set /p CONFIRM=   确认请输入 yes: 
+if not "%CONFIRM%"=="yes" (
+  echo   已取消。
+  goto :AFTER
+)
+echo.
+call :SRV delsnap %ENV% %SNAP% yes
 goto :AFTER
 
 :AFTER
