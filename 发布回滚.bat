@@ -217,10 +217,12 @@ echo.
 echo.
 echo   [1] 开启 / 修改时间
 echo   [2] 关闭自动快照
+echo   [3] 设置保留快照份数（每环境，超出自动删最旧）
 echo   [B] 返回主菜单
 echo.
-choice /c 12B /n /m "   Select: "
-if "%ERRORLEVEL%"=="3" goto :AFTER
+choice /c 123B /n /m "   Select: "
+if "%ERRORLEVEL%"=="4" goto :AFTER
+if "%ERRORLEVEL%"=="3" goto :AUTO_KEEP
 if "%ERRORLEVEL%"=="2" goto :AUTO_OFF
 if "%ERRORLEVEL%"=="1" goto :AUTO_ON
 goto :AUTOSNAP
@@ -234,6 +236,12 @@ set /p TDEV=   开发快照时间 HH:MM（直接回车 = 生产时间+10分钟）:
 "%VENV_PY%" "%~dp0ops\auto-snap-ctl.py" on %TPROD% %TDEV%
 goto :AFTER
 
+:AUTO_KEEP
+echo.
+set "KEEP="
+set /p KEEP=   每环境保留快照份数（1-100，直接回车 = 查看当前值）: 
+"%VENV_PY%" "%~dp0ops\auto-snap-ctl.py" keep %KEEP%
+goto :AUTOSNAP
 :AUTO_OFF
 echo.
 set "CONFIRM="

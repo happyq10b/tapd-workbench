@@ -83,6 +83,21 @@ def cmd_status():
         print("  生产快照: 每天 %s" % jobs.get("prod", "(未配置)"))
         print("  开发快照: 每天 %s" % jobs.get("dev", "(未配置)"))
         print("  日志: %s" % LOG_PATH)
+    # #150 保留份数（服务器端每环境保留最近 N 份，超出自动删最旧）
+    rc, out = ssh_run("/usr/local/bin/tapd retention")
+    if out.strip():
+        print("  " + out.strip())
+
+
+def cmd_keep(n):
+    n = (n or "").strip()
+    if not n or not (n.isdigit() and 1 <= int(n) <= 100):
+        print("[ERROR] 保留份数必须是 1-100 的整数，收到: %s" % (n or "(空)"))
+        sys.exit(1)
+    rc, out = ssh_run("/usr/local/bin/tapd retention %s" % n, timeout=60)
+    print(out.strip())
+    if rc != 0:
+        sys.exit(1)
 
 
 def parse_time(v, label, default):
@@ -131,8 +146,10 @@ def main():
         cmd_on(args[1] if len(args) > 1 else "", args[2] if len(args) > 2 else "")
     elif cmd == "off":
         cmd_off()
+    elif cmd == "keep":
+        cmd_keep(args[1] if len(args) > 1 else "")
     else:
-        print("未知命令: %s（可用: status|on|off）" % cmd)
+        print("未知命令: %s（可用: status|on|off|keep）" % cmd)
         return 2
     return 0
 
