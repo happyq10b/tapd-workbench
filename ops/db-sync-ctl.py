@@ -353,7 +353,7 @@ def cmd_orgpush():
     print("!! 范围 = %d 个看板；快照中 %d 张卡将恢复为快照版本" % (len(board_ids), card_count(board_ids)))
     print("!! 范围内当前有、快照中没有的活跃卡将被【软删除】（可救回）")
     print("!! 范围外的一切数据（其他部门/看板/用户/配置）零接触")
-    print("!! 执行前服务器自动整库留底（rollback-before-orgpush-*）")
+    print("!! 执行前服务器自动整库留底（<env>-rollback-before-orgpush-*）")
     print("=" * 60)
     if not ask("  确认继续？输入 yes: "):
         print("已取消。")
@@ -361,7 +361,7 @@ def cmd_orgpush():
 
     ts = now_ts()
     print("==> [1/5] 服务器整库留底...")
-    rc, out = ssh_run("tapd snap %s rollback-before-orgpush-%s" % (env, ts), timeout=180)
+    rc, out = ssh_run("tapd snap %s %s-rollback-before-orgpush-%s" % (env, env, ts), timeout=180)
     if rc != 0:
         print("[ERROR] 留底失败，中止（服务器未做任何变更）")
         sys.exit(1)
@@ -395,7 +395,7 @@ def cmd_orgpush():
     print()
     if code == 200:
         print("√ 部门回滚完成：%s环境【%s】已回到快照 %s 时点" % (env_cn, label, name))
-        print("  浏览器验证: %s；整库留底: release/%s/rollback-before-orgpush-%s"
+        print("  浏览器验证: %s；整库留底: release/%s/%s-rollback-before-orgpush-%s"
               % (ENV_URL[env], env, ts))
     else:
         print("!! 健康检查异常（%s）——请人工确认，或用发布回滚.bat 整库还原" % code)
@@ -424,7 +424,7 @@ def cmd_push():
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         print("!! 高危操作：将用本地快照【%s】覆盖服务器【生产】库" % name)
         print("!! 影响: 生产停服约 10~20 秒；快照之后生产产生的新数据将不可见")
-        print("!! 兜底: 回滚前服务器会自动拍当前生产快照（rollback-before-*）")
+        print("!! 兜底: 回滚前服务器会自动拍当前快照（<env>-rollback-before-*）")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     else:
         print()
@@ -438,7 +438,7 @@ def cmd_push():
 
     ts = now_ts()
     print("==> [1/4] 服务器自动拍当前 %s 快照（留底）..." % ("生产" if env == "prod" else "开发"))
-    rc, out = ssh_run("tapd snap %s rollback-before-push-%s" % (env, ts), timeout=180)
+    rc, out = ssh_run("tapd snap %s %s-rollback-before-push-%s" % (env, env, ts), timeout=180)
     if rc != 0:
         print("[ERROR] 留底快照失败，中止（服务器未做任何变更）")
         sys.exit(1)
@@ -469,7 +469,7 @@ def cmd_push():
     if code == 200:
         print("√ 回滚完成：%s环境 https://123.207.252.195%s 健康（HTTP 200），内容 = 快照 %s"
               % (env_cn, "" if env == "prod" else ":8443", name))
-        print("  留底: 服务器 release/%s/rollback-before-push-%s（可再次回滚）" % (env, ts))
+        print("  留底: 服务器 release/%s/%s-rollback-before-push-%s（可再次回滚）" % (env, env, ts))
     else:
         print("!! 回滚已执行但健康检查异常（%s）——请打开浏览器人工确认，或用发布回滚.bat 再回滚" % code)
 
