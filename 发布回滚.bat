@@ -67,15 +67,23 @@ echo   --- 删除（不可恢复）---
 echo   [7] 删除生产快照 → 选择快照（需输入 yes 确认）
 echo   [8] 删除开发快照 → 选择快照（需输入 yes 确认）
 echo.
-echo   （本地快照/回滚见「数据库同步回滚.bat」）
+echo   --- 本地镜像（data\release-snapshots\）---
+echo   [9] Pull-Local    服务器快照下载到本地（选环境与快照）
+echo   [0] Restore-Local 本地镜像回滚服务器（高危！双确认，约20秒停机）
+echo   [L] Del-Local     删除本地镜像快照（只删本地，需输入 yes 确认）
+echo.
+echo   （本地库快照见「数据库同步回滚.bat」）
 echo.
 echo   [Q] Quit
 echo ================================================================
 echo.
-choice /c 12345678Q /n /m "   Select: "
+choice /c 1234567890LQ /n /m "   Select: "
 set "PICK=%ERRORLEVEL%"
 
-if "%PICK%"=="9" goto :QUIT
+if "%PICK%"=="12" goto :QUIT
+if "%PICK%"=="11" goto :DELL_LOCAL
+if "%PICK%"=="10" goto :RESTORE_LOCAL
+if "%PICK%"=="9" goto :PULL_LOCAL
 if "%PICK%"=="7" goto :DEL_PROD
 if "%PICK%"=="8" goto :DEL_DEV
 if "%PICK%"=="1" call :SRV rollbacklist prod & goto :AFTER
@@ -147,6 +155,47 @@ if not "%CONFIRM%"=="yes" (
 echo.
 call :SRV delsnap %ENV% %SNAP% yes
 goto :AFTER
+
+:PULL_LOCAL
+echo.
+choice /c PD /n /m "   环境（P=生产 / D=开发）: "
+if "%ERRORLEVEL%"=="1" (set "MENV=prod") else set "MENV=dev"
+echo   服务器 %MENV% 快照：
+call :SRV rollbacklist %MENV%
+set "MSNAP="
+set /p MSNAP=   输入要下载的快照名称（直接回车取消）: 
+if "%MSNAP%"=="" goto :AFTER
+"%VENV_PY%" "%~dp0ops\release-snap-ctl.py" pull %MENV% %MSNAP%
+goto :AFTER
+
+:RESTORE_LOCAL
+echo.
+echo   本地镜像清单：
+"%VENV_PY%" "%~dp0ops\release-snap-ctl.py" list
+echo.
+choice /c PD /n /m "   环境（P=生产 / D=开发）: "
+if "%ERRORLEVEL%"=="1" (set "MENV=prod") else set "MENV=dev"
+set "MSNAP="
+set /p MSNAP=   输入要用于回滚的本地镜像名称（直接回车取消）: 
+if "%MSNAP%"=="" goto :AFTER
+echo.
+echo   !! 高危：将用本地镜像回滚 %MENV% 服务器（恢复代码+数据库，约20秒停机）
+"%VENV_PY%" "%~dp0ops\release-snap-ctl.py" restore %MENV% %MSNAP%
+goto :AFTER
+
+:DELL_LOCAL
+echo.
+echo   本地镜像清单：
+"%VENV_PY%" "%~dp0ops\release-snap-ctl.py" list
+echo.
+choice /c PD /n /m "   环境（P=生产 / D=开发）: "
+if "%ERRORLEVEL%"=="1" (set "MENV=prod") else set "MENV=dev"
+set "MSNAP="
+set /p MSNAP=   输入要删除的本地镜像名称（直接回车取消）: 
+if "%MSNAP%"=="" goto :AFTER
+"%VENV_PY%" "%~dp0ops\release-snap-ctl.py" delete %MENV% %MSNAP%
+goto :AFTER
+
 
 :AFTER
 echo.
