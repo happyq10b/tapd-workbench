@@ -71,6 +71,7 @@ echo   --- 本地镜像（data\release-snapshots\）---
 echo   [9] Pull-Local    服务器快照下载到本地（选环境与快照）
 echo   [0] Restore-Local 本地镜像回滚服务器（高危！双确认，约20秒停机）
 echo   [L] Del-Local     删除本地镜像快照（只删本地，需输入 yes 确认）
+echo   [S] List-Local    列出本地镜像快照（名称 / 大小 / 时间 / 完整性）
 echo.
 echo   --- 自动快照（服务器每日定时）---
 echo   [A] 自动快照设置   开关与拍摄时间（状态见子菜单）
@@ -80,10 +81,11 @@ echo.
 echo   [Q] Quit
 echo ================================================================
 echo.
-choice /c 1234567890LAQ /n /m "   Select: "
+choice /c 1234567890LASQ /n /m "   Select: "
 set "PICK=%ERRORLEVEL%"
 
-if "%PICK%"=="13" goto :QUIT
+if "%PICK%"=="14" goto :QUIT
+if "%PICK%"=="13" goto :LIST_LOCAL
 if "%PICK%"=="12" goto :AUTOSNAP
 if "%PICK%"=="11" goto :DELL_LOCAL
 if "%PICK%"=="10" goto :RESTORE_LOCAL
@@ -198,6 +200,11 @@ set "MSNAP="
 set /p MSNAP=   输入要删除的本地镜像名称（直接回车取消）: 
 if "%MSNAP%"=="" goto :AFTER
 "%VENV_PY%" "%~dp0ops\release-snap-ctl.py" delete %MENV% %MSNAP%
+goto :AFTER
+:LIST_LOCAL
+echo.
+echo   本地镜像快照（data\release-snapshots\）：
+"%VENV_PY%" "%~dp0ops\release-snap-ctl.py" list
 goto :AFTER
 
 :AUTOSNAP
