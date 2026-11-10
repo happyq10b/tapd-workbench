@@ -72,15 +72,19 @@ echo   [9] Pull-Local    服务器快照下载到本地（选环境与快照）
 echo   [0] Restore-Local 本地镜像回滚服务器（高危！双确认，约20秒停机）
 echo   [L] Del-Local     删除本地镜像快照（只删本地，需输入 yes 确认）
 echo.
+echo   --- 自动快照（服务器每日定时）---
+echo   [A] 自动快照设置   开关与拍摄时间（状态见子菜单）
+echo.
 echo   （本地库快照见「数据库同步回滚.bat」）
 echo.
 echo   [Q] Quit
 echo ================================================================
 echo.
-choice /c 1234567890LQ /n /m "   Select: "
+choice /c 1234567890LAQ /n /m "   Select: "
 set "PICK=%ERRORLEVEL%"
 
-if "%PICK%"=="12" goto :QUIT
+if "%PICK%"=="13" goto :QUIT
+if "%PICK%"=="12" goto :AUTOSNAP
 if "%PICK%"=="11" goto :DELL_LOCAL
 if "%PICK%"=="10" goto :RESTORE_LOCAL
 if "%PICK%"=="9" goto :PULL_LOCAL
@@ -195,6 +199,45 @@ set /p MSNAP=   输入要删除的本地镜像名称（直接回车取消）:
 if "%MSNAP%"=="" goto :AFTER
 "%VENV_PY%" "%~dp0ops\release-snap-ctl.py" delete %MENV% %MSNAP%
 goto :AFTER
+
+:AUTOSNAP
+echo.
+echo ================================================================
+echo   自动快照设置（服务器 crontab，每日定时拍摄 prod/dev 快照）
+echo ================================================================
+echo.
+"%VENV_PY%" "%~dp0ops\auto-snap-ctl.py" status
+echo.
+echo   [1] 开启 / 修改时间
+echo   [2] 关闭自动快照
+echo   [B] 返回主菜单
+echo.
+choice /c 12B /n /m "   Select: "
+if "%ERRORLEVEL%"=="3" goto :AFTER
+if "%ERRORLEVEL%"=="2" goto :AUTO_OFF
+if "%ERRORLEVEL%"=="1" goto :AUTO_ON
+goto :AUTOSNAP
+
+:AUTO_ON
+echo.
+set "TPROD="
+set /p TPROD=   生产快照时间 HH:MM（直接回车 = 02:00）: 
+set "TDEV="
+set /p TDEV=   开发快照时间 HH:MM（直接回车 = 生产时间+10分钟）: 
+"%VENV_PY%" "%~dp0ops\auto-snap-ctl.py" on %TPROD% %TDEV%
+goto :AFTER
+
+:AUTO_OFF
+echo.
+set "CONFIRM="
+set /p CONFIRM=   确认关闭每日自动快照？输入 yes: 
+if not "%CONFIRM%"=="yes" (
+  echo   已取消。
+  goto :AFTER
+)
+"%VENV_PY%" "%~dp0ops\auto-snap-ctl.py" off
+goto :AFTER
+
 
 
 :AFTER
