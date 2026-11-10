@@ -51,15 +51,19 @@ echo.
 echo   --- 快照删除 ---
 echo   [9] Delete       删除本地快照（只删本地，不影响服务器）
 echo.
-echo   （服务器每日自动快照与「保留近10份」策略：见「发布回滚.bat [A]」）
+echo   --- 自动快照（服务器每日定时）---
+echo   [A] 自动快照设置   开关与拍摄时间（状态见子菜单）
+echo.
+echo   （「保留近10份」策略由服务器自动执行，无需配置）
 echo.
 echo   [Q] Quit
 echo ================================================================
 echo.
-choice /c 123456789Q /n /m "   Select: "
+choice /c 123456789AQ /n /m "   Select: "
 set "PICK=%ERRORLEVEL%"
 
-if "%PICK%"=="10" goto :QUIT
+if "%PICK%"=="11" goto :QUIT
+if "%PICK%"=="10" goto :AUTOSNAP
 if "%PICK%"=="1" "%VENV_PY%" "%CTL_PY%" pull prod & goto :AFTER
 if "%PICK%"=="2" "%VENV_PY%" "%CTL_PY%" pull dev & goto :AFTER
 if "%PICK%"=="3" "%VENV_PY%" "%CTL_PY%" snaplocal & goto :AFTER
@@ -80,6 +84,43 @@ set "MSNAP="
 set /p MSNAP=   输入要下载的发布快照名称（直接回车取消）: 
 if "%MSNAP%"=="" goto :AFTER
 "%VENV_PY%" "%~dp0ops\release-snap-ctl.py" pull %MENV% %MSNAP%
+goto :AFTER
+:AUTOSNAP
+echo.
+echo ================================================================
+echo   自动快照设置（服务器 crontab，每日定时拍摄 prod/dev 快照）
+echo ================================================================
+echo.
+"%VENV_PY%" "%~dp0ops\auto-snap-ctl.py" status
+echo.
+echo   [1] 开启 / 修改时间
+echo   [2] 关闭自动快照
+echo   [B] 返回主菜单
+echo.
+choice /c 12B /n /m "   Select: "
+if "%ERRORLEVEL%"=="3" goto :AFTER
+if "%ERRORLEVEL%"=="2" goto :AUTO_OFF
+if "%ERRORLEVEL%"=="1" goto :AUTO_ON
+goto :AUTOSNAP
+
+:AUTO_ON
+echo.
+set "TPROD="
+set /p TPROD=   生产快照时间 HH:MM（直接回车 = 02:00）: 
+set "TDEV="
+set /p TDEV=   开发快照时间 HH:MM（直接回车 = 生产时间+10分钟）: 
+"%VENV_PY%" "%~dp0ops\auto-snap-ctl.py" on %TPROD% %TDEV%
+goto :AFTER
+
+:AUTO_OFF
+echo.
+set "CONFIRM="
+set /p CONFIRM=   确认关闭每日自动快照？输入 yes: 
+if not "%CONFIRM%"=="yes" (
+  echo   已取消。
+  goto :AFTER
+)
+"%VENV_PY%" "%~dp0ops\auto-snap-ctl.py" off
 goto :AFTER
 
 :AFTER
