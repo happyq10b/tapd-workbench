@@ -66,14 +66,16 @@ echo.
 echo   --- 本地（快照 / 回滚）---
 echo   [7] 拍摄本地数据库快照（local_ 前缀，本机 src/app.db）
 echo   [8] 回滚本地开发库 → 选择快照（停 8100 → 当前库自动留底 → 恢复）
+echo   [9] 删除本地快照 → 选择快照（仅删本地文件，需输入 yes 确认）
 echo.
 echo   [Q] Quit
 echo ================================================================
 echo.
-choice /c 12345678Q /n /m "   Select: "
+choice /c 123456789Q /n /m "   Select: "
 set "PICK=%ERRORLEVEL%"
 
-if "%PICK%"=="9" goto :QUIT
+if "%PICK%"=="10" goto :QUIT
+if "%PICK%"=="9" "%VENV_PY%" "%~dp0ops\db-sync-ctl.py" delete & goto :AFTER
 if "%PICK%"=="8" "%VENV_PY%" "%~dp0ops\db-sync-ctl.py" apply & goto :AFTER
 if "%PICK%"=="7" "%VENV_PY%" "%~dp0ops\db-sync-ctl.py" snaplocal & goto :AFTER
 if "%PICK%"=="1" call :SRV rollbacklist prod & goto :AFTER

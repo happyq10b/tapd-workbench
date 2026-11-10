@@ -153,11 +153,36 @@ def snapshots():
     if not os.path.isdir(SNAP_ROOT):
         return []
     out = []
-    for name in sorted(os.listdir(SNAP_ROOT), reverse=True):
+    for name in os.listdir(SNAP_ROOT):
         db = os.path.join(SNAP_ROOT, name, "app.db")
         if os.path.isfile(db):
             out.append(name)
+    # #135 用户需求：按「拍摄时间」倒序，而不是目录名字母序 ——
+    # 字母序会把 bak-local_ 排最前，来源混杂看不清时间线
+    def ts_key(n):
+        m = re.search(r'(\d{8})_(\d{6})$', n)
+        return (m.group(1) + m.group(2)) if m else '000000000000000'
+    out.sort(key=ts_key, reverse=True)
     return out
+
+
+def snap_label(name):
+    """快照目录名 → (来源中文标签, 可读时间串)。
+
+    命名规则（#109）：来源前缀_YYYYMMDD_HHMMSS
+      prod_      服务器生产拉取    dev_        服务器开发拉取
+      local_     本地拍摄          bak-local_  回滚前自动留底
+    """
+    m = re.match(r'^(.+?)_(\d{8})_(\d{6})$', name)
+    if not m:
+        return '其他', ''
+    prefix, d, t = m.group(1), m.group(2), m.group(3)
+    tm = '%s-%s-%s %s:%s:%s' % (d[:4], d[4:6], d[6:8], t[:2], t[2:4], t[4:6])
+    label = {'prod': '服务器生产拉取',
+             'dev': '服务器开发拉取',
+             'local': '本地拍摄',
+             'bak-local': '回滚前自动留底'}.get(prefix, prefix)
+    return label, tm
 
 
 def cmd_list():
@@ -165,16 +190,13 @@ def cmd_list():
     if not names:
         print("（暂无本地快照。菜单 [1] 拉服务器 / [7] 拍本地）")
         return
-    print("本地快照（新→旧）：")
+    print("本地快照（按拍摄时间 新→旧）：")
     for i, n in enumerate(names, 1):
         db = os.path.join(SNAP_ROOT, n, "app.db")
-        meta = os.path.join(SNAP_ROOT, n, "meta.txt")
-        src = ""
-        if os.path.isfile(meta):
-            for line in open(meta, encoding="utf-8"):
-                if line.startswith("source="):
-                    src = line.split("=", 1)[1].strip()
-        print("  [%d] %s  %8.1f KB  来源: %s" % (i, n, os.path.getsize(db) / 1024.0, src))
+        label, tm = snap_label(n)
+        print("  [%d] %s ｜ %s  %8.1f KB  （%s）"
+              % (i, tm or '(无时间)', label, os.path.getsize(db) / 1024.0, n))
+    print("  图例：prod_=服务器生产拉取 dev_=服务器开发拉取 local_=本地拍摄 bak-local_=回滚前自动留底")
 
 
 def pick_snapshot():
