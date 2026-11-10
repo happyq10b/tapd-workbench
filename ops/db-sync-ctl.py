@@ -29,6 +29,7 @@ LOCAL_CTL = os.path.join(HERE, "local-ctl.py")
 PROD_URL = "https://123.207.252.195/login"
 DEV_URL = "https://123.207.252.195:8443/login"
 ENV_DIR = {"prod": "/opt/tapd-workbench", "dev": "/opt/tapd-dev"}
+RELEASE_DIR = "/var/backups/tapd-workbench/release"   # 服务器发布快照根（#148 拉开发库临时借用）
 ENV_URL = {"prod": PROD_URL, "dev": DEV_URL}
 
 
@@ -88,31 +89,56 @@ def ask(prompt, expect="yes"):
 
 
 # ---------------- pull ----------------
-def cmd_pull():
-    print("==> [1/3] 服务器拍一致性快照（sqlite backup API，不停服）")
-    rc, out = ssh_run("tapd backup", timeout=120)
-    m = re.search(r"(/var/backups/tapd-workbench/app\.db\.\d{8}-\d{6})", out)
-    if rc != 0 or not m:
-        print("[ERROR] 服务器备份失败（rc=%s）" % rc)
-        print(out[-500:].encode("gbk", errors="replace").decode("gbk"))
+def cmd_pull(env="prod"):
+    """拉取服务器库（prod 或 dev）→ 本地 db-snapshots 快照（<env>_前缀）。
+    #148：dev 复用「tapd snap dev 临时名」取库（backup 子命令只支持生产），
+    拉完即删临时发布快照，不在服务器留痕。"""
+    if env not in ("prod", "dev"):
+        print("[ERROR] 环境必须是 prod 或 dev")
         sys.exit(1)
-    remote_snap = m.group(1)
     ts = now_ts().replace("-", "_")
-    dest = os.path.join(SNAP_ROOT, "prod_%s" % ts)   # 编号规则（#109）：来源前缀_YYYYMMDD_HHMMSS
+    dest = os.path.join(SNAP_ROOT, "%s_%s" % (env, ts))   # 编号规则（#109）：来源前缀_YYYYMMDD_HHMMSS
     os.makedirs(dest, exist_ok=True)
 
-    print("==> [2/3] 拉取快照 → data/db-snapshots/prod_%s/" % ts)
+    if env == "prod":
+        print("==> [1/3] 服务器拍一致性快照（sqlite backup API，不停服）")
+        rc, out = ssh_run("tapd backup", timeout=120)
+        m = re.search(r"(/var/backups/tapd-workbench/app\.db\.\d{8}-\d{6})", out)
+        if rc != 0 or not m:
+            print("[ERROR] 服务器备份失败（rc=%s）" % rc)
+            print(out[-500:].encode("gbk", errors="replace").decode("gbk"))
+            sys.exit(1)
+        remote_snap = m.group(1)
+    else:
+        print("==> [1/3] 服务器拍开发库一致性快照（tapd snap dev，不停服）")
+        tmp = "pulldev-%s" % ts
+        rc, out = ssh_run("tapd snap dev %s" % tmp, timeout=180)
+        remote_snap = "%s/dev/%s/app.db" % (RELEASE_DIR, tmp)
+        probe = ssh_run('test -f "%s" && echo Y' % remote_snap)[1]
+        if rc != 0 or "Y" not in probe:
+            print("[ERROR] 开发库快照失败（rc=%s）" % rc)
+            print(out[-500:])
+            sys.exit(1)
+    _pull_one(env, ts, dest, remote_snap, tmp if env == "dev" else None)
+    return ts
+
+
+def _pull_one(env, ts, dest, remote_snap, tmp_release=None):
+    """下载 remote_snap → dest/app.db + meta；tmp_release 非空则清理服务器临时发布快照。"""
+    print("==> [2/3] 拉取快照 → data/db-snapshots/%s_%s/" % (env, ts))
     scp_pull(remote_snap, os.path.join(dest, "app.db"))
+    if tmp_release:
+        ssh_run("rm -rf %s/%s/%s" % (RELEASE_DIR, env, tmp_release), timeout=60)
 
     size = os.path.getsize(os.path.join(dest, "app.db"))
     with open(os.path.join(dest, "meta.txt"), "w", encoding="utf-8") as f:
-        f.write("source=prod:/opt/tapd-workbench/app.db\n")
+        f.write("source=%s:%s\n" % (env, ENV_DIR[env]))
         f.write("remote_snap=%s\n" % remote_snap)
         f.write("pulled_at=%s\n" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         f.write("bytes=%d\n" % size)
     print("==> [3/3] 完成")
-    print("  快照: data/db-snapshots/prod_%s/app.db（%d bytes）" % (ts, size))
-    print("  用途: 菜单 [3] 应用为本地开发数据源；菜单 [4] 回滚到服务器生产")
+    print("  快照: data/db-snapshots/%s_%s/app.db（%d bytes）" % (env, ts, size))
+    print("  用途: 菜单 [6] 应用为本地开发数据源；菜单 [7] 回滚到服务器")
     return ts
 
 
@@ -494,11 +520,11 @@ def cmd_delete():
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: db-sync-ctl.py <pull|list|apply|push|delete|orgpush|snaplocal> [参数]")
+        print("用法: db-sync-ctl.py <pull [prod|dev]|list|apply|push|delete|orgpush|snaplocal> [参数]")
         return 2
     cmd = sys.argv[1]
     if cmd == "pull":
-        cmd_pull()
+        cmd_pull(sys.argv[2] if len(sys.argv) > 2 else "prod")
     elif cmd == "list":
         cmd_list()
     elif cmd == "apply":

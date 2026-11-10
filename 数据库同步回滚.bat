@@ -37,33 +37,50 @@ echo   Workspace: %~dp0
 echo   快照目录  : data\db-snapshots\
 echo.
 echo   --- 快照拉取 ---
-echo   [1] Pull        拉取生产库快照到本地
-echo   [2] Snap-Local  拉取本地库快照（留存本地当前数据）
-echo   [3] List        列出本地快照
+echo   [1] Pull-Prod    拉取生产库数据到本地
+echo   [2] Pull-Dev     拉取开发库数据到本地
+echo   [3] Snap-Local   拉取本地库快照（留存本地当前数据）
+echo   [4] List         列出本地快照
+echo   [5] Pull-Release 服务器发布快照下载到本地（选环境 / 代码+数据库）
 echo.
 echo   --- 快照使用 ---
-echo   [4] Apply       应用快照为本地开发环境数据源
-echo   [5] Rollback    本地快照回滚到服务器库（选：生产 / 开发）
-echo   [6] Org-Rollback 按架构部门回滚（核算/商务/总账/管理/资金/财务中心）
+echo   [6] Apply        应用快照为本地开发环境数据源
+echo   [7] Rollback     本地快照回滚到服务器库（选：生产 / 开发）
+echo   [8] Org-Rollback 按架构部门回滚（核算/商务/总账/管理/资金/财务中心）
 echo.
 echo   --- 快照删除 ---
-echo   [7] Delete      删除本地快照（只删本地，不影响服务器）
+echo   [9] Delete       删除本地快照（只删本地，不影响服务器）
+echo.
+echo   （服务器每日自动快照与「保留近10份」策略：见「发布回滚.bat [A]」）
 echo.
 echo   [Q] Quit
 echo ================================================================
 echo.
-choice /c 1234567Q /n /m "   Select: "
+choice /c 123456789Q /n /m "   Select: "
 set "PICK=%ERRORLEVEL%"
 
-if "%PICK%"=="8" goto :QUIT
-if "%PICK%"=="1" "%VENV_PY%" "%CTL_PY%" pull & goto :AFTER
-if "%PICK%"=="2" "%VENV_PY%" "%CTL_PY%" snaplocal & goto :AFTER
-if "%PICK%"=="3" "%VENV_PY%" "%CTL_PY%" list & goto :AFTER
-if "%PICK%"=="4" "%VENV_PY%" "%CTL_PY%" apply & goto :AFTER
-if "%PICK%"=="5" "%VENV_PY%" "%CTL_PY%" push & goto :AFTER
-if "%PICK%"=="6" "%VENV_PY%" "%CTL_PY%" orgpush & goto :AFTER
-if "%PICK%"=="7" "%VENV_PY%" "%CTL_PY%" delete & goto :AFTER
+if "%PICK%"=="10" goto :QUIT
+if "%PICK%"=="1" "%VENV_PY%" "%CTL_PY%" pull prod & goto :AFTER
+if "%PICK%"=="2" "%VENV_PY%" "%CTL_PY%" pull dev & goto :AFTER
+if "%PICK%"=="3" "%VENV_PY%" "%CTL_PY%" snaplocal & goto :AFTER
+if "%PICK%"=="4" "%VENV_PY%" "%CTL_PY%" list & goto :AFTER
+if "%PICK%"=="5" goto :PULL_RELEASE
+if "%PICK%"=="6" "%VENV_PY%" "%CTL_PY%" apply & goto :AFTER
+if "%PICK%"=="7" "%VENV_PY%" "%CTL_PY%" push & goto :AFTER
+if "%PICK%"=="8" "%VENV_PY%" "%CTL_PY%" orgpush & goto :AFTER
+if "%PICK%"=="9" "%VENV_PY%" "%CTL_PY%" delete & goto :AFTER
 goto :MENU
+:PULL_RELEASE
+echo.
+choice /c PD /n /m "   环境（P=生产 / D=开发）: "
+if "%ERRORLEVEL%"=="1" (set "MENV=prod") else set "MENV=dev"
+echo   服务器 %MENV% 发布快照：
+call :SRV_RB rollbacklist %MENV%
+set "MSNAP="
+set /p MSNAP=   输入要下载的发布快照名称（直接回车取消）: 
+if "%MSNAP%"=="" goto :AFTER
+"%VENV_PY%" "%~dp0ops\release-snap-ctl.py" pull %MENV% %MSNAP%
+goto :AFTER
 
 :AFTER
 echo.
@@ -79,3 +96,8 @@ echo.
 echo   Bye.
 echo.
 exit /b 0
+
+rem ---------- 远端只读命令（rollbacklist 走 srv-ctl 转发）----------
+:SRV_RB
+"%VENV_PY%" "%~dp0ops\srv-ctl.py" %*
+goto :eof
