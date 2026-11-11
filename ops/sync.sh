@@ -25,6 +25,8 @@
 #     ./sync.sh --db-local   # 用本地 app.db 覆盖【开发环境】库（仅 dev；生产永不允许）
 #     ./sync.sh --pull       # 从生产拉回代码（只拉不推，不受门禁约束）
 #     ./sync.sh --pull-dev   # 从开发环境拉回代码
+#     ./sync.sh --pets       # 仅同步登录页精灵图片（tar 单流，几秒；独立于代码同步，
+#                            #   T-013f：386 张小文件走 scp -r 每次同步太慢，故拆出）
 # ============================================================
 set -euo pipefail
 
@@ -45,8 +47,35 @@ case "$MODE" in
   --dev|--db-local|--pull-dev) REMOTE_DIR=/opt/tapd-dev;      SVC=tapd-dev ;;
   *)                           REMOTE_DIR=/opt/tapd-workbench; SVC=tapd-web ;;
 esac
+# T-013f：精灵图片独立同步通道（--pets）—— 默认推生产；--pets --dev 推开发
+PETS_ENV=prod
+if [ "${2:-}" = "--dev" ]; then PETS_ENV=dev; fi
 # 行数差异容忍阈值：差异在此范围内视为本地微调，自动继续；超过则强制确认
 DIFF_TOLERANCE="${DIFF_TOLERANCE:-5}"
+
+# ============================================================
+#  T-013f：精灵图片独立同步（--pets）—— tar 单流整目录推，几秒完成；
+#  纯静态资产：不走验证门禁、不需要重启服务（nginx/应用直接读文件）。
+#  用法：./sync.sh --pets [--dev]   （不带 --dev 默认推生产）
+# ============================================================
+if [ "$MODE" = "--pets" ]; then
+  case "$PETS_ENV" in
+    dev)  PETS_REMOTE=/opt/tapd-dev;        PETS_SVC=tapd-dev ;;
+    *)    PETS_REMOTE=/opt/tapd-workbench;  PETS_SVC=tapd-web ;;
+  esac
+  if [ ! -d "$LOCAL_DIR/static/pokemon_sprites" ]; then
+    echo "${c_r}本地精灵目录不存在: $LOCAL_DIR/static/pokemon_sprites${c_0}"
+    exit 1
+  fi
+  echo "${c_b}==> 精灵图片同步 → $SSH_USER@$SERVER_IP:$PETS_REMOTE/static/（tar 单流）${c_0}"
+  tar -C "$LOCAL_DIR/static" -czf - pokemon_sprites \
+    | ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" \
+        "mkdir -p $PETS_REMOTE/static && tar -xzf - -C $PETS_REMOTE/static/ && echo '  已解包至 '$PETS_REMOTE'/static/pokemon_sprites'"
+  N=$(ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" \
+      "ls $PETS_REMOTE/static/pokemon_sprites 2>/dev/null | wc -l" 2>/dev/null || echo "?")
+  echo "${c_g}√ 完成${c_0}  服务器现有精灵图 $N 张（无需重启服务）"
+  exit 0
+fi
 # 验证凭证（阶段一产出）
 STAMP="$SCRIPT_DIR/.verify-stamp"
 VERIFY_MAX_AGE="${VERIFY_MAX_AGE:-7200}"   # 凭证有效期（秒），默认 2 小时
@@ -216,9 +245,12 @@ if [ "$MODE" = "--prod" ]; then
 fi
 
 echo "${c_g}[2/4]${c_0} 同步代码 app/ static/ manage_users.py requirements.txt"
-scp "${SSH_OPTS[@]}" -r "$LOCAL_DIR/app" "$LOCAL_DIR/static" \
-    "$LOCAL_DIR/manage_users.py" "$LOCAL_DIR/requirements.txt" \
-    "$SSH_USER@$SERVER_IP:$REMOTE_DIR/"
+# T-013f：tar 单流替代 scp -r，且排除 static/pokemon_sprites（386 张图走
+#   --pets 独立通道）—— 否则每次代码同步都要 386 次小文件握手，拖慢发布
+tar -C "$LOCAL_DIR" -czf - \
+    --exclude='__pycache__' --exclude='static/pokemon_sprites' \
+    app manage_users.py requirements.txt static \
+  | ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "tar -xzf - -C $REMOTE_DIR/"
 # 清掉服务器上遗留的 pycache，避免重启后加载旧字节码
 ssh "${SSH_READ_OPTS[@]}" "$SSH_USER@$SERVER_IP" "find $REMOTE_DIR/app $REMOTE_DIR/static -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null; true"
 

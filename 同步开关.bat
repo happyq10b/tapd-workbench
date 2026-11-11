@@ -100,10 +100,11 @@ echo   Select target:
 echo.
 echo     [1] Dev  (--dev)    推送到服务器开发环境
 echo     [2] Prod (--prod)   推送到生产环境
-echo     [3] Verify only     仅本地检查，不推送
-echo     [4] Cancel          取消
+echo     [3] Pets (--pets)   仅同步精灵图片（独立快速通道，不重启服务）
+echo     [4] Verify only     仅本地检查，不推送
+echo     [5] Cancel          取消
 echo.
-choice /c 1234 /n /m "   Enter 1-4: "
+choice /c 12345 /n /m "   Enter 1-5: "
 
 rem NOTE: 'if errorlevel N' means "errorlevel >= N", so they must be tested from
 rem high to low AND each must be mutually exclusive. Using separate 'if' lines
@@ -114,6 +115,30 @@ if errorlevel 3 goto :ONLY_VERIFY
 if errorlevel 2 goto :PICK_PROD
 if errorlevel 1 goto :PICK_DEV
 goto :CANCEL
+
+:PETS
+echo.
+echo ================================================================
+echo   同步精灵图片（选择目标环境）
+echo ================================================================
+echo.
+choice /c PD /n /m "   目标 P=生产 / D=开发: "
+if "%ERRORLEVEL%"=="1" (set "PETS_ARG=--pets") else set "PETS_ARG=--pets --dev"
+echo.
+"%BASH%" "%SYNC_SH%" %PETS_ARG%
+set "PETS_RC=%ERRORLEVEL%"
+echo.
+if not "%PETS_RC%"=="0" (
+  echo   精灵图片同步失败（exit %PETS_RC%）
+  pause
+  call :restore_cp
+  exit /b %PETS_RC%
+)
+echo   精灵图片同步完成（无需重启服务，刷新登录页即可见）。
+echo.
+pause
+call :restore_cp
+exit /b 0
 
 :PICK_PROD
 set "TARGET=--prod"

@@ -28,6 +28,10 @@ def code_fingerprint(src):
                 if fn.endswith((".pyc", ".pyo")):
                     continue
                 targets.append(os.path.join(root, fn))
+    # T-013f：精灵图片是静态资产（走 sync.sh --pets 独立通道同步），
+    #   不参与代码指纹 —— 否则图片微调会使验证凭证失效、被迫重跑 verify.py
+    targets = [t for t in targets
+               if os.path.relpath(t, src).replace("\\", "/") != "static/pokemon_sprites"]
     for extra in ("requirements.txt", "manage_users.py"):
         p = os.path.join(src, extra)
         if os.path.exists(p):
