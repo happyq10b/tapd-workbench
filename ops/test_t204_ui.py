@@ -83,6 +83,23 @@ def api(path, method='GET', data=None):
         return e.code, {}
 
 
+def kill_profile_chrome(profile):
+    """T-204c 教训：CDP 测试结束必须杀掉自己 profile 的 Chrome ——
+    残留 headless 实例的 WS 心跳一直活跃，服务端会判定该账号「真在线」，
+    在线用户管理里永远显示未下线（探针以 admin 登录 → admin 无法被踢回登录态）。"""
+    import re
+    try:
+        out = subprocess.run(
+            ['wmic', 'process', 'where',
+             "name='chrome.exe' and CommandLine like '%%%s%%'" % profile,
+             'get', 'ProcessId', '/FORMAT:VALUE'],
+            capture_output=True, text=True, timeout=20).stdout
+        for pid in re.findall(r'ProcessId=(\d+)', out):
+            subprocess.run(['taskkill', '/PID', pid, '/F'], capture_output=True)
+    except Exception:
+        pass
+
+
 async def main():
     import websockets
     # ---------- 夹具：公共看板 + 板块 + 两个主事项（其一带子事项） ----------
@@ -333,9 +350,10 @@ if __name__ == '__main__':
     try:
         rc = asyncio.run(main())
     finally:
+        kill_profile_chrome('cdp_t204')
         try:
             db_cleanup()
-            print('finally 清理完成，残留：', residue_check() or '无', flush=True)
+            print('finally 清理完成（浏览器进程已回收），残留：', residue_check() or '无', flush=True)
         except Exception as e:
             print('finally 清理异常：', e, flush=True)
     sys.exit(rc if isinstance(rc, int) else 1)

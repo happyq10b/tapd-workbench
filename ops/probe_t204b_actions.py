@@ -137,4 +137,19 @@ async def main():
 
 
 if __name__ == '__main__':
-    sys.exit(asyncio.run(main()) or 0)
+    try:
+        rc = asyncio.run(main()) or 0
+    finally:
+        # T-204c 教训：残留 headless Chrome 会以登录账号身份持续心跳 → 在线列表永远「未下线」
+        import re as _re
+        try:
+            _out = subprocess.run(
+                ['wmic', 'process', 'where',
+                 "name='chrome.exe' and CommandLine like '%cdp_t204b%'",
+                 'get', 'ProcessId', '/FORMAT:VALUE'],
+                capture_output=True, text=True, timeout=20).stdout
+            for _pid in _re.findall(r'ProcessId=(\d+)', _out):
+                subprocess.run(['taskkill', '/PID', _pid, '/F'], capture_output=True)
+        except Exception:
+            pass
+    sys.exit(rc)
