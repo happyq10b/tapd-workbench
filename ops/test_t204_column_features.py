@@ -157,11 +157,12 @@ def main():
     else:
         print('SKIP ② 提及接受路径（该看板候选池为空）', flush=True)
 
-    # 评论列表：升序 + mentions 字段返回
+    # 评论列表：倒序（2026-11-13 T-204d 需求：最新在前）+ mentions 字段返回
     st, r = api('/api/columns/comments?col_key=' + urllib.parse.quote(key, safe=''), token=TK_U1)
     cs = (r or {}).get('comments') or []
-    ok(st == 200 and len(cs) >= 2 and cs[0]['content'] == '第一条板块评论',
-       f'② GET 评论列表 → {st}，{len(cs)} 条，升序')
+    _first_expected = '带提及评论' if pool_admin else '第一条板块评论'
+    ok(st == 200 and len(cs) >= 2 and cs[0]['content'] == _first_expected,
+       f'② GET 评论列表 → {st}，{len(cs)} 条，倒序（最新在前）')
     ok('mentions' in cs[0], '② 评论行带 mentions 字段')
 
     # ---------- ③ 板块操作记录 ----------
