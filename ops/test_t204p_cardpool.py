@@ -95,13 +95,18 @@ def cleanup():
     api('/api/columns/' + urllib.parse.quote(COL_KEY, safe=''), 'DELETE')
     # LIKE 通配纪律：`__t204p%` 前两个 _ 是通配符 → 必须用 chr(92) 构造转义（#122 教训）
     BS = chr(92)                       # 反斜杠
-    pat_card = '_{}_t204p%'.format(BS)          # \_\_t204p%
-    pat_user = '_{}_t204p_%'.format(BS)         # \_\_t204p\_%（尾 _ 也转义）
+    # #136：显式全转义 —— % \_ \_ t204p \_ %（此前只转一个下划线，靠通配符碰巧命中）
+    pat_card = r'%\_\_t204p%'
+    pat_user = r'%\_\_t204p\_%'
     esc = BS
     c = sqlite3.connect(DB)
+    # #136：LIKE 全匹配 + board_name 一并匹配 —— 覆盖 setup 失败运行留下的未知 id 实体
     c.execute("DELETE FROM cards WHERE card_id LIKE ? ESCAPE ? OR card_name LIKE ? ESCAPE ?",
               (pat_card, esc, pat_card, esc))
-    c.execute("DELETE FROM board_columns WHERE col_key=?", (COL_KEY,))
+    c.execute("DELETE FROM board_columns WHERE col_key=? OR col_key LIKE ? ESCAPE ?",
+              (COL_KEY, pat_card, esc))
+    c.execute("DELETE FROM boards WHERE board_id=? OR board_name LIKE ? ESCAPE ?",
+              (BID, pat_card, esc))
     c.execute("DELETE FROM boards WHERE board_id=?", (BID,))
     c.execute("DELETE FROM users WHERE username LIKE ? ESCAPE ?", (pat_user, esc))
     c.execute("DELETE FROM messages WHERE content LIKE ? ESCAPE ?", (pat_card, esc))
@@ -123,7 +128,11 @@ def table_counts():
 
 async def main():
     import websockets
-    setup()
+    try:
+        setup()
+    except Exception:
+        cleanup()          # #136：setup 中途失败（断言抛出）→ 立即清理已建夹具
+        raise
     c0 = table_counts()
     tk = ensure_test_ui_account()
     profile = os.path.join(os.environ.get('TEMP', '.'), 'cdp_t204p')
