@@ -204,6 +204,10 @@ async def main():
     await asyncio.sleep(2.5)
     await ev("curBoard='__t204_B';curBoards=new Set(['__t204_B']);reload(1)")
     await asyncio.sleep(3)
+    # 板块默认折叠（2026-11-17 #142）：.item-title 在 week-body 内，折叠态下
+    # 测量为 0 → 先手动展开全部板块（与用户操作同款）再测量
+    await ev("expandAll()")
+    await asyncio.sleep(0.8)
 
     print('【① 逾期列移除 + 标题加宽】', flush=True)
     r1 = await ev("""(function(){
