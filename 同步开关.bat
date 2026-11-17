@@ -100,7 +100,7 @@ echo   Select target:
 echo.
 echo     [1] Dev  (--dev)    推送到服务器开发环境
 echo     [2] Prod (--prod)   推送到生产环境
-echo     [3] Pets (--pets)   仅同步精灵图片（独立快速通道，不重启服务）
+echo     [3] Pets (--pets)   仅同步精灵图片（先选环境：开发/生产，不重启服务）
 echo     [4] Verify only     仅本地检查，不推送
 echo     [5] Cancel          取消
 echo.
@@ -110,8 +110,12 @@ rem NOTE: 'if errorlevel N' means "errorlevel >= N", so they must be tested from
 rem high to low AND each must be mutually exclusive. Using separate 'if' lines
 rem for the two targets lets a later line overwrite an earlier match, so we
 rem use goto labels instead.
-if errorlevel 4 goto :CANCEL
-if errorlevel 3 goto :ONLY_VERIFY
+rem (2026-11-17 #123) fix: dispatch missed level 5 and sent [3] to ONLY_VERIFY,
+rem leaving the :PETS env-choice branch dead -- [3] now enters :PETS and asks
+rem P(prod)/D(dev) as designed.
+if errorlevel 5 goto :CANCEL
+if errorlevel 4 goto :ONLY_VERIFY
+if errorlevel 3 goto :PETS
 if errorlevel 2 goto :PICK_PROD
 if errorlevel 1 goto :PICK_DEV
 goto :CANCEL
