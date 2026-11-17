@@ -53,6 +53,16 @@ if [ "${2:-}" = "--dev" ]; then PETS_ENV=dev; fi
 # 行数差异容忍阈值：差异在此范围内视为本地微调，自动继续；超过则强制确认
 DIFF_TOLERANCE="${DIFF_TOLERANCE:-5}"
 
+# NO_COLOR=1（同步开关.bat 设置）→ 关闭 ANSI 颜色码（老式 conhost 不解析 VT）
+# （2026-11-17 #124）上移到 --pets 分支之前：原定义在 line 80+，而 --pets 分支
+# 已使用 ${c_b}/${c_g}/${c_r} —— set -u 下报 "c_b: unbound variable"。
+# 之所以三天没暴露：菜单分发 bug 让 --pets 通道从未真正执行过（T-204f 修复后首跑即炸）。
+if [ -n "$NO_COLOR" ]; then
+  c_g=""; c_y=""; c_r=""; c_b=""; c_d=""; c_0=""
+else
+  c_g=$'\033[32m'; c_y=$'\033[33m'; c_r=$'\033[31m'; c_b=$'\033[36m'; c_d=$'\033[2m'; c_0=$'\033[0m'
+fi
+
 # ============================================================
 #  T-013f：精灵图片独立同步（--pets）—— tar 单流整目录推，几秒完成；
 #  纯静态资产：不走验证门禁、不需要重启服务（nginx/应用直接读文件）。
@@ -79,13 +89,6 @@ fi
 # 验证凭证（阶段一产出）
 STAMP="$SCRIPT_DIR/.verify-stamp"
 VERIFY_MAX_AGE="${VERIFY_MAX_AGE:-7200}"   # 凭证有效期（秒），默认 2 小时
-
-# NO_COLOR=1（同步开关.bat 设置）→ 关闭 ANSI 颜色码（老式 conhost 不解析 VT）
-if [ -n "$NO_COLOR" ]; then
-  c_g=""; c_y=""; c_r=""; c_b=""; c_d=""; c_0=""
-else
-  c_g=$'\033[32m'; c_y=$'\033[33m'; c_r=$'\033[31m'; c_b=$'\033[36m'; c_d=$'\033[2m'; c_0=$'\033[0m'
-fi
 
 if [ ! -d "$LOCAL_DIR" ]; then
   echo "${c_r}本地源码目录不存在: $LOCAL_DIR${c_0}"
