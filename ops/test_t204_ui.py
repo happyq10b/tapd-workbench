@@ -10,6 +10,8 @@
 import asyncio, json, os, shutil, sqlite3, subprocess, sys, time, urllib.request, urllib.parse
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cdp_test_helper import ensure_test_ui_account, cleanup as cdp_cleanup  # noqa: E402
 os.environ.setdefault('APP_SECRET', 'local-dev-secret-not-for-production')
 from app.app import make_token, hash_pw
 
@@ -350,7 +352,7 @@ if __name__ == '__main__':
     try:
         rc = asyncio.run(main())
     finally:
-        kill_profile_chrome('cdp_t204')
+        cdp_cleanup("cdp_t204")
         try:
             db_cleanup()
             print('finally 清理完成（浏览器进程已回收），残留：', residue_check() or '无', flush=True)

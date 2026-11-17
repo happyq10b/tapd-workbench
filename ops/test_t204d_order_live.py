@@ -11,6 +11,8 @@
 import asyncio, json, os, shutil, sqlite3, subprocess, sys, time, urllib.request, urllib.parse
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cdp_test_helper import ensure_test_ui_account, cleanup as cdp_cleanup  # noqa: E402
 os.environ.setdefault('APP_SECRET', 'local-dev-secret-not-for-production')
 from app.app import make_token, hash_pw
 
@@ -207,13 +209,13 @@ async def cdp_section(colkey, card_id):
         await send('Runtime.enable')
         await send('Emulation.setDeviceMetricsOverride',
                    {'width': 1920, 'height': 1080, 'deviceScaleFactor': 1, 'mobile': False})
-        cookie = 'tk=%s; path=/; Max-Age=86400' % TK_ADMIN
+        cookie = 'tk=%s; path=/; Max-Age=86400' % ensure_test_ui_account()   # #128：页面登录用一次性测试账号，不占 admin
         await send('Page.navigate', {'url': BASE + '/'})
         await asyncio.sleep(1)
         await ev("document.cookie=%s;location.href='/';" % json.dumps(cookie))
         for _ in range(90):
             await asyncio.sleep(0.5)
-            if await ev("typeof api==='function'&&typeof ME!=='undefined'&&!!ME&&ME.username==='admin'") is True:
+            if await ev("typeof api==='function'&&typeof ME!=='undefined'&&!!ME&&ME.username==='__cdp_ui'") is True:
                 break
         await asyncio.sleep(2)
         await ev("window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(String(e.message))})")
@@ -278,7 +280,7 @@ async def cdp_section(colkey, card_id):
         r5 = await ev("window.__errs")
         ok(not r5, f'⑧ 无 JS 错误（实际：{r5}）')
     finally:
-        kill_profile_chrome()
+        cdp_cleanup("cdp_t204d")
         shutil.rmtree(profile, ignore_errors=True)
 
 
@@ -328,5 +330,5 @@ if __name__ == '__main__':
     try:
         rc = asyncio.run(main())
     finally:
-        kill_profile_chrome()
+        cdp_cleanup("cdp_t204d")
     sys.exit(rc if isinstance(rc, int) else 1)

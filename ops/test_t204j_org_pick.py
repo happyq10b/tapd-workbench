@@ -8,6 +8,8 @@
 import asyncio, json, os, shutil, sqlite3, subprocess, sys, time, urllib.request
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cdp_test_helper import ensure_test_ui_account, cleanup as cdp_cleanup  # noqa: E402
 os.environ.setdefault('APP_SECRET', 'local-dev-secret-not-for-production')
 from app.app import make_token
 
@@ -63,7 +65,7 @@ async def main():
     print(f"基线：成本组(id={nid}) 组长={leader['name']} 样本组员={member['name']}；"
           f"org_appointments 全表={n_all0} 本节点={n_node0}", flush=True)
 
-    tk = make_token('admin')
+    tk = ensure_test_ui_account()   # #128：页面登录用一次性测试账号，不占 admin
     profile = os.path.join(os.environ.get('TEMP', '.'), 'cdp_t204j')
     shutil.rmtree(profile, ignore_errors=True)
     subprocess.Popen([CHROME, '--headless=new', '--disable-gpu', '--no-first-run',
@@ -114,7 +116,7 @@ async def main():
         await ev("document.cookie=%s;location.href='/';" % json.dumps(cookie))
         for _ in range(90):
             await asyncio.sleep(0.5)
-            if await ev("typeof api==='function'&&typeof ME!=='undefined'&&!!ME&&ME.username==='admin'") is True:
+            if await ev("typeof api==='function'&&typeof ME!=='undefined'&&!!ME&&ME.username==='__cdp_ui'") is True:
                 break
         await asyncio.sleep(1.5)
         await ev("window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(String(e.message))})")
@@ -159,7 +161,7 @@ async def main():
         errs = await ev("window.__errs")
         ok(not errs, f'④ 无 JS 错误（实际：{errs}）')
     finally:
-        kill_profile_chrome()
+        cdp_cleanup("cdp_t204j")
         shutil.rmtree(profile, ignore_errors=True)
 
 

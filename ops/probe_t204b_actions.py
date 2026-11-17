@@ -8,6 +8,8 @@
 import asyncio, json, os, shutil, subprocess, sys, time, urllib.request
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cdp_test_helper import ensure_test_ui_account, cleanup as cdp_cleanup  # noqa: E402
 os.environ.setdefault('APP_SECRET', 'local-dev-secret-not-for-production')
 from app.app import make_token
 
@@ -18,7 +20,7 @@ CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 async def main():
     import websockets
-    tk = make_token('admin')
+    tk = ensure_test_ui_account()   # #128：页面登录用一次性测试账号，不占 admin
     profile = os.path.join(os.environ.get('TEMP', '.'), 'cdp_t204b')
     shutil.rmtree(profile, ignore_errors=True)
     subprocess.Popen([CHROME, '--headless=new', '--disable-gpu', '--no-first-run',
@@ -75,7 +77,7 @@ async def main():
     await ev("document.cookie=%s;location.href='/';" % json.dumps(cookie))
     for _ in range(90):
         await asyncio.sleep(0.5)
-        r = await ev("typeof api==='function'&&typeof ME!=='undefined'&&!!ME&&ME.username==='admin'")
+        r = await ev("typeof api==='function'&&typeof ME!=='undefined'&&!!ME&&ME.username==='__cdp_ui'")
         if r is True:
             break
     print('admin 登录就绪', flush=True)
@@ -140,16 +142,6 @@ if __name__ == '__main__':
     try:
         rc = asyncio.run(main()) or 0
     finally:
-        # T-204c 教训：残留 headless Chrome 会以登录账号身份持续心跳 → 在线列表永远「未下线」
-        import re as _re
-        try:
-            _out = subprocess.run(
-                ['wmic', 'process', 'where',
-                 "name='chrome.exe' and CommandLine like '%cdp_t204b%'",
-                 'get', 'ProcessId', '/FORMAT:VALUE'],
-                capture_output=True, text=True, timeout=20).stdout
-            for _pid in _re.findall(r'ProcessId=(\d+)', _out):
-                subprocess.run(['taskkill', '/PID', _pid, '/F'], capture_output=True)
-        except Exception:
-            pass
+        # #128（2026-11-17）：树杀浏览器 + 一次性测试账号强制下线并删号
+        cdp_cleanup("cdp_t204b")
     sys.exit(rc)

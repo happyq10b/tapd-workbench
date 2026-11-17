@@ -10,6 +10,8 @@
 import asyncio, json, os, shutil, subprocess, sys, time, urllib.request
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cdp_test_helper import ensure_test_ui_account, cleanup as cdp_cleanup  # noqa: E402
 os.environ.setdefault('APP_SECRET', 'local-dev-secret-not-for-production')
 from app.app import make_token
 
@@ -39,7 +41,7 @@ def kill_profile_chrome():
 
 async def main():
     import websockets
-    tk = make_token('admin')
+    tk = ensure_test_ui_account()   # #128：页面登录用一次性测试账号，不占 admin
     shutil.rmtree(PROFILE, ignore_errors=True)
     subprocess.Popen([CHROME, '--headless=new', '--disable-gpu', '--no-first-run',
                       '--remote-debugging-port=%d' % PORT, '--user-data-dir=' + PROFILE, 'about:blank'],
@@ -93,7 +95,7 @@ async def main():
         await ev("document.cookie=%s;location.href='/';" % json.dumps(cookie))
         for _ in range(90):
             await asyncio.sleep(0.5)
-            r = await ev("typeof api==='function'&&typeof ME!=='undefined'&&!!ME&&ME.username==='admin'")
+            r = await ev("typeof api==='function'&&typeof ME!=='undefined'&&!!ME&&ME.username==='__cdp_ui'")
             if r is True:
                 break
         await asyncio.sleep(2.5)
@@ -212,7 +214,7 @@ async def main():
         print(f'=== 结果：{sum(PASSED)}/{len(PASSED)} 通过 ===', flush=True)
         return 0 if all(PASSED) else 1
     finally:
-        kill_profile_chrome()
+        cdp_cleanup("cdp_t205")
 
 
 if __name__ == '__main__':
