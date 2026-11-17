@@ -207,7 +207,9 @@ def snap_label(name):
     label = {'prod': '服务器生产拉取',
              'dev': '服务器开发拉取',
              'local': '本地拍摄',
-             'bak-local': '回滚前自动留底'}.get(prefix, prefix)
+             'bak-local': '回滚前自动留底',
+             'rel-prod': '发布快照·生产',
+             'rel-dev': '发布快照·开发'}.get(prefix, prefix)
     return label, tm
 
 
@@ -222,7 +224,7 @@ def cmd_list():
         label, tm = snap_label(n)
         print("  [%d] %s ｜ %s  %8.1f KB  （%s）"
               % (i, tm or '(无时间)', label, os.path.getsize(db) / 1024.0, n))
-    print("  图例：prod_=服务器生产拉取 dev_=服务器开发拉取 local_=本地拍摄 bak-local_=回滚前自动留底")
+    print("  图例：prod_=服务器生产拉取 dev_=服务器开发拉取 local_=本地拍摄 bak-local_=回滚前自动留底 rel-*=发布快照下载（Pull-Release 注册）")
 
 
 def pick_snapshot():

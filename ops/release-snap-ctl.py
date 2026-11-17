@@ -143,6 +143,29 @@ def cmd_pull(env_arg="", name_arg=""):
         sys.exit(1)
     sz = sum(os.path.getsize(os.path.join(dp, f)) for dp, _, fs in os.walk(dest) for f in fs)
     print("完成：本地镜像 %s/%s（%.1f KB）" % (env, name, sz / 1024.0))
+    register_db_snapshot(env, name, dest)
+
+
+def register_db_snapshot(env, name, mirror_dir):
+    """（2026-11-17 #126）把发布快照里的 app.db 注册一份到 data/db-snapshots/，
+    使【数据库同步回滚.bat】的 [4] List / [6] Apply 能看到并使用——
+    此前 Pull-Release 只落 data/release-snapshots/，与 db 快照列表互不相通（用户报告）。
+    目录名 rel-<env>_YYYYMMDD_HHMMSS（时间取自发布快照名），前缀映射见 db-sync-ctl.snap_label。
+    纯复制注册，不应用；重复下载同一名快照时覆盖同名注册目录。"""
+    import re as _re
+    src_db = os.path.join(mirror_dir, "app.db")
+    if not os.path.isfile(src_db):
+        return
+    m = _re.search(r'(\d{8})-(\d{6})', name)
+    ts = (m.group(1) + '_' + m.group(2)) if m else datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    dst_dir = os.path.join(ROOT, 'data', 'db-snapshots', 'rel-%s_%s' % (env, ts))
+    os.makedirs(dst_dir, exist_ok=True)
+    shutil.copy2(src_db, os.path.join(dst_dir, 'app.db'))
+    # 来源标签随行：发布快照原名写进 meta，便于追溯
+    with open(os.path.join(dst_dir, 'meta.txt'), 'w', encoding='utf-8') as f:
+        f.write('source=release-%s:%s\nrelease_snap=%s\nregistered_at=%s\n'
+                % (env, name, name, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+    print("==> 已注册到数据库快照列表：%s（[4] List / [6] Apply 可见）" % os.path.basename(dst_dir))
 
 
 # ---------------- restore ----------------
