@@ -250,8 +250,14 @@ fi
 echo "${c_g}[2/4]${c_0} 同步代码 app/ static/ manage_users.py requirements.txt"
 # T-013f：tar 单流替代 scp -r，且排除 static/pokemon_sprites（386 张图走
 #   --pets 独立通道）—— 否则每次代码同步都要 386 次小文件握手，拖慢发布
+# （2026-11-17 #129 用户立规）**同步仅限脚本/代码，数据库一律不推**：
+#   目标库沿用服务器现状。曾发现 src/app/app.db（0 字节垃圾）随包上传。
+#   → 全局排除 *.db / *.db-wal / *.db-shm / *.bak（双保险：显式清单本不含库，
+#     但任何日后误放入 src 的 db 类文件也推不上去）。库仅可经 --db-local
+#     （显式、仅 dev、生产永不允许）或 数据库同步回滚.bat [7]（人工双确认）触碰。
 tar -C "$LOCAL_DIR" -czf - \
     --exclude='__pycache__' --exclude='static/pokemon_sprites' \
+    --exclude='*.db' --exclude='*.db-wal' --exclude='*.db-shm' --exclude='*.bak' \
     app manage_users.py requirements.txt static \
   | ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "tar -xzf - -C $REMOTE_DIR/"
 # 清掉服务器上遗留的 pycache，避免重启后加载旧字节码
