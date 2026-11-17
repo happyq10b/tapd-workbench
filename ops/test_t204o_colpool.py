@@ -113,7 +113,7 @@ async def main():
           const accs=[];
           if(b.owner)accs.push(b.owner);
           (b.participants||'').split(',').forEach(a=>{if(a)accs.push(a);});
-          const labels=accs.filter(Boolean).map(a=>{
+          const labels=aclAccsInDept(b.dept||'',accs).filter(Boolean).map(a=>{
             const m=BC_ACL_MEMBERS.filter(x=>x.account===a)[0];
             return m?m.label:a;}).filter(Boolean);
           const dep=new Set(BC_ACL_MEMBERS.filter(x=>x.status==='departed').map(x=>x.name));
@@ -130,26 +130,28 @@ async def main():
 
         # ③ 切换所属看板 → 池随动
         r3 = await ev("""(function(){
-          const other=(ME.boards||[]).find(b=>b.board_id!==document.getElementById('c_board').value
-            && (b.owner||b.participants));
+          const cur=document.getElementById('c_board').value;
+          const other=(ME.boards||[]).find(b=>b.board_id!==cur&&(b.owner||b.participants));
           if(!other)return {skip:true};
           const el=document.getElementById('c_board');
           el.value=other.board_id;
           el.dispatchEvent(new Event('change'));
+          const b=other;
           const accs=[];
-          if(other.owner)accs.push(other.owner);
-          (other.participants||'').split(',').forEach(a=>{if(a)accs.push(a);});
-          const labels=accs.filter(Boolean).map(a=>{
+          if(b.owner)accs.push(b.owner);
+          (b.participants||'').split(',').forEach(a=>{if(a)accs.push(a);});
+          const labels=aclAccsInDept(b.dept||'',accs).filter(Boolean).map(a=>{
             const m=BC_ACL_MEMBERS.filter(x=>x.account===a)[0];
             return m?m.label:a;}).filter(Boolean);
           const dep=new Set(BC_ACL_MEMBERS.filter(x=>x.status==='departed').map(x=>x.name));
-          return {board:other.board_id, expected:[...new Set(labels)].filter(n=>!dep.has(n)),
+          return {board:b.board_id, expected:[...new Set(labels)].filter(n=>!dep.has(n)),
                   ownerPool:PP['c_owner'].ALL.slice()};
         })()""")
         if r3.get('skip'):
             print('SKIP ③ 仅一块看板配置了 ACL，切换场景跳过', flush=True)
         else:
-            ok(r3.get('ownerPool') == r3.get('expected'),
+            print('r3 诊断:', json.dumps(r3, ensure_ascii=False), flush=True)
+        ok(r3.get('ownerPool') == r3.get('expected'),
                f'③ 切换看板[{r3.get("board")}] → 池随动（{r3.get("expected")}）')
 
         # ④ 编辑模式：池 = 该板块归属看板的负责人+参与人（真实入口：切看板→渲染→取板块标题 dataset）
@@ -165,12 +167,13 @@ async def main():
           if(!t)return {skip:true,reason:'当前看板无可编辑板块'};
           const okL=await openColumnEdit({colkey:t.dataset.colkey,bid:t.dataset.bid,cname:t.dataset.cname},true);
           if(!okL)return {skip:true,reason:'认锁失败'};
+          await new Promise(function(res){setTimeout(res,1200)});   // 等 colInitPickers 异步链
           const bid=t.dataset.bid;
           const b=(ME.boards||[]).find(x=>x.board_id===bid);
           const accs=[];
           if(b.owner)accs.push(b.owner);
           (b.participants||'').split(',').forEach(a=>{if(a)accs.push(a);});
-          const labels=accs.filter(Boolean).map(a=>{
+          const labels=aclAccsInDept(b.dept||'',accs).filter(Boolean).map(a=>{
             const m=BC_ACL_MEMBERS.filter(x=>x.account===a)[0];
             return m?m.label:a;}).filter(Boolean);
           const dep=new Set(BC_ACL_MEMBERS.filter(x=>x.status==='departed').map(x=>x.name));
@@ -181,6 +184,7 @@ async def main():
         if r4b.get('skip'):
             print(f"SKIP ④ 编辑模式（{r4b.get('reason')}）", flush=True)
         else:
+            print('r4b 诊断:', json.dumps(r4b, ensure_ascii=False), flush=True)
             ok(r4b.get('ownerPool') == r4b.get('expected'),
                f'④ 编辑板块·池 = 归属看板[{r4b.get("board")}]负责人+参与人')
             ok(r4b.get('partsPool') == r4b.get('expected'), '④ 参与人池同源一致')
