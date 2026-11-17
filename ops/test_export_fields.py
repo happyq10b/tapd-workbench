@@ -46,7 +46,7 @@ def main():
     d = json.loads(r.decode()) if code == 200 else {}
     fields = d.get('fields') or []
     keys = [f['key'] for f in fields]
-    ok(code == 200 and len(fields) == 26, '字段清单 26 项（实际 %s）' % (len(fields) if code == 200 else code))
+    ok(code == 200 and len(fields) == 23, '字段清单 23 项（#143：26-5+2，实际 %s）' % (len(fields) if code == 200 else code))
     ok('card_name' in keys and '_parent_name' in keys, '含基础列与派生列')
 
     print('\n【2】按勾选顺序导出')
@@ -61,8 +61,8 @@ def main():
     code, data = http_raw('/api/export/xlsx', tok)
     ok(code == 200, '无 fields 导出 → 200（实际 %s）' % code)
     hdr = xlsx_headers(data) if code == 200 else []
-    ok(hdr and hdr[0] == '事项名称' and len(hdr) == 26,
-       '缺省导出 26 列、首列事项名称（实际 %d 列）' % len(hdr))
+    ok(hdr and hdr[0] == '事项名称' and len(hdr) == 23,
+       '缺省导出 23 列、首列事项名称（实际 %d 列）' % len(hdr))
 
     print('\n【4】异常兜底')
     code, r = http_raw('/api/export/xlsx?fields=bogus', tok)
