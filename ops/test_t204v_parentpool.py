@@ -101,9 +101,12 @@ def cleanup():
     if CLEANED[0]:
         return
     CLEANED[0] = True
-    for cid in (IDS.get('copyid'), IDS.get('p2id'), IDS.get('sid2'), IDS.get('sid'), IDS.get('pid')):
+    for cid in (IDS.get('p4id'), IDS.get('p3id'), IDS.get('copyid'), IDS.get('p2id'), IDS.get('sid2'), IDS.get('sid'), IDS.get('pid')):
         if cid:
             api('/api/cards/' + cid, 'DELETE', token=TK_ADMIN)
+    if IDS.get('colKeyEmpty'):
+        import urllib.parse
+        api('/api/columns/' + urllib.parse.quote(IDS['colKeyEmpty'], safe=''), 'DELETE', token=TK_ADMIN)
     if IDS.get('colKey'):
         api('/api/columns/' + urllib.parse.quote(IDS['colKey'], safe=''), 'DELETE', token=TK_ADMIN)
     if IDS.get('bid'):
@@ -175,6 +178,28 @@ def main():
     ok(st == 200 and U3 in (r.get('removed') or []), f'③ 主事项按板块池剔除 {U3}（removed={r.get("removed")}）')
     p2 = get_card(IDS['p2id']) if IDS['p2id'] else None
     ok(p2 is not None and (p2['owner'] or '') == '', f'③ 池外卡落库 owner=空（实际：{p2["owner"] if p2 else None}）')
+
+    # ③b 板块空名单 = 完全限制（#140 用户报告场景）：空板块下建主事项 owner=U1 → 剔除
+    st, r = api('/api/columns', 'POST', {'board_id': IDS['bid'], 'column_name': '__t204v空板块',
+                'created_at': '2026-11-17', 'nature': '日常', 'year': '2026'})
+    IDS['colKeyEmpty'] = r.get('col_key') or (IDS['bid'] + '::' + '__t204v空板块')
+    c = sqlite3.connect(DB)
+    IDS['colIdEmpty'] = c.execute('SELECT column_id FROM board_columns WHERE col_key=?',
+                                  (IDS['colKeyEmpty'],)).fetchone()[0]
+    c.close()
+    st, r = api('/api/cards', 'POST', {'board_id': IDS['bid'], 'card_name': '__t204v空板块卡',
+                'column_id': IDS['colIdEmpty'], 'fields': {'owner': U1}})
+    IDS['p3id'] = r.get('card_id', '')
+    ok(st == 200 and U1 in (r.get('removed') or []),
+       f'③b 空板块建卡 owner 被剔除（removed={r.get("removed")}——板块名单空=完全限制，不回退看板池）')
+    p3 = get_card(IDS['p3id']) if IDS['p3id'] else None
+    ok(p3 is not None and (p3['owner'] or '') == '', f'③b 空板块卡落库 owner=空（实际：{p3["owner"] if p3 else None}）')
+    # ③c column_name 兜底：不带 column_id、只带板块名 → 同样按空板块池限制
+    st, r = api('/api/cards', 'POST', {'board_id': IDS['bid'], 'card_name': '__t204v按名兜底卡',
+                'column_id': '', 'fields': {'owner': U1, 'column_name': '__t204v空板块'}})
+    IDS['p4id'] = r.get('card_id', '')
+    ok(st == 200 and U1 in (r.get('removed') or []),
+       f'③c 仅传板块名（无 column_id）同样受板块池限制（removed={r.get("removed")}）')
 
     # ④ 复制子事项：SQL 造存量池外 owner（夹具行内），再复制 → 副本被父名单过滤
     c = sqlite3.connect(DB)
