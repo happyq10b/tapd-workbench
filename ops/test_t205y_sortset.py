@@ -128,6 +128,15 @@ async def main():
                   return {order:SORT_CFG[%s].order.slice()};})()"""
                         % (LBL, 0 if kind == 'card' else 1, json.dumps(f, ensure_ascii=False),
                            'true' if on else 'false', json.dumps(kind)))
+            async def ss_dir(kind, f, asc):
+                return await ev("""(function(){
+                  const L=%s; const sec=document.querySelectorAll('#sortSetBody .ss-section')[%s];
+                  const row=[].slice.call(sec.querySelectorAll('.ss-row'))
+                    .find(function(r){return r.querySelector('.ss-check span').textContent===L[%s];});
+                  row.querySelectorAll('.ss-dir-btn')[%s].click();
+                  return SORT_CFG[%s].dir[%s];})()"""
+                        % (LBL, 0 if kind == 'card' else 1, json.dumps(f, ensure_ascii=False),
+                           0 if asc else 1, json.dumps(kind), json.dumps(f, ensure_ascii=False)))
             async def card_order():
                 return await ev("""(function(){
                   const hs=[].slice.call(document.querySelectorAll('.week-header'))
@@ -175,27 +184,34 @@ async def main():
                       colCfg:JSON.parse(JSON.stringify(SORT_CFG.col))};})()""")
             ok(r2 and r2.get('visible') and r2.get('n') == 2,
                "② 弹窗打开，板块/事项两个独立分区（%s / %s）" % ((r2 or {}).get('t1'), (r2 or {}).get('t2')))
-            ok(r2 and r2.get('cardCfg', {}).get('order') == ['created']
-               and r2.get('colCfg', {}).get('order') == ['created'],
-               "② 默认配置：仅「创建时间」参与（延续默认行为）")
+            ok(r2 and r2.get('cardCfg', {}).get('order') == ['begin', 'due', 'created']
+               and r2.get('colCfg', {}).get('order') == ['begin', 'due', 'created'],
+               "② 默认配置：三字段全参与（开始/截止/创建 优先级 1/2/3，#205y 用户指定）")
+            cc2 = r2.get('cardCfg') or {}
+            ok(cc2.get('dir', {}).get('begin') == 'asc' and cc2.get('dir', {}).get('created') == 'asc',
+               "② 事项默认全升序")
+            cl2 = r2.get('colCfg') or {}
+            ok(cl2.get('dir', {}).get('begin') == 'desc' and cl2.get('dir', {}).get('created') == 'desc',
+               "② 板块默认全降序")
             rowC = await ss_row('card', 'created')
             rowB = await ss_row('card', 'begin')
-            ok(rowC and rowC.get('checked') and rowC.get('badge') == '第1优先' and rowC.get('dirOn') == [False, True],
-               "② 事项「创建时间」默认勾选：第1优先 + 降序")
-            ok(rowB and not rowB.get('checked') and rowB.get('off') and rowB.get('dis'),
-               "② 未勾选字段灰显（不参与徽标 + 升降序按钮禁用）")
+            ok(rowC and rowC.get('checked') and rowC.get('badge') == '第3优先' and rowC.get('dirOn') == [True, False],
+               "② 事项「创建时间」默认：第3优先 + 升序")
+            ok(rowB and rowB.get('checked') and rowB.get('badge') == '第1优先',
+               "② 事项「开始时间」默认：第1优先")
 
-            # ── ③ 勾选顺序 = 优先级 + 取消还原 ──
-            r3 = await ss_toggle('card', 'due', True)
-            r3b = await ss_toggle('card', 'begin', True)
-            ok(r3 and r3.get('order') == ['created', 'due'] and r3b and r3b.get('order') == ['created', 'due', 'begin'],
-               "③ 勾选顺序 = 优先级（created→due→begin，实际 %s）" % (r3b or {}).get('order'))
+            # ── ③ 勾选顺序 = 优先级 + 取消还原（默认三字段已勾选） ──
+            r3 = await ss_toggle('card', 'created', False)   # 取消创建 → 后续前移
+            r3b = await ss_toggle('card', 'created', True)   # 再勾选 → 追加到末尾（勾选先后=优先级）
+            ok(r3 and r3.get('order') == ['begin', 'due']
+               and r3b and r3b.get('order') == ['begin', 'due', 'created'],
+               "③ 再勾选的字段排末尾（勾选先后=优先级，实际 %s）" % (r3b or {}).get('order'))
             rowD = await ss_row('card', 'due')
             rowBg = await ss_row('card', 'begin')
-            ok(rowD and rowD.get('badge') == '第2优先' and rowBg and rowBg.get('badge') == '第3优先',
-               "③ 优先级徽标实时编号（第2/第3优先）")
-            r3c = await ss_toggle('card', 'created', False)
-            ok(r3c and r3c.get('order') == ['due', 'begin'],
+            ok(rowBg and rowBg.get('badge') == '第1优先' and rowD and rowD.get('badge') == '第2优先',
+               "③ 优先级徽标实时编号（begin 第1 / due 第2）")
+            r3c = await ss_toggle('card', 'begin', False)
+            ok(r3c and r3c.get('order') == ['due', 'created'],
                "③ 取消勾选 → 后续字段优先级前移（实际 %s）" % (r3c or {}).get('order'))
             rowD2 = await ss_row('card', 'due')
             ok(rowD2 and rowD2.get('badge') == '第1优先', "③ 取消后徽标重新编号（due 变第1优先）")
@@ -203,15 +219,17 @@ async def main():
             await ev("sortSetCancel()")
             await asyncio.sleep(0.3)
             r3x = await ev("JSON.parse(JSON.stringify(SORT_CFG.card)).order")
-            ok(r3x == ['created'], "④ 取消 → 还原打开时快照（order=%s）" % r3x)
+            ok(r3x == ['begin', 'due', 'created'], "④ 取消 → 还原打开时快照（order=%s）" % r3x)
 
-            # ── ⑤ 应用：事项 due 升序 + 板块 due 升序 → DOM 实测 ──
+            # ── ⑤ 应用：事项/板块均只留「截止」升序 → DOM 实测 ──
             await ev("openSortSetModal()")
             await asyncio.sleep(0.3)
-            await ss_toggle('card', 'due', True)
+            await ss_toggle('card', 'begin', False)
             await ss_toggle('card', 'created', False)
-            await ss_toggle('col', 'due', True)
+            await ss_toggle('col', 'begin', False)
             await ss_toggle('col', 'created', False)
+            await ss_dir('card', 'due', True)    # 板块默认降序（新默认）→ 测试切升序验证
+            await ss_dir('col', 'due', True)
             await ev("sortSetApply()")
             await asyncio.sleep(2.5)
             await ev("expandAll()")
