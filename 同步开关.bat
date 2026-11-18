@@ -135,14 +135,12 @@ echo.
 if not "%PETS_RC%"=="0" (
   echo   精灵图片同步失败（exit %PETS_RC%）
   pause
-  call :restore_cp
-  exit /b %PETS_RC%
+goto :MAIN_MENU
 )
 echo   精灵图片同步完成（无需重启服务，刷新登录页即可见）。
 echo.
 pause
-call :restore_cp
-exit /b 0
+goto :MAIN_MENU
 
 :PICK_PROD
 set "TARGET=--prod"
@@ -171,8 +169,7 @@ if not "%VRC%"=="0" (
   echo   Nothing was pushed to the server.
   echo.
   pause
-  call :restore_cp
-  exit /b 1
+goto :MAIN_MENU
 )
 
 if "%TARGET%"=="" goto :VERIFY_OK
@@ -195,8 +192,7 @@ if not "%SYNC_RC%"=="0" (
   echo ================================================================
   echo.
   pause
-  call :restore_cp
-  exit /b %SYNC_RC%
+goto :MAIN_MENU
 )
 
 echo ================================================================
@@ -207,8 +203,7 @@ echo   Public URL : https://123.207.252.195
 echo   Server log : ssh -F ops\secrets\sshcfg tapd "tail -f /var/log/tapd-dev.log"
 echo.
 pause
-call :restore_cp
-exit /b 0
+goto :MAIN_MENU
 
 rem ---------- drain a UTF-8 file to the console as GBK ----------
 rem iconv -c is required: without it, a single unconvertible char (e.g. U+2713)
@@ -241,23 +236,20 @@ if not "%VRC%"=="0" (
   echo   VERIFICATION FAILED - fix the issues and retry
   echo.
   pause
-  call :restore_cp
-  exit /b %VRC%
+goto :MAIN_MENU
 )
 echo   Verification passed. Credential issued.
 echo.
 echo   Run this switch again and pick 1 or 2 to sync.
 echo.
 pause
-call :restore_cp
-exit /b 0
+goto :MAIN_MENU
 
 :VERIFY_OK
 echo   Verification passed. Credential issued.
 echo.
 pause
-call :restore_cp
-exit /b 0
+goto :MAIN_MENU
 
 :CANCEL
 echo.
