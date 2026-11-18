@@ -83,7 +83,7 @@ async def main():
           const ver=document.getElementById('appVer');
           if(!hint||!ver)return null;
           const hr=hint.getBoundingClientRect(), vr=ver.getBoundingClientRect();
-          return {hintH:Math.round(hr.height), lines:Math.round(hr.height/18.4),
+          return {hintH:Math.round(hr.height), lines:Math.round(hr.height/18.4), hintTop:Math.round(hr.top),
                   verTop:Math.round(vr.top), hintBottom:Math.round(hr.bottom),
                   noOverlap:vr.top>=hr.bottom-1,
                   inCard:!!document.querySelector('.card')&&document.querySelector('.card').contains(ver),
@@ -94,6 +94,13 @@ async def main():
         ok(s and s.get('noOverlap'), f"② 版本号在通知区下方不重叠（ver.top={s.get('verTop')} ≥ hint 底={s.get('hintBottom')}）")
         ok(s and s.get('inCard') and s.get('verText') == 'v2026.11.18',
            f"③ 版本号仍在卡片内右下角（{s.get('verText')}）")
+        s2 = await ev("""(function(){
+          const btn=document.getElementById('btn'), hint=document.getElementById('noticeBar');
+          const br=btn.getBoundingClientRect(), hr=hint.getBoundingClientRect();
+          return {gap:Math.round(hr.top-br.bottom)};
+        })()""")
+        ok(s2 and s2.get('gap', 0) >= 40,
+           f"④ 通知区整体下移 1.5 行：按钮底部 → 通知区间距 {s2.get('gap')}px ≥ 40px（原 18px + 28px）")
     finally:
         api_put('', '')   # 环境还原
         if w:
