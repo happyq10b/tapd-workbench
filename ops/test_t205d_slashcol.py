@@ -17,7 +17,7 @@ from app.app import make_token  # noqa: E402
 BASE = 'http://127.0.0.1:8100'
 PORT = 9571
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-BOARD = '1162069797001000238'   # 综合工作事项（测试）
+BOARD = 'BCP1793717004248'   # 综合工作事项（1162 板的 9/10周 已被用户删除，改用 BCP 板同名板块——2026-11-18）
 COL = '2026年第9/10周（2.24-3.8）'
 PASSED = []
 
