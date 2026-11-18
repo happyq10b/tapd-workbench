@@ -110,66 +110,72 @@ async def main():
               return {order:[].slice.call(body.querySelectorAll('.item-title')).map(function(x){return x.textContent;})};
             })()""")
 
-        # ── ① 下拉：三档、无 pin 选项、默认 created ──
-        r1 = await ev("""(function(){
-          const sel=document.getElementById('cardSortSel');
-          return {opts:sel?[].slice.call(sel.options).map(function(o){return o.value;}):[], val:sel?sel.value:''};
-        })()""")
-        ok(r1 and (r1.get('opts') or []) == ['created', 'begin', 'due'] and r1.get('val') == 'created',
-           "① 下拉三档（无置顶优先选项），默认「创建时间」（%s）" % (r1 or {}).get('opts'))
+        # ── ① 排序配置（#205y 起：下拉已移除，改由排序设定弹窗的多级配置驱动） ──
+        async def set_card_cfg(order):
+            # dir 默认：begin/due 升序、created 降序（与排序设定弹窗默认一致）
+            # ⚠️ reload 会 loadSortCfg() 从 localStorage 恢复 → 改配置必须同步落盘
+            d = {f: ('desc' if f == 'created' else 'asc') for f in order}
+            return await ev("SORT_CFG.card={order:%s,dir:%s};"
+                            "localStorage.setItem('tapd.sortCfg_'+ME.username,JSON.stringify(SORT_CFG));reload(1)"
+                            % (json.dumps(order), json.dumps(d)))
+        r1 = await ev("({selGone:!document.getElementById('cardSortSel'),cfg:!!(window.SORT_CFG&&SORT_CFG.card)})")
+        ok(r1 and r1.get('selGone') and r1.get('cfg'),
+           "① 筛选栏排序下拉已移除（#205y），排序由 SORT_CFG 配置驱动")
         # 创建时间降序（父卡创建最晚 → 第一）
-        await ev("setCardSort('created')")
+        await set_card_cfg(['created'])
         await asyncio.sleep(2)
         o = await fixture_order()
         ok(not o.get('err') and (o.get('order') or [])[:2] == ['__t205w_父卡', '__t205w_卡C'],
            "① 创建时间降序：新的在前（%s）" % (o or {}).get('order', [])[:2])
         # 截止升序：B(12-10) → A(12-20) → 无日期者最后（父卡比卡C 新 → 父卡在前）
-        await ev("setCardSort('due')")
+        await set_card_cfg(['due'])
         await asyncio.sleep(2)
         o = await fixture_order()
         ok(not o.get('err') and (o.get('order') or [])[:3] == ['__t205w_卡B', '__t205w_卡A', '__t205w_父卡'],
            "① 截止升序：最近到期在前、无截止排最后（%s）" % (o or {}).get('order', [])[:3])
-        # 置顶浮顶：钉住卡C（无日期，本应最后）→ 任何档位都在最前
+        # 置顶浮顶：钉住卡C（无日期，本应最后）→ 任何配置下都在最前
         await ev("toggleCardPin('%s',1)" % ids['__t205w_卡C'])
         await asyncio.sleep(2)
         o = await fixture_order()
         ok(not o.get('err') and (o.get('order') or [None])[0] == '__t205w_卡C',
-           "① 置顶为公共首级：无日期的置顶卡在「截止」档也浮顶（%s）" % (o or {}).get('order', [])[:3])
+           "① 置顶为公共首级：无日期的置顶卡在「截止」配置下也浮顶（%s）" % (o or {}).get('order', [])[:3])
         # 开始升序（卡C 保持置顶在最前；未置顶的 A(11-01) → B(11-05)）
-        await ev("setCardSort('begin')")
+        await set_card_cfg(['begin'])
         await asyncio.sleep(2)
         o = await fixture_order()
         ok(not o.get('err') and (o.get('order') or [])[:3] == ['__t205w_卡C', '__t205w_卡A', '__t205w_卡B'],
            "① 开始升序 + 置顶浮顶（%s）" % (o or {}).get('order', [])[:3])
         await ev("toggleCardPin('%s',0)" % ids['__t205w_卡C'])
         await asyncio.sleep(1.5)
-        # 旧值迁移：localStorage 存 'pin' → loadCardSort 迁移为 created
-        rm = await ev("(function(){localStorage.setItem('tapd.cardSort_'+ME.username,'pin');loadCardSort();"
-                      "return {v:CARD_SORT,sel:document.getElementById('cardSortSel').value};})()")
-        ok(rm and rm.get('v') == 'created' and rm.get('sel') == 'created',
-           "① 旧存档 'pin' 自动迁移为「创建时间」（%s）" % (rm or {}).get('v'))
+        # 配置持久化：localStorage tapd.sortCfg → loadSortCfg 恢复
+        rm = await ev("(function(){localStorage.setItem('tapd.sortCfg_'+ME.username,"
+                      "JSON.stringify({card:{order:['begin'],dir:{begin:'asc',due:'asc',created:'desc'}},"
+                      "col:{order:['created'],dir:{begin:'asc',due:'asc',created:'desc'}}}));"
+                      "SORT_CFG={card:{order:[],dir:{}},col:{order:[],dir:{}}};loadSortCfg();"
+                      "return {v:SORT_CFG.card.order.slice()};})()")
+        ok(rm and rm.get('v') == ['begin'],
+           "① 排序配置按账号持久化（loadSortCfg 恢复 %s）" % (rm or {}).get('v'))
 
-        # ── ② 板块同步：cmpColumn 用同一选项（板块开始=created_at）──
-        await ev("setCardSort('begin')")
-        await asyncio.sleep(1.5)
+        # ── ② 板块同步：cmpColumn 用板块分区配置（板块开始=created_at）──
         rc = await ev("""(function(){
           const m1={created_at:'2026-01-01',due_date:'',col_key:'b::甲',year:'2026'};
           const m2={created_at:'2026-02-01',due_date:'2026-03-01',col_key:'b::乙',year:'2026'};
-          const begin=cmpColumn('甲','乙',{甲:m1,乙:m2},null);   // begin 档：甲(1月) 在前
-          const created=cmpColumn('甲','乙',{甲:m1,乙:m2},null); // 读取当前档
-          localStorage.setItem('tapd.cardSort_'+ME.username,'created');loadCardSort();
-          const createdFirst=cmpColumn('甲','乙',{甲:m1,乙:m2},null);
-          localStorage.setItem('tapd.cardSort_'+ME.username,'due');loadCardSort();
-          const dueFirst=cmpColumn('乙','甲',{甲:m1,乙:m2},null);  // due 档：乙有截止在前
-          localStorage.setItem('tapd.cardSort_'+ME.username,'begin');loadCardSort();
-          return {beginNeg:begin<0, createdPos:createdFirst>0, dueNeg:dueFirst<0, now:CARD_SORT};
+          const D={begin:'asc',due:'asc',created:'desc'};
+          SORT_CFG.col={order:['begin'],dir:D};
+          const beginNeg=cmpColumn('甲','乙',{甲:m1,乙:m2},null)<0;   // begin：甲(1月) 在前
+          SORT_CFG.col={order:['created'],dir:D};
+          const createdPos=cmpColumn('甲','乙',{甲:m1,乙:m2},null)>0; // created 降序：乙(2月) 在前
+          SORT_CFG.col={order:['due'],dir:D};
+          const dueNeg=cmpColumn('乙','甲',{甲:m1,乙:m2},null)<0;     // due：乙有截止在前
+          SORT_CFG.col={order:['begin'],dir:D};
+          return {beginNeg:beginNeg, createdPos:createdPos, dueNeg:dueNeg, now:SORT_CFG.col.order.slice()};
         })()""")
         ok(rc and not rc.get('__error__') and rc.get('beginNeg') and rc.get('createdPos') and rc.get('dueNeg'),
-           "② 板块排序与事项同选项：开始/创建/截止三档均生效（%s）" % (rc or {}))
-        ok(rc and rc.get('now') == 'begin', "② 当前档位恢复 begin")
+           "② 板块排序独立配置：开始/创建/截止档均生效（%s）" % (rc or {}))
+        ok(rc and rc.get('now') == ['begin'], "② 当前板块档位恢复 begin")
 
-        # ── ②-bis 子事项同步：切「截止」档 → 子1(12-10)在前；钉住子2(12-20) → 浮顶 ──
-        await ev("setCardSort('due')")
+        # ── ②-bis 子事项同步：切「截止」配置 → 子1(12-10)在前；钉住子2(12-20) → 浮顶 ──
+        await set_card_cfg(['due'])
         await asyncio.sleep(1.5)
         await ev("toggleSubTree('%s',true)" % parent)
         await asyncio.sleep(2)
@@ -191,7 +197,7 @@ async def main():
         ok(not o.get('err') and (o.get('order') or [None])[0] == '__t205w_子2',
            "②-bis 子事项置顶浮顶（%s）" % (o or {}).get('order'))
         await ev("toggleCardPin('%s',0)" % ids['__t205w_子2'])
-        await ev("setCardSort('created')")
+        await set_card_cfg(['created'])
         await asyncio.sleep(1)
 
         print('---- 结果: %d PASS / %d FAIL ----' % (_n['ok'], _n['fail']), flush=True)

@@ -113,38 +113,40 @@ async def main():
               return {order:[].slice.call(body.querySelectorAll('.item-title')).map(function(x){return x.textContent;})};
             })()""")
 
-        # ── ① 排序选项 ──
-        r1 = await ev("""(function(){
-          const sel=document.getElementById('cardSortSel');
-          return {exists:!!sel, n:sel?sel.options.length:0,
-                  opts:sel?[].slice.call(sel.options).map(function(o){return o.value;}):[],
-                  val:sel?sel.value:''};
-        })()""")
-        ok(r1 and r1.get('exists') and (r1.get('opts') or []) == ['created', 'begin', 'due'] and r1.get('val') == 'created',
-           "① 排序下拉三档（置顶为公共首级不再是选项），默认「创建时间」（%s）" % (r1 or {}).get('opts'))
+        # ── ① 排序配置（#205y 起下拉已移除 → 由 SORT_CFG 驱动；下拉断言并入 t205y） ──
+        async def set_u_cfg(order):
+            # ⚠️ reload 会 loadSortCfg() 从 localStorage 恢复 → 改配置必须同步落盘
+            d = {f: ('desc' if f == 'created' else 'asc') for f in order}
+            return await ev("SORT_CFG.card={order:%s,dir:%s};"
+                            "localStorage.setItem('tapd.sortCfg_'+ME.username,JSON.stringify(SORT_CFG));reload(1)"
+                            % (json.dumps(order), json.dumps(d)))
         # 创建时间降序（默认创建顺序 A→B→C）
-        await ev("setCardSort('created')")
+        await set_u_cfg(['created'])
         await asyncio.sleep(2)
         o = await fixture_order()
         ok(not o.get('err') and (o.get('order') or []) == ['__t205u_卡C', '__t205u_卡B', '__t205u_卡A'],
            "① 创建时间降序：新的在前（%s）" % (o or {}).get('order'))
         # 截止时间升序：12-10 → 12-20 → 无截止最后
-        await ev("setCardSort('due')")
+        await set_u_cfg(['due'])
         await asyncio.sleep(2)
         o = await fixture_order()
         ok(not o.get('err') and (o.get('order') or []) == ['__t205u_卡B', '__t205u_卡A', '__t205u_卡C'],
            "① 截止时间升序：最近到期在前、无截止排最后（%s）" % (o or {}).get('order'))
         # 开始时间升序：11-01 → 11-05 → 无开始最后
-        await ev("setCardSort('begin')")
+        await set_u_cfg(['begin'])
         await asyncio.sleep(2)
         o = await fixture_order()
         ok(not o.get('err') and (o.get('order') or []) == ['__t205u_卡A', '__t205u_卡B', '__t205u_卡C'],
            "① 开始时间升序：早的在前、无开始排最后（%s）" % (o or {}).get('order'))
-        # 持久化：模拟重进（重新 loadCardSort）
-        rp = await ev("(function(){loadCardSort();return {v:document.getElementById('cardSortSel').value,ls:localStorage.getItem('tapd.cardSort_'+ME.username)};})()")
-        ok(rp and rp.get('v') == 'begin' and rp.get('ls') == 'begin',
-           "① 排序选项按账号持久化（localStorage=%s，回显=%s）" % ((rp or {}).get('ls'), (rp or {}).get('v')))
-        await ev("setCardSort('created')")
+        # 持久化：localStorage sortCfg 恢复
+        rp = await ev("(function(){localStorage.setItem('tapd.sortCfg_'+ME.username,"
+                      "JSON.stringify({card:{order:['begin'],dir:{begin:'asc',due:'asc',created:'desc'}},"
+                      "col:{order:['created'],dir:{begin:'asc',due:'asc',created:'desc'}}}));"
+                      "SORT_CFG.card.order=[];loadSortCfg();"
+                      "return {v:SORT_CFG.card.order.slice()};})()")
+        ok(rp and rp.get('v') == ['begin'],
+           "① 排序配置按账号持久化（loadSortCfg 恢复 %s）" % (rp or {}).get('v'))
+        await set_u_cfg(['created'])
         await asyncio.sleep(1.5)
 
         # ── ④ 进度条压缩对齐 + 文案 ──
