@@ -327,16 +327,17 @@ ok(/function selectDeptBoards\(name\)/.test(htmlSrc), '提供 selectDeptBoards()
 ok(/function boardBelongsToOpenDept\(\)/.test(htmlSrc),
    '提供 boardBelongsToOpenDept()（判断当前板块是否仍属展开中的部门）');
 ok(/function clearBoardSelection\(reason\)/.test(htmlSrc), '提供 clearBoardSelection()（清空板块选择）');
-// 2026-11-17 #141：架构选择改多选（与板块选择同款交互）——toggleDept 改为
-// toggle ARCH_SEL + syncArchSelection（选架构=批量选中其自身挂载看板，
-// 统计卡随多选架构累加汇总）；旧断言（selectDeptBoards/部门已收起）已过时
+// 2026-11-17 #141：架构选择改多选（与板块选择同款交互）——toggleDept 为
+// toggle ARCH_SEL + syncArchSelection；旧断言（selectDeptBoards/部门已收起）已过时
+// 2026-11-18 #145 用户修订：架构选择=导航语义（只展开看板列表），不自动选看板
 ok(/function toggleDept\(name\)\{[\s\S]{0,600}?ARCH_SEL\.(add|delete)\(name\)/.test(htmlSrc),
    'toggleDept 为架构多选 toggle（ARCH_SEL 增删）');
 ok(/function toggleDept\(name\)\{[\s\S]{0,600}?syncArchSelection\(\)/.test(htmlSrc),
-   'toggleDept 联动 syncArchSelection（架构 → 看板选择重算）');
+   'toggleDept 联动 syncArchSelection');
 ok(/var ARCH_SEL=new Set\(\)/.test(htmlSrc), '提供 ARCH_SEL 多选集合（架构选中态）');
-ok(/ARCH_SEL\.forEach\(function\(name\)\{[\s\S]{0,400}curBoards\.add\(b\.board_id\)/.test(htmlSrc),
-   'syncArchSelection 把选中架构自身挂载看板并入 curBoards（不含下级部门看板）');
+ok(/function syncArchSelection\(\)\{[\s\S]{0,700}backToBoardList\(\)/.test(htmlSrc) &&
+   /ARCH_SEL\.forEach\(function\(name\)\{[\s\S]{0,400}curBoards\.add/.test(htmlSrc) === false,
+   'syncArchSelection 不再自动填充 curBoards（进入时看板各项未选中）');
 // 2026-11-04：看板选择改为 curBoards 多选集合 → 守卫条件同步
 ok(/if\(!curBoards\.size\)\{renderEmptyBoardState\(\)/.test(htmlSrc),
    'reload 在未选看板时直接渲染空状态（不拉全量数据）');

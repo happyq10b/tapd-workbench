@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
-"""T-204x（2026-11-17 #141）架构选择多选 + 统计卡联动 CDP 实测：
-  ① 选「财务中心」→ 统计卡仅统计财务中心自身挂载看板（综合工作事项（测试）1 块），
-    不再是全局（整个财务中心树 8 块看板）汇总
-  ② 多选「财务中心」+「核算部」→ curBoards = 并集（8 块看板），统计卡累加
-  ③ 取消「财务中心」→ 只剩核算部 7 块
-  ④ 取消全部 → 回到「请选择看板」空态、统计回全局（原行为）
-  ⑤ 选中态样式 .sel + 展开态 .open 同步；无 JS 错误
-只读验证（不开弹窗不写库）；D6：一次性 __cdp_ui 账号 + 树杀 + 强制下线。
+"""T-204x（2026-11-18 #145 修订）架构选择 = 导航语义 CDP 实测：
+
+#141 原行为（选架构=批量选中其下看板+统计累加）已按用户口径废弃——
+「点击架构进入对应看板页面时，看板各项应默认为非选中状态」。
+
+验证（真实看板只读 + 会话内交互）：
+  ① 选「财务中心」→ ARCH_SEL 命中 + .sel/.open 样式；curBoards **空**；
+    展开的看板 tab 显示但全部无 .active；内容区「请选择看板」空态
+  ② 多选「核算部」→ ARCH_SEL=2，两架构看板 tab 并存显示、仍全部未选中
+  ③ 用户点看板 tab（pickBoard）→ 该看板 .active、统计 = 该看板口径
+  ④ 取消架构 → tab 收起、ARCH_SEL=0；已选看板保留（架构选择不动看板选择）
+  ⑤ 无 JS 错误
 """
 import asyncio, json, os, shutil, subprocess, sys, time, urllib.request
 
@@ -86,57 +90,56 @@ async def main():
         await asyncio.sleep(2.5)
         await ev("window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(String(e.message))})")
 
-        # ① 选「财务中心」：curBoards = 财务中心自身看板；统计卡 = 该看板口径
+        # ① 选「财务中心」：看板 tab 展开显示但全部未选中；内容区空态
         await ev("toggleDept('财务中心')")
         await asyncio.sleep(1.5)
         r1 = await ev("""(function(){
-          return {n:curBoards.size, hasFin:curBoards.has('%s'),
-                  sel:ARCH_SEL.has('财务中心'), open:!!DEPT_OPEN['财务中心'],
+          const tabs=[].slice.call(document.querySelectorAll('.tab-btn'));
+          return {curN:curBoards.size, sel:ARCH_SEL.has('财务中心'), open:!!DEPT_OPEN['财务中心'],
                   cls:(document.querySelector('.tree-dept.sel')||{}).textContent||'',
-                  stat:(document.getElementById('progressOverview')||{}).textContent||''};
-        })()""" % B_FIN)
-        ok(r1.get('hasFin') is True and r1.get('n') == 1,
-           f"① 选「财务中心」→ curBoards = 财务中心自身看板（{r1.get('n')} 块，含综合工作事项（测试））")
+                  tabsN:tabs.length, activeN:tabs.filter(function(x){return x.classList.contains('active')}).length,
+                  empty:(document.getElementById('emptyState')||document.querySelector('.board-empty')||{}).textContent||''};
+        })()""")
+        ok(r1.get('curN') == 0,
+           f"① 选「财务中心」→ curBoards 空（{r1.get('curN')}），看板各项默认未选中")
         ok(r1.get('sel') is True and r1.get('open') is True and '财务中心' in (r1.get('cls') or ''),
            '① 选中态：ARCH_SEL 命中 + .sel/.open 样式同步')
-        fin_total = await ev("api('/api/overview?board_id=%s').then(function(d){return d.total})" % B_FIN, aw=True)
-        ok(str(fin_total) in (r1.get('stat') or ''),
-           f"① 统计卡总事项 = 财务中心看板口径（API total={fin_total}）")
+        ok(r1.get('tabsN', 0) >= 1 and r1.get('activeN') == 0,
+           f"① 看板 tab 展开显示 {r1.get('tabsN')} 个、全部无选中样式（active={r1.get('activeN')}）")
 
-        # ② 多选「核算部」→ 并集 8 块，统计累加
+        # ② 多选「核算部」→ ARCH_SEL=2，看板 tab 并存显示、仍全部未选中
         await ev("toggleDept('核算部')")
         await asyncio.sleep(1.5)
         r2 = await ev("""(function(){
-          return {n:curBoards.size, selN:ARCH_SEL.size,
-                  stat:(document.getElementById('progressOverview')||{}).textContent||''};
+          const tabs=[].slice.call(document.querySelectorAll('.tab-btn'));
+          return {curN:curBoards.size, selN:ARCH_SEL.size,
+                  tabsN:tabs.length, activeN:tabs.filter(function(x){return x.classList.contains('active')}).length};
         })()""")
-        ok(r2.get('n') == 8 and r2.get('selN') == 2,
-           f"② 多选财务中心+核算部 → curBoards 并集 {r2.get('n')} 块（ARCH_SEL={r2.get('selN')}）")
-        comb_total = await ev("api('/api/overview?board_ids=%s,1162069797001000241,1162069797001000242,"
-                              "1162069797001000243,1162069797001000245,1162069797001000246,"
-                              "1162069797001000239,BCP1793717004248').then(function(d){return d.total})" % B_FIN, aw=True)
-        ok(str(comb_total) in (r2.get('stat') or ''),
-           f"② 统计卡 = 多架构累加（API 合计 total={comb_total}）")
+        ok(r2.get('selN') == 2 and r2.get('tabsN', 0) >= 8 and r2.get('activeN') == 0 and r2.get('curN') == 0,
+           f"② 多选财务中心+核算部 → ARCH_SEL={r2.get('selN')}、看板 tab {r2.get('tabsN')} 个并存、仍全部未选中")
 
-        # ③ 取消「财务中心」→ 只剩核算部 7 块
-        await ev("toggleDept('财务中心')")
+        # ③ 用户自行点看板 tab → 该看板选中、统计 = 该看板口径
+        await ev("pickBoard('%s')" % B_FIN)
         await asyncio.sleep(1.5)
         r3 = await ev("""(function(){
-          return {n:curBoards.size, selN:ARCH_SEL.size,
-                  openFin:!!DEPT_OPEN['财务中心']};
-        })()""")
-        ok(r3.get('n') == 7 and r3.get('selN') == 1 and r3.get('openFin') is False,
-           f"③ 取消财务中心 → 剩核算部 {r3.get('n')} 块（ARCH_SEL={r3.get('selN')}，展开态同步收起）")
+          const tab=[].slice.call(document.querySelectorAll('.tab-btn'))
+            .find(function(x){return (x.querySelector('.tab-name')||{}).textContent==='综合工作事项（测试）'});
+          return {curN:curBoards.size, hasFin:curBoards.has('%s'),
+                  active:!!(tab&&tab.classList.contains('active'))};
+        })()""" % B_FIN)
+        ok(r3.get('hasFin') is True and r3.get('curN') == 1 and r3.get('active') is True,
+           f"③ 点看板 tab → 仅该看板选中（curBoards={r3.get('curN')}，.active 同步）")
 
-        # ④ 取消全部 → 空态
-        await ev("toggleDept('核算部')")
+        # ④ 取消「财务中心」架构 → 其 tab 收起；「核算部」仍选中（多选互不影响）；已选看板保留
+        await ev("toggleDept('财务中心')")
         await asyncio.sleep(1.5)
         r4 = await ev("""(function(){
-          return {n:curBoards.size, selN:ARCH_SEL.size,
-                  stat:(document.getElementById('progressOverview')||{}).textContent||''};
+          return {curN:curBoards.size, selN:ARCH_SEL.size, openFin:!!DEPT_OPEN['财务中心'],
+                  openHr:!!DEPT_OPEN['核算部'], selHr:ARCH_SEL.has('核算部')};
         })()""")
-        ok(r4.get('n') == 0 and r4.get('selN') == 0,
-           f"④ 取消全部架构 → curBoards 空（{r4.get('n')}），统计回全局口径（原行为）")
+        ok(r4.get('selN') == 1 and r4.get('selHr') is True and r4.get('openHr') is True
+           and r4.get('openFin') is False and r4.get('curN') == 1,
+           f"④ 取消财务中心 → 其展开收起（openFin={r4.get('openFin')}），核算部选中/展开不受影响，已选看板保留（curBoards={r4.get('curN')}）")
 
         # ⑤ 无 JS 错误
         errs = await ev("window.__errs")
