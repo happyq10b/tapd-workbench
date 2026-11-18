@@ -92,8 +92,18 @@ async def main():
         })()""")
         ok(r0 and r0.get('afterStatus') and r0.get('beforePerson'),
            "③ 新框位于【状态】与【负责人】之间（left≥状态右缘、right≤负责人左缘）")
-        ok(r0 and '🏷️' in (r0.get('lblText') or '') and '专项/日常' in (r0.get('lblText') or ''),
-           "③ label = 一个 emoji +「专项/日常」（实际：%r）" % (r0 or {}).get('lblText'))
+        ok(r0 and '🏷️' in (r0.get('lblText') or '') and '性质' in (r0.get('lblText') or ''),
+           "③ label = 🏷️ 性质（实际：%r）" % (r0 or {}).get('lblText'))
+        r0b = await ev("""(function(){
+          const af=document.getElementById('attrFilterWrap');
+          const st=document.getElementById('colStatusWrap').getBoundingClientRect();
+          const ar=af.getBoundingClientRect();
+          const inp=document.getElementById('attrFilterInput');
+          return {ph:inp.placeholder, w:Math.round(ar.width), wStatus:Math.round(st.width)};
+        })()""")
+        ok(r0b and r0b.get('ph') == '专项/日常' and abs((r0b.get('w') or 0) - (r0b.get('wStatus') or 0)) <= 3,
+           "③-bis 新框与状态框等宽（%s vs %s）+ placeholder=专项/日常"
+           % (r0b.get('w'), r0b.get('wStatus')))
         ws_ = (r0 or {}).get('wStatus'); wp = (r0 or {}).get('wPerson')
         ok(ws_ and wp and 120 <= ws_ <= 155 and 120 <= wp <= 155,
            "④ 常规筛选框压缩后 ≈138px（状态 %s / 负责人 %s，原 167 ≈ −1/5）" % (ws_, wp))
@@ -142,6 +152,53 @@ async def main():
         ok(r4 and '专项/日常：专项' in (r4.get('hint') or ''),
            "③ 筛选明细行含「专项/日常：专项」（实际：%r）" % ((r4 or {}).get('hint')))
 
+        # ── ③-ter 负责人筛选树 = 架构节点折叠分组（#205k）──
+        await ev("openPersonFilterPicker(document.getElementById('personFilterInput'))")
+        await asyncio.sleep(2)
+        rPre = await ev("""(function(){
+          return {curBoard:curBoard, curBoards:[...curBoards],
+                  poolN:boardFilterCandidates().length,
+                  pool:boardFilterCandidates().slice(0,5),
+                  aclN:BC_ACL_MEMBERS.length,
+                  isCenter:bcIsCenterDept('核算部'),
+                  deptPoolSize:(function(){try{var p=bcDeptPoolAccounts('核算部');return p===null?'null':p.size;}catch(e){return 'ERR:'+e;}})(),
+                  orgTreeN:(ORG_TREE||[]).length,
+                  bcDeptsN:(typeof BC_DEPTS!=='undefined')?BC_DEPTS.length:'undef',
+                  bDept:((ME.boards||[]).find(function(x){return x.board_id==='1162069797001000238';})||{}).dept};
+        })()""")
+        print('③-ter 前置池:', json.dumps(rPre, ensure_ascii=False), flush=True)
+        rT = await ev("""(function(){
+          if(!window.TREE_PICK)return {err:'树未打开'};
+          const orgs=[].slice.call(document.querySelectorAll('.tp-node:not(.tp-person)'))
+            .map(function(x){return x.textContent.trim();}).filter(function(t){return t;});
+          // 折叠=子树容器 display:none（节点仍在 DOM）→ 断言用「可见」人员数
+          const vis=function(){return [].slice.call(document.querySelectorAll('.tp-node.tp-person'))
+            .filter(function(x){return x.offsetParent!==null;}).length;};
+          const personsN=vis();
+          const arrows=[].slice.call(document.querySelectorAll('.tp-arrow[id^="tp_arrow_"]'));
+          let afterN=null, folded=null;
+          if(arrows.length){
+            folded=arrows[0].id;
+            arrows[0].click();
+            afterN=vis();
+          }
+          let memN=0;
+          (function w(ns){(ns||[]).forEach(function(n){memN+=(n.members||[]).length;w(n.children||[]);});})(TREE_PICK.tree||[]);
+          return {orgN:orgs.length, orgs:orgs.slice(0,5), personsN:personsN,
+                  arrowsN:arrows.length, afterN:afterN, folded:folded,
+                  treeMemN:memN, treeNodes:(TREE_PICK.tree||[]).length};
+        })()""")
+        print('③-ter 树分组:', json.dumps(rT, ensure_ascii=False), flush=True)
+        ok(rT and not rT.get('err') and (rT.get('orgN') or 0) >= 1 and (rT.get('arrowsN') or 0) >= 1,
+           "③-ter 负责人树按架构节点分组（节点 %s 个、可折叠箭头 %s 个；节点样例 %s）"
+           % (rT.get('orgN'), rT.get('arrowsN'), json.dumps(rT.get('orgs'), ensure_ascii=False)))
+        ok(rT and rT.get('afterN') is not None and rT.get('afterN') < rT.get('personsN'),
+           "③-ter 点击折叠箭头 → 子树人员收起不渲染（%s → %s）"
+           % (rT.get('personsN'), rT.get('afterN')))
+        # 收树，避免遮挡后续板块预览点击
+        await ev("TREE_PICK=null;document.querySelectorAll('.modal-overlay').forEach(function(m){m.style.display='none';})")
+        await asyncio.sleep(0.8)
+
         # ── ① 板块预览：参与人单行省略 ──
         # 先恢复全池并等待重绘完成（r4 里 reload 未等待 → 页面可能仍是空态无 .week-title）
         await ev("ATTR_SEL.clear();paintAttr();reload(1);")
@@ -174,6 +231,26 @@ async def main():
             ok(r6.get('h', 0) <= 30 and r6.get('clamped') is not False and r6.get('clipped'),
                "① 参与人名单 70+ 人：单行高 %spx、内容溢出被截断（scrollWidth>clientWidth）"
                % r6.get('h'))
+        # ①-bis 点击「…」展开全部 → 换行（高度 > 单行）；再点收起
+        r6b = await ev("""(function(){
+          const s=document.querySelector('#cd_meta .m1l');
+          s.click();
+          const st=getComputedStyle(s);
+          const openH=Math.round(s.getBoundingClientRect().height);
+          const openNowrap=st.whiteSpace==='normal';
+          const titleOpen=s.title;
+          s.click();
+          const closeH=Math.round(s.getBoundingClientRect().height);
+          const closeNowrap=getComputedStyle(s).whiteSpace==='nowrap';
+          const titleClose=s.title;
+          return {openH:openH, openNowrap:openNowrap, titleOpen:titleOpen,
+                  closeH:closeH, closeNowrap:closeNowrap, titleClose:titleClose};
+        })()""")
+        ok(r6b and r6b.get('openNowrap') and (r6b.get('openH') or 0) > 30
+           and r6b.get('closeNowrap') and (r6b.get('closeH') or 0) <= 30
+           and '展开' in (r6b.get('titleClose') or '') and '收起' in (r6b.get('titleOpen') or ''),
+           "①-bis 点击「…」展开（高 %spx 换行态）→ 再点收起（高 %spx 单行态），悬停提示同步"
+           % (r6b.get('openH'), r6b.get('closeH')))
         await ev("closeModal('columnDetailModal')")
         await asyncio.sleep(0.5)
 
