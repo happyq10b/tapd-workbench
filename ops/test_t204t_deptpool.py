@@ -198,10 +198,20 @@ async def main():
         })()""" % (IDS['bid'], IDS['bid']))
         ok(r1.get('dept') == DEPT and r1.get('ownerInPool') is True and r1.get('partInPool') is False,
            f"① 部门池口径：看板归属「{r1.get('dept')}」，甲在池内、乙（管理部）在池外")
+        # #205q（2026-11-18 用户口径修订）：板块层不再与架构部门池做交集——
+        # 板块的选人/筛选受制于**看板**（看板 ACL 全量 ∪ 协同部门），
+        # 看板参与人乙（管理部）虽在架构池外，仍是板块层的合法候选。
+        # #205q：colPickPool 本身不再做架构交集；乙不可见的剔除来源 =
+        # **看板层读取过滤**（/api/me 按 看板层池=归属部门池∪协同 下发，2026-11-17 既有口径）
         ok(r1.get('colPool') == ['__t204t甲(__t204t_a1)'],
-           f"② colPickPool 已剔除池外参与人（实际：{r1.get('colPool')}）")
-        ok(r1.get('filterCand') == ['__t204t甲(__t204t_a1)'],
-           f"③ boardFilterCandidates 同口径剔除（实际：{r1.get('filterCand')}）")
+           f"② colPickPool = 看板 ACL（乙由看板层读取过滤剥离，非板块层架构交集；实际：{r1.get('colPool')}）")
+        # 事项筛选候选 = 板块所配名单（#205q 新口径，async）——夹具未配置板块 → 空池
+        r3 = await ev("""(async function(){
+          await bcLoadAclMembers();
+          return await boardFilterCandidates();
+        })()""", aw=True)
+        ok(r3 == [],
+           f"③ boardFilterCandidates = 板块配置名单（夹具无板块 → 空池；实际：{r3}）")
 
         base1 = base_counts()
         ok(base0 == base1, f'④ 行数守恒（非夹具行）：{base0} → {base1}')

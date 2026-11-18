@@ -113,11 +113,11 @@ async def main():
           const accs=[];
           if(b.owner)accs.push(b.owner);
           (b.participants||'').split(',').forEach(a=>{if(a)accs.push(a);});
-          const labels=aclAccsInDept(b.dept||'',accs).filter(Boolean).map(a=>{
+          const dep=new Set(BC_ACL_MEMBERS.filter(x=>x.status==='departed').map(x=>x.account));   // #205q-fix 离岗账号层
+          const labels=accs.filter(Boolean).filter(a=>!dep.has(a)).map(a=>{   // #205q：板块层池=看板 ACL 全量（不再 ∩ 架构部门池）
             const m=BC_ACL_MEMBERS.filter(x=>x.account===a)[0];
             return m?m.label:a;}).filter(Boolean);
-          const dep=new Set(BC_ACL_MEMBERS.filter(x=>x.status==='departed').map(x=>x.name));
-          const expected=[...new Set(labels)].filter(n=>!dep.has(n));
+          const expected=[...new Set(labels)];
           return {board:sel, expected:expected,
                   ownerPool:PP['c_owner'].ALL.slice(), partsPool:PP['c_parts'].ALL.slice(),
                   fullN:BC_ACL_MEMBERS.filter(x=>x.status!=='departed').length};
@@ -125,8 +125,10 @@ async def main():
         ok(r2.get('ownerPool') == r2.get('expected'),
            f'② 新增板块·负责人池 = 看板[{r2.get("board")}]负责人+参与人（{r2.get("expected")}）')
         ok(r2.get('partsPool') == r2.get('expected'), '② 参与人池同源一致')
-        ok(len(r2.get('ownerPool') or []) < (r2.get('fullN') or 0),
-           f'② 池是真约束：{len(r2.get("ownerPool") or [])} < 全员 {r2.get("fullN")}（非全量兜底）')
+        # #205q：离岗改账号层过滤 + 池=看板 ACL 精确匹配（上条断言已保证）。
+        # ACL ⊇ 全员的看板（如中心级）'池<全员' 不成立 → 改 ≤（离岗账号层剔除后不超全员）
+        ok(len(r2.get('ownerPool') or []) <= (r2.get('fullN') or 0),
+           f'② 池是真约束：{len(r2.get("ownerPool") or [])} ≤ 全员 {r2.get("fullN")}（离岗账号层剔除，非全量兜底）')
 
         # ③ 切换所属看板 → 池随动
         r3 = await ev("""(function(){
@@ -140,10 +142,10 @@ async def main():
           const accs=[];
           if(b.owner)accs.push(b.owner);
           (b.participants||'').split(',').forEach(a=>{if(a)accs.push(a);});
-          const labels=aclAccsInDept(b.dept||'',accs).filter(Boolean).map(a=>{
+          const labels=accs.filter(Boolean).map(a=>{   // #205q：板块层池=看板 ACL 全量（不再 ∩ 架构部门池）
             const m=BC_ACL_MEMBERS.filter(x=>x.account===a)[0];
             return m?m.label:a;}).filter(Boolean);
-          const dep=new Set(BC_ACL_MEMBERS.filter(x=>x.status==='departed').map(x=>x.name));
+          const dep=new Set(BC_ACL_MEMBERS.filter(x=>x.status==='departed').map(x=>x.account));   // #205q-fix 离岗账号层
           return {board:b.board_id, expected:[...new Set(labels)].filter(n=>!dep.has(n)),
                   ownerPool:PP['c_owner'].ALL.slice()};
         })()""")
@@ -173,13 +175,13 @@ async def main():
           const accs=[];
           if(b.owner)accs.push(b.owner);
           (b.participants||'').split(',').forEach(a=>{if(a)accs.push(a);});
-          const labels=aclAccsInDept(b.dept||'',accs).filter(Boolean).map(a=>{
+          const dep=new Set(BC_ACL_MEMBERS.filter(x=>x.status==='departed').map(x=>x.account));   // #205q-fix 离岗账号层
+          const labels=accs.filter(Boolean).filter(a=>!dep.has(a)).map(a=>{   // #205q：板块层池=看板 ACL 全量（不再 ∩ 架构部门池）
             const m=BC_ACL_MEMBERS.filter(x=>x.account===a)[0];
             return m?m.label:a;}).filter(Boolean);
-          const dep=new Set(BC_ACL_MEMBERS.filter(x=>x.status==='departed').map(x=>x.name));
           return {board:bid, ownerPool:PP['c_owner'].ALL.slice(),
                   partsPool:PP['c_parts'].ALL.slice(),
-                  expected:[...new Set(labels)].filter(n=>!dep.has(n))};
+                  expected:[...new Set(labels)]};
         })()""", aw=True)
         if r4b.get('skip'):
             print(f"SKIP ④ 编辑模式（{r4b.get('reason')}）", flush=True)
