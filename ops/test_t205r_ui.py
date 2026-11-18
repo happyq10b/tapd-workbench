@@ -155,9 +155,10 @@ async def main():
                   weekTip:wk?wk.getAttribute('title'):''};
         })()""")
         _wt = (r1.get('weekText') or '') if r1 else ''
-        ok(_wt.startswith('周数 2026·W46、2026·W47') and _wt.endswith('…'),
+        # #205s（2026-11-18 需求5）口径更新：周数列改为两个**完整周数**（非压缩形态）
+        ok(_wt.startswith('周数 2026年第46周、2026年第47周') and _wt.endswith('…'),
            "① 事项行周数列 = 最早 2 周 + …（实际 %r）" % _wt)
-        ok(r1 and r1.get('weekTip') and 'W46' in r1.get('weekTip') and 'W48' in r1.get('weekTip'),
+        ok(r1 and r1.get('weekTip') and '2026年第46周' in r1.get('weekTip') and '2026年第48周' in r1.get('weekTip'),
            "① 悬停提示仍展示全部周数")
         ok(r1 and (r1.get('created') or '').startswith('开始 '),
            "② 事项目录「创建」列改为「开始」（实际 %r）" % (r1 or {}).get('created'))

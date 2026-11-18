@@ -98,26 +98,27 @@ async def main():
         ok(st4 == 200 and row.get('week_no') == '2026年第46周;2026年第47周;2026年第48周',
            "② API 直传乱序+简写周数 → 落库归一升序「;」连接（实际 %r）" % row.get('week_no'))
 
-        # ── ④ 列表展示：多周 → 只显示最早一周 +「…」，悬停提示全部，列宽加宽，父/子同规则 ──
+        # ── ④ 列表展示：#205s 口径 —— 最早 2 个**完整周数**+「…」，列宽固定 204px，父/子同规则 ──
         r5 = await ev("""(function(){
-          const row=[].slice.call(document.querySelectorAll('.item-wrap .fcols[style]'))
-            .find(function(x){return x.offsetParent!==null;});
-          if(!row)return {err:'无动态列宽行'};
+          const wrap=[].slice.call(document.querySelectorAll('.item-wrap'))
+            .find(function(x){return x.offsetParent!==null && x.textContent.indexOf('__t205p_跨周事项')>=0;});
+          const row=wrap?wrap.querySelector('.fcols'):null;
+          if(!row)return {err:'未找到夹具事项字段列'};
           const wk=row.querySelector('.fcol-week_no');
           const st=getComputedStyle(row);
-          return {style:row.getAttribute('style'),
+          return {gcol:st.gridTemplateColumns.split(' ')[0],
                   text:wk.textContent.trim(),
                   tip:wk.getAttribute('title')||'',
                   width:Math.round(row.getBoundingClientRect().width)};
         })()""")
-        # #205r 口径更新：目录周数列展示最早 2 周（+…仅当 >2 周）；列宽 2 周 128 / ≥3 周 144
-        ok(r5 and not r5.get('err') and (r5.get('text') or '').replace('周数 ', '').startswith('2026·W46、2026·W47')
+        # #205s 口径更新：周数列显示最早 2 个完整周数（+…仅当 >2 周）；列宽统一 204px
+        ok(r5 and not r5.get('err') and (r5.get('text') or '').replace('周数 ', '').startswith('2026年第46周、2026年第47周')
            and (r5.get('text') or '').endswith('…'),
-           "④ 父事项周数列显最早 2 周+「…」（#205r 口径，实际 %r）" % (r5 or {}).get('text'))
-        ok(r5 and 'W47' in (r5.get('tip') or '') and 'W48' in (r5.get('tip') or ''),
+           "④ 父事项周数列显最早 2 个完整周数+「…」（#205s 口径，实际 %r）" % (r5 or {}).get('text'))
+        ok(r5 and '2026年第47周' in (r5.get('tip') or '') and '2026年第48周' in (r5.get('tip') or ''),
            "④ 悬停提示含全部周数（%r）" % (r5 or {}).get('tip'))
-        ok(r5 and (r5.get('width') or 0) >= 574,
-           "④ 多周行 fcols 加宽（%spx ≥ 574px = 144+398列+32间距，#205r 口径，标题随之压缩）" % r5.get('width'))
+        ok(r5 and (r5.get('gcol') or '').startswith('204') and (r5.get('width') or 0) >= 630,
+           "④ 周数列固定 204px（gcol=%s，行宽 %spx ≥ 630，标题随之压缩，#205s 口径）" % ((r5 or {}).get('gcol'), (r5 or {}).get('width')))
         # 子事项：建一张子事项带多周 → 同规则
         st5, d5 = api('/api/cards', 'POST', {'board_id': BOARD, 'card_name': '__t205p_子事项',
                                             'parent_id': card_id,
@@ -130,17 +131,21 @@ async def main():
         await ev("toggleSubTree('%s')" % card_id)   # 展开父事项的子事项目录
         await asyncio.sleep(2)
         r5b = await ev("""(function(){
-          const sub=[].slice.call(document.querySelectorAll('.sub-node .fcols[style]'))
-            .find(function(x){return x.offsetParent!==null;});
-          if(!sub)return {err:'子事项无动态列宽',
+          const sub=[].slice.call(document.querySelectorAll('.sub-node'))
+            .find(function(x){return x.offsetParent!==null && x.textContent.indexOf('__t205p_子事项')>=0;});
+          const fc=sub?sub.querySelector('.fcols'):null;
+          if(!fc)return {err:'子事项未找到字段列',
                           subsN:document.querySelectorAll('.sub-node').length};
-          const wk=sub.querySelector('.fcol-week_no');
-          return {text:wk.textContent.trim(), tip:wk.getAttribute('title')||''};
+          const wk=fc.querySelector('.fcol-week_no');
+          return {text:wk.textContent.trim(), tip:wk.getAttribute('title')||'',
+                  gcol:getComputedStyle(fc).gridTemplateColumns.split(' ')[0]};
         })()""")
-        # #205r 口径：2 周全显、无 …（>2 周才收尾省略）
-        ok(r5b and not r5b.get('err') and (r5b.get('text') or '').replace('周数 ', '').startswith('2026·W2、2026·W3')
+        # #205s 口径：2 个完整周数全显、无 …（>2 周才收尾省略）
+        ok(r5b and not r5b.get('err') and (r5b.get('text') or '').replace('周数 ', '').startswith('2026年第2周、2026年第3周')
            and not (r5b.get('text') or '').endswith('…'),
-           "④-bis 子事项周数列同规则（2 周全显无…，实际 %r）" % (r5b or {}).get('text'))
+           "④-bis 子事项周数列同规则（2 个完整周数全显无…，实际 %r）" % (r5b or {}).get('text'))
+        ok(r5b and (r5b.get('gcol') or '').startswith('204'),
+           "④-bis 子事项列宽与父行一致 204px（实际 %s）" % (r5b or {}).get('gcol'))
         # 清理子事项
         if sub_id: api('/api/cards/' + sub_id, 'DELETE')
 
@@ -181,23 +186,24 @@ async def main():
            "② UI 勾选多周：面板保持打开、选中集 3 项（勾选框 %s 个）" % r8.get('checkedN'))
         ok(r8 and '2026年第2周' in (r8.get('inpVal') or '') and '2026年第5周' in (r8.get('inpVal') or ''),
            "②-bis 输入框显示多周「、」连接（%r）" % r8.get('inpVal'))
-        # 自动回填：勾选 → 输入框禁用+按创建~截止计算
+        # 自动回填：#205s 口径 —— 勾选 → 输入框禁用且**不回显**周数（需求4）；
+        # 保存时刻由 weekGather('n') 按表单（开始日期, 截止日期）计算，起始周取**开始日期**（需求2）
         r9 = await ev("""(function(){
           const cbx=document.getElementById('n_week_auto');
           cbx.checked=true;onWeekAutoToggle('n');
           const inp=document.getElementById('n_week');
           const before={disabled:inp.disabled, val:inp.value};
-          // 改截止日期 → 自动重算
+          // 保存时刻口径：开始日期跨年到 2027 → 回填覆盖 2027 年周
+          document.getElementById('n_begin').value='2026-12-28';
           document.getElementById('n_due').value='2027-01-15';
-          weekAutoRefresh('n');
-          const after={val:inp.value};
+          const list=weekGather('n');
           cbx.checked=false;onWeekAutoToggle('n');
-          return {before:before, after:after, reEnabled:!inp.disabled};
+          return {before:before, list:list, reEnabled:!inp.disabled};
         })()""")
-        ok(r9 and r9.get('before', {}).get('disabled') and (r9.get('before', {}).get('val') or '').startswith('2026年第'),
-           "③ 勾选自动回填 → 手动选择禁用、按创建~截止回填（%r）" % r9.get('before', {}).get('val'))
-        ok(r9 and '2027年第' in (r9.get('after', {}).get('val') or ''),
-           "③-bis 截止日期跨年 → 回填覆盖 2027 年周（%r）" % r9.get('after', {}).get('val'))
+        ok(r9 and r9.get('before', {}).get('disabled') and (r9.get('before', {}).get('val') or '') == '',
+           "③ 勾选自动回填 → 手动选择禁用、输入框不立即回显周数（#205s 需求4，%r）" % r9.get('before', {}).get('val'))
+        ok(r9 and '2027年第1周' in (r9.get('list') or []),
+           "③-bis 保存时刻按开始～截止回填，跨年覆盖 2027 年周（%s，起始取开始日期 2026-12-28 所在 2026-W53）" % (r9 or {}).get('list'))
         ok(r9 and r9.get('reEnabled'), "③-ter 取消勾选 → 手动选择恢复可用")
         # 关闭弹窗
         await ev("closeModal('newModal')")
