@@ -4,8 +4,16 @@
 ② 弹窗：板块/事项分区独立配置，勾选顺序=优先级，各字段独立升降序，取消还原快照；
 ③ 排序应用：事项多级（DOM 实测）+ 板块多级（DOM 实测）+ 置顶恒浮顶；
 ④ 导出 xlsx 同步排序（sort_keys/sort_dirs/pin_ids）。
-API 夹具（__t205y_ 前缀）测完即删。"""
-import asyncio, io, json, os, shutil, subprocess, sys, time, urllib.parse, urllib.request, urllib.error
+API 夹具（__t205y_ 前缀）测完即删。
+
+⚠️ T-015（2026-11-18）：#205z 之后排序配置的真源=服务端 user_prefs.sort_cfg（按 username
+行隔离），localStorage 只是本地缓存。本测试驱动 sortSetApply 会经 _prefPush（800ms 防抖）
+把 admin 的配置 PUT 到服务端且**跨运行残留** → 下一轮登录时 loadUserPrefs 拉服务端值
+覆盖内存 SORT_CFG，测试假设的「默认态」不复存在（历史实测 14/23 的根因）。
+因此：① 每轮启动前精确清掉 admin 的 sort_cfg 行（key 精确匹配，非宽匹配）；
+② finally 等 1.2s 防抖落地后二删并断言零残留；③ 持久化断言=服务端真源（GET /api/prefs）
++ localStorage 缓存双口径。"""
+import asyncio, io, json, os, shutil, sqlite3, subprocess, sys, time, urllib.parse, urllib.request, urllib.error
 
 sys.path.insert(0, 'src'); sys.path.insert(0, 'ops')
 os.environ.setdefault('APP_SECRET', 'local-dev-secret-not-for-production')
@@ -13,6 +21,20 @@ from app.app import make_token
 
 BOARD = 'BCP1793717004248'
 TK = make_token('admin')
+DB = 'src/app.db'
+
+def db_del_sort_cfg(accts):
+    """精确清理某账号的 sort_cfg 偏好行（username+key 双主键精确匹配，非宽匹配）。
+    同 t205z 的 db_del_sort_cfg —— #205z 之后必须先清服务端行，测试的「默认态」才成立。"""
+    conn = sqlite3.connect(DB)
+    for a in accts:
+        conn.execute("DELETE FROM user_prefs WHERE username=? AND key='sort_cfg'", (a,))
+    conn.commit()
+    left = {a: conn.execute("SELECT COUNT(*) FROM user_prefs WHERE username=? AND key='sort_cfg'",
+                            (a,)).fetchone()[0] for a in accts}
+    conn.close()
+    return left
+
 _n = {'ok': 0, 'fail': 0}
 def ok(cond, msg):
     print(('PASS ' if cond else 'FAIL ') + msg, flush=True)
@@ -57,6 +79,11 @@ async def main():
             if stc in (200, 201): ids[name] = dc.get('card_id')
             time.sleep(1.1)
         print('fixture:', st, len(ids), flush=True)
+
+        # T-015：启动浏览器前清掉 admin 的服务端 sort_cfg（上一轮运行的残留会经
+        # 登录时 loadUserPrefs 覆盖内存 SORT_CFG，令「默认态」断言全部失真）
+        left = db_del_sort_cfg(['admin'])
+        ok(left.get('admin') == 0, '⓪ 前置：admin 服务端 sort_cfg 行已清零（残留=%s）' % left.get('admin'))
 
         profile = os.path.join(os.environ.get('TEMP', '.'), 'cdp_t205y')
         shutil.rmtree(profile, ignore_errors=True)
@@ -242,7 +269,13 @@ async def main():
                "⑤ 板块按截止时间升序：乙(12-10)→甲(12-20)→排序板块(无截止排最后)（%s）" % co)
             ls = await ev("localStorage.getItem('tapd.sortCfg_'+ME.username)")
             ok(ls and json.loads(ls).get('card', {}).get('order') == ['due'],
-               "⑤ 配置按账号持久化（localStorage tapd.sortCfg）")
+               "⑤ 配置持久化·本地缓存（localStorage tapd.sortCfg_<user>）")
+            # T-015：#205z 之后真源在服务端 —— sortSetApply 经 _prefPush（800ms 防抖）上传，
+            # 上面的 DOM 断言已耗时 >2s，防抖必然已落地，此处直接读服务端核验
+            stp, dp = api('/api/prefs')
+            srv_card = ((dp.get('prefs') or {}).get('sort_cfg') or {}).get('card', {}).get('order')
+            ok(srv_card == ['due'],
+               "⑤ 配置持久化·服务端真源（GET /api/prefs sort_cfg.card.order=['due']，实际 %s）" % srv_card)
 
             # ── ⑥ 置顶恒浮顶（不受排序配置影响） ──
             await ev("MY_PINS.card[%s]=1;reload(curPage)" % json.dumps(ids.get('__t205y_卡丙')))
@@ -316,6 +349,14 @@ async def main():
         for k in (col_card, col_a, col_b):
             if k: api('/api/columns/' + urllib.parse.quote(k, safe=''), 'DELETE')
         print('fixture cleaned', flush=True)
+        # ── T-015：服务端 sort_cfg 收尾清理 ──
+        # ⑦ 的 sortSetApply 经 _prefPush 800ms 防抖上传，DELETE 后飞行中的 PUT 会把行
+        # 「复活」（t205z 坑①同款）→ 等 1.2s 再删、0.8s 后二删并断言零残留
+        time.sleep(1.2)
+        db_del_sort_cfg(['admin'])
+        time.sleep(0.8)
+        left = db_del_sort_cfg(['admin'])
+        ok(left.get('admin') == 0, '⑨ 收尾：admin 服务端 sort_cfg 行二删后零残留（残留=%s）' % left.get('admin'))
 
 asyncio.run(main())
 print('结果: %d PASS / %d FAIL' % (_n['ok'], _n['fail']))
