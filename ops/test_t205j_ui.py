@@ -101,8 +101,8 @@ async def main():
           const inp=document.getElementById('attrFilterInput');
           return {ph:inp.placeholder, w:Math.round(ar.width), wStatus:Math.round(st.width)};
         })()""")
-        ok(r0b and r0b.get('ph') == '专项/日常' and abs((r0b.get('w') or 0) - (r0b.get('wStatus') or 0)) <= 3,
-           "③-bis 新框与状态框等宽（%s vs %s）+ placeholder=专项/日常"
+        ok(r0b and r0b.get('ph') == '' and abs((r0b.get('w') or 0) - (r0b.get('wStatus') or 0)) <= 3,
+           "③-bis 新框与状态框等宽（%s vs %s）+ 无提示词（#205k-bis 用户反馈）"
            % (r0b.get('w'), r0b.get('wStatus')))
         ws_ = (r0 or {}).get('wStatus'); wp = (r0 or {}).get('wPerson')
         ok(ws_ and wp and 120 <= ws_ <= 155 and 120 <= wp <= 155,
