@@ -120,8 +120,8 @@ async def main():
                   opts:sel?[].slice.call(sel.options).map(function(o){return o.value;}):[],
                   val:sel?sel.value:''};
         })()""")
-        ok(r1 and r1.get('exists') and (r1.get('opts') or []) == ['pin', 'begin', 'due', 'created'] and r1.get('val') == 'pin',
-           "① 排序下拉存在，四选项齐全，默认「个人置顶优先」（%s）" % (r1 or {}).get('opts'))
+        ok(r1 and r1.get('exists') and (r1.get('opts') or []) == ['created', 'begin', 'due'] and r1.get('val') == 'created',
+           "① 排序下拉三档（置顶为公共首级不再是选项），默认「创建时间」（%s）" % (r1 or {}).get('opts'))
         # 创建时间降序（默认创建顺序 A→B→C）
         await ev("setCardSort('created')")
         await asyncio.sleep(2)
@@ -144,7 +144,7 @@ async def main():
         rp = await ev("(function(){loadCardSort();return {v:document.getElementById('cardSortSel').value,ls:localStorage.getItem('tapd.cardSort_'+ME.username)};})()")
         ok(rp and rp.get('v') == 'begin' and rp.get('ls') == 'begin',
            "① 排序选项按账号持久化（localStorage=%s，回显=%s）" % ((rp or {}).get('ls'), (rp or {}).get('v')))
-        await ev("setCardSort('pin')")
+        await ev("setCardSort('created')")
         await asyncio.sleep(1.5)
 
         # ── ④ 进度条压缩对齐 + 文案 ──
