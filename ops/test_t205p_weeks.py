@@ -110,13 +110,14 @@ async def main():
                   tip:wk.getAttribute('title')||'',
                   width:Math.round(row.getBoundingClientRect().width)};
         })()""")
-        ok(r5 and not r5.get('err') and 'W46' in (r5.get('text') or '') and (r5.get('text') or '').endswith('…')
-           and 'W47' not in (r5.get('text') or ''),
-           "④ 父事项周数列只显最早周+「…」（实际 %r）" % (r5 or {}).get('text'))
+        # #205r 口径更新：目录周数列展示最早 2 周（+…仅当 >2 周）；列宽 2 周 128 / ≥3 周 144
+        ok(r5 and not r5.get('err') and (r5.get('text') or '').replace('周数 ', '').startswith('2026·W46、2026·W47')
+           and (r5.get('text') or '').endswith('…'),
+           "④ 父事项周数列显最早 2 周+「…」（#205r 口径，实际 %r）" % (r5 or {}).get('text'))
         ok(r5 and 'W47' in (r5.get('tip') or '') and 'W48' in (r5.get('tip') or ''),
            "④ 悬停提示含全部周数（%r）" % (r5 or {}).get('tip'))
-        ok(r5 and (r5.get('width') or 0) >= 546,
-           "④ 多周行 fcols 加宽（%spx ≥ 546px = 116+398列+32间距，标题随之压缩）" % r5.get('width'))
+        ok(r5 and (r5.get('width') or 0) >= 574,
+           "④ 多周行 fcols 加宽（%spx ≥ 574px = 144+398列+32间距，#205r 口径，标题随之压缩）" % r5.get('width'))
         # 子事项：建一张子事项带多周 → 同规则
         st5, d5 = api('/api/cards', 'POST', {'board_id': BOARD, 'card_name': '__t205p_子事项',
                                             'parent_id': card_id,
@@ -136,8 +137,10 @@ async def main():
           const wk=sub.querySelector('.fcol-week_no');
           return {text:wk.textContent.trim(), tip:wk.getAttribute('title')||''};
         })()""")
-        ok(r5b and not r5b.get('err') and '2026·W2' in (r5b.get('text') or '') and (r5b.get('text') or '').endswith('…'),
-           "④-bis 子事项周数列同规则（最早周+…，实际 %r）" % (r5b or {}).get('text'))
+        # #205r 口径：2 周全显、无 …（>2 周才收尾省略）
+        ok(r5b and not r5b.get('err') and (r5b.get('text') or '').replace('周数 ', '').startswith('2026·W2、2026·W3')
+           and not (r5b.get('text') or '').endswith('…'),
+           "④-bis 子事项周数列同规则（2 周全显无…，实际 %r）" % (r5b or {}).get('text'))
         # 清理子事项
         if sub_id: api('/api/cards/' + sub_id, 'DELETE')
 
