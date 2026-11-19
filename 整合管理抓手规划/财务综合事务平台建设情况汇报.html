@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="TXztYJS4lDCFQmGksKadOD"><head data-page-node-id="aKJUIEBVUroTxLPFPcu6FP">
+<meta charset="UTF-8" data-page-node-id="8Lwo3fGHHPJP8pLoMzXt6X">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="sZICGNzObV8XgJy7WPQRaC">
+<title data-page-node-id="fmQbD0D89LyxJM0b50EcNX">财务综合事务平台建设情况汇报</title>
+<style data-page-node-id="3Hb9tFqWVrawOhVVZIPWVN">
+  :root{
+    --bg:#f4f6fa;
+    --panel:#ffffff;
+    --ink:#1c2430;
+    --ink-2:#4a5666;
+    --ink-3:#7c8798;
+    --line:#e3e8f0;
+    --brand:#1b4f9c;
+    --brand-soft:#e8effa;
+    --accent:#c8791a;
+    --accent-soft:#fdf3e3;
+    --green:#1e7a52;
+    --green-soft:#e7f4ee;
+    --shadow:0 1px 2px rgba(28,36,48,.04),0 8px 24px rgba(28,36,48,.06);
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Source Han Sans SC",sans-serif;
+    line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:40px 28px 72px}
+
+  /* ---------- 页眉 ---------- */
+  header.hero{
+    background:linear-gradient(135deg,#17407e 0%,#1b4f9c 48%,#2f6ec4 100%);
+    color:#fff;border-radius:20px;padding:38px 44px;box-shadow:var(--shadow);
+    position:relative;overflow:hidden;
+  }
+  header.hero::after{
+    content:"";position:absolute;right:-70px;top:-90px;width:320px;height:320px;
+    border-radius:50%;background:rgba(255,255,255,.07);
+  }
+  header.hero::before{
+    content:"";position:absolute;right:60px;bottom:-140px;width:260px;height:260px;
+    border-radius:50%;background:rgba(255,255,255,.05);
+  }
+  .kicker{font-size:13px;letter-spacing:.32em;opacity:.75;margin-bottom:12px}
+  header.hero h1{font-size:34px;font-weight:700;letter-spacing:1px;line-height:1.3}
+  header.hero .sub{margin-top:12px;font-size:15px;opacity:.9;max-width:660px}
+  .hero-meta{margin-top:22px;display:flex;gap:28px;flex-wrap:wrap;font-size:13px;opacity:.85}
+  .hero-meta span b{font-weight:600;opacity:1}
+
+  /* ---------- 通用区块 ---------- */
+  section{margin-top:34px}
+  .sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+  .sec-no{
+    font-size:13px;font-weight:700;color:var(--brand);background:var(--brand-soft);
+    border-radius:6px;padding:3px 9px;letter-spacing:.06em;
+  }
+  .sec-head h2{font-size:21px;font-weight:700;letter-spacing:.5px}
+  .sec-head .rule{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+
+  /* ---------- 概况 ---------- */
+  .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .fact{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow)}
+  .fact .lab{font-size:12px;color:var(--ink-3);letter-spacing:.14em;margin-bottom:8px}
+  .fact .val{font-size:16px;font-weight:600;color:var(--brand)}
+  .fact .val.note{font-size:14px;font-weight:500;color:var(--ink);line-height:1.7}
+
+  /* ---------- 优势 ---------- */
+  .adv{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .adv-item{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .adv-item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--brand)}
+  .adv-head{display:flex;align-items:center;gap:11px;margin-bottom:9px}
+  .adv-num{
+    width:26px;height:26px;flex:none;border-radius:8px;background:var(--brand);
+    color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;
+  }
+  .adv-head h3{font-size:16px;font-weight:700}
+  .adv-item p{font-size:13.5px;color:var(--ink-2);padding-left:37px}
+
+  /* ---------- 模块卡片 ---------- */
+  .mods{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .mod{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow);display:flex;flex-direction:column}
+  .mod-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .mod-tag{font-size:11px;color:var(--brand);background:var(--brand-soft);border-radius:5px;padding:2px 8px;letter-spacing:.05em}
+  .mod-tag.ai{color:var(--accent);background:var(--accent-soft);border:1px solid #f0d9b5}
+  .mod h3{font-size:16.5px;font-weight:700;margin-bottom:8px}
+  .mod p{font-size:13.5px;color:var(--ink-2);flex:1}
+  .mod-foot{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);font-size:12.5px;color:var(--ink-3)}
+  .mod-foot b{color:var(--accent);font-weight:600}
+  .mod.done .mod-foot b{color:var(--green)}
+
+  /* ---------- 上线时间轴 ---------- */
+  .tl{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:28px 26px;box-shadow:var(--shadow)}
+  .tl-track{position:relative;display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:6px}
+  .tl-track::before{content:"";position:absolute;left:6%;right:6%;top:9px;height:2px;background:linear-gradient(90deg,#1b4f9c,#2f6ec4,#c8791a)}
+  .tl-node{position:relative;padding-top:30px;text-align:center;padding-left:8px;padding-right:8px}
+  .tl-node::before{content:"";position:absolute;left:50%;top:2px;transform:translateX(-50%);width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--brand);box-shadow:0 0 0 4px var(--panel)}
+  .tl-node.hot::before{border-color:var(--accent)}
+  .tl-date{font-size:13.5px;font-weight:700;color:var(--brand)}
+  .tl-node.hot .tl-date{color:var(--accent)}
+  .tl-txt{font-size:12.5px;color:var(--ink-2);margin-top:4px;line-height:1.6}
+  .tl-note{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-2)}
+  .tl-note b{color:var(--ink)}
+
+  /* ---------- 下一步 ---------- */
+  .next{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:8px 26px;box-shadow:var(--shadow)}
+  .next li{list-style:none;padding:16px 0 16px 46px;position:relative;border-bottom:1px dashed var(--line)}
+  .next li:last-child{border-bottom:none}
+  .next li::before{
+    content:"";position:absolute;left:8px;top:22px;width:20px;height:20px;border-radius:6px;
+    background:var(--brand-soft);border:1px solid #c8d8f2;
+  }
+  .next li::after{
+    content:"";position:absolute;left:15px;top:28px;width:6px;height:6px;border-radius:50%;background:var(--brand);
+  }
+  .next li b{font-size:15px}
+  .next li p{font-size:13.5px;color:var(--ink-2);margin-top:3px}
+
+  footer{margin-top:40px;text-align:center;color:var(--ink-3);font-size:12.5px;letter-spacing:.1em}
+
+  @media (max-width:900px){
+    .facts,.adv,.mods{grid-template-columns:1fr}
+    .tl-track{grid-template-columns:1fr;gap:0}
+    .tl-track::before{left:50%;right:auto;top:8px;bottom:8px;width:2px;height:auto;
+      background:linear-gradient(180deg,#1b4f9c,#c8791a)}
+    .tl-node{text-align:left;padding:14px 0 14px 44px}
+    .tl-node::before{left:8px;top:18px;transform:none}
+  }
+  @media print{
+    body{background:#fff}
+    .wrap{max-width:none;padding:0}
+    header.hero,.fact,.adv-item,.mod,.tl,.next{box-shadow:none}
+    section{page-break-inside:avoid}
+  }
+</style>
+<style id="__dm_no_drag_style__">* { -webkit-user-drag: none !important; }</style><style id="__dm_bindable_badge_style__">[data-sp-bindable="database"]{outline:1px dashed #0088ff;outline-offset:2px;border-radius:4px;}[data-sp-bindable="database"] *{pointer-events:none !important;transition:none !important;animation:none !important;}[data-sp-bindable="database"]{transition:none !important;animation:none !important;}</style></head>
+<body data-page-node-id="vwFTw41l3FaaGxMl3itlko" style="">
+<div class="wrap" data-page-node-id="Kp8bHqmRnY14rVRbiBby7C">
+
+  <header class="hero" data-page-node-id="z6vkURPgp5srXVcsuZphTl">
+    <div class="kicker" data-page-node-id="cAY7GlhSWSo5lTjkHUyHZn">财 务 中 心 · 平 台 建 设 汇 报</div>
+    <h1 data-page-node-id="Wha9viGtmoC2Cg7YdUcieo">财务综合事务平台建设情况汇报</h1>
+    <p class="sub" data-page-node-id="7lDQLk7X8nDARb3nTCm62F">以平台化收口财务日常事务，用流程化留痕替代分散式管理，构建可持续迭代的财务管理抓手。</p>
+    <div class="hero-meta" data-page-node-id="FFxleDDEeGLstoUtHq1hr1">
+      <span data-page-node-id="lf9DDtNeAtKdXQGYsn15VN"><b data-page-node-id="b7LipQiMcmajETsQzbcDw9">汇报日期</b>　2026年11月</span>
+      <span data-page-node-id="Ot6kOkyoZtbn5J8iGiRILs"><b data-page-node-id="hQwmF3SrRHHofgxVv8X1au">承载环境</b>　腾讯轻量云</span>
+      <span data-page-node-id="eXHLgvMW33ujVnq2OsTENt"><b data-page-node-id="D9cN2hjMXPnKiJJc7u332H">建设周期</b>　2026年11月 — 2027年一季度</span>
+    </div>
+  </header>
+
+  <!-- 一、基本情况 -->
+  <section data-page-node-id="JoUAMN9BNQ6XKx2MpMA9V3">
+    <div class="sec-head" data-page-node-id="HZeulSTYiAYQDUUwiUmGpb"><span class="sec-no" data-page-node-id="doCW8DZoU7DndCAcdfEI71">01</span><h2 data-page-node-id="60zJYAnz8Dkk6q1LmDCzQ6">项目基本情况</h2><span class="rule" data-page-node-id="RSxx0mjY7FN2L9yJHoZGtk"></span></div>
+    <div class="facts" data-page-node-id="280iVVp8XXFEunCu9XOG2H">
+      <div class="fact" data-page-node-id="y43khot9oVRSE6wzN1K4dM">
+        <div class="lab" data-page-node-id="pobxAcnPPEWEbGKT0HviQb">平 台 名 称</div>
+        <div class="val note" data-page-node-id="1JwWPGDCZrzDxFcOsHxdik">财务综合事务平台</div>
+      </div>
+      <div class="fact" data-page-node-id="j4BbHyNYCGA3AcWYT7N6q5">
+        <div class="lab" data-page-node-id="q6WcMq2ArgLWn8mEYcBBd0">技 术 载 体</div>
+        <div class="val note" data-page-node-id="vGn2rdunjVvJkK37c9vJo1">由 Agent 自主搭建的网页平台<br data-page-node-id="fW1lDLstJ06B256XebsfF7">服务器部署于腾讯轻量云</div>
+      </div>
+      <div class="fact" data-page-node-id="BTqKSBUOLJDydvvpVLtU28">
+        <div class="lab" data-page-node-id="GOZ8YKZbvpHAD4RbeAH5N3">平 台 定 位</div>
+        <div class="val note" data-page-node-id="Kf5tBo67tEDrsLWFDFP5Mn">财务中心日常事务的<br data-page-node-id="uo9XGgUuhoOHsAvuwIdfIp">整合管理抓手</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 二、优势 -->
+  <section data-page-node-id="WF5yBX16OL2uuKNwfLxjD8">
+    <div class="sec-head" data-page-node-id="YLcD6hafkaKiSUCAmsYRDr"><span class="sec-no" data-page-node-id="P6JOIDThpPSiKTokDVyPJj">02</span><h2 data-page-node-id="qaaMKWrQwzjGLK68HxSCSL">项目建设优势</h2><span class="rule" data-page-node-id="ZS41l779Nws1usACezBMb3"></span></div>
+    <div class="adv" data-page-node-id="NAWMLKYAUjqeiE05XAYJR0">
+      <div class="adv-item" data-page-node-id="I4srnlc20cfYZfnhKaFY7k">
+        <div class="adv-head" data-page-node-id="edaSrYXYXEVpYdPLP9wAEr"><span class="adv-num" data-page-node-id="WwSqwFiTkSYzYxacfPMmz7">1</span><h3 data-page-node-id="NikHlxTGuHPREgYC953Qyj">契合组织架构，权限体系贴合管理需求</h3></div>
+        <p data-page-node-id="dplTGI7YNVOldmOZeHAGUB">依据财务中心现有组织架构设计，角色划分与权限配置同管理层级一一对应，既满足分级管理需要，也避免额外的推广与培训成本。</p>
+      </div>
+      <div class="adv-item" data-page-node-id="EdrgLexoEX8yefPn1dJ8R6">
+        <div class="adv-head" data-page-node-id="Vnh6BfgXNQGDEzGKBKQQme"><span class="adv-num" data-page-node-id="VFZs7WRM1kMiJbCUtsxPjt">2</span><h3 data-page-node-id="pilzIIUN3E26vu05U6o9NK">灵活配置，贴合一线使用习惯</h3></div>
+        <p data-page-node-id="dmyGXGdmYKJhvZY0zq71ps">功能不做一次性固化，支持按需搭建、随场景调整，贴近各部门实际操作习惯，覆盖日常办理中的绝大多数需求。</p>
+      </div>
+      <div class="adv-item" data-page-node-id="VrfExddyQEFKDbAWg9oNXI">
+        <div class="adv-head" data-page-node-id="27LZIh2imah1FURzMWQttO"><span class="adv-num" data-page-node-id="MVa6u2R2mAMzoUf0hE8F1t">3</span><h3 data-page-node-id="fD2VOGMoDOnGJe302v6MJE">化零为整，收口分散的日常事务</h3></div>
+        <p data-page-node-id="6mISaIHvv7oCGE3mWixD8W">将原本分散在各环节、各口径的财务日常事务统一收拢至平台，实现集中填报、集中留痕、集中管理，减少重复沟通与信息断点。</p>
+      </div>
+      <div class="adv-item" data-page-node-id="MNIW26hLhpvl55BVwT0Yfm">
+        <div class="adv-head" data-page-node-id="Ml0BUhRHKUM0bdporf1hbI"><span class="adv-num" data-page-node-id="YmPslWrihRbyKAw1OXEdLs">4</span><h3 data-page-node-id="r2s90bfkaj3EbubO6PXo1s">主体功能自成体系，不依赖 AI 亦可运转</h3></div>
+        <p data-page-node-id="0DWgSMmGIOCrLFfxsstbTi">除智能总结模块外，其余功能均不依赖 AI。平台可迁移至信息部服务器资源，安全管理可控、数据归属清晰。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 三、功能模块 -->
+  <section data-page-node-id="4gG6Opf1nG4RDvdAdFzohN">
+    <div class="sec-head" data-page-node-id="LtqgE1wuc0avgJnePMIkE0"><span class="sec-no" data-page-node-id="cGgTQgUXU5cbClu4N3bgd2">03</span><h2 data-page-node-id="mpASqjCgRMUW10sXFnTIcw">功能模块与建设计划</h2><span class="rule" data-page-node-id="fANHOmkqlOuAQIVmllNxhK"></span></div>
+    <div class="mods" data-page-node-id="WjTMoIa7kQulON2CElDeEZ">
+      <div class="mod done" data-page-node-id="eCyYBNUPvMcUUu665NTbY7">
+        <div class="mod-top" data-page-node-id="0PUJxR1PWnTPVTmirrKwCm"><span class="mod-tag" data-page-node-id="qcVsz4xL1MHD2eGlNjGnpR">模块 01</span></div>
+        <h3 data-page-node-id="NmnQkEruJZzjxxFb7kXiW5">工作事项登记台</h3>
+        <p data-page-node-id="86kUHbdkoWqDoBFwp7IRqi">承载日常工作事项的登记与工作留痕，统一归口管理；既支持部门独立事项，也支持跨部门协同事项。</p>
+        <div class="mod-foot" data-page-node-id="PJjQvyHPZVxRMYbZfCyiBM">计划节点：<b data-page-node-id="gpEB9cHxQ7N1qYPcqaMXRU">11月13日完成开发</b></div>
+      </div>
+      <div class="mod" data-page-node-id="cwqnLKMVNPT7ymn74j8YK4">
+        <div class="mod-top" data-page-node-id="Li1bdlyJMqPI3XLTBqoaft"><span class="mod-tag" data-page-node-id="pqzC4uQ9NfPn966NdHIYFy">模块 02</span></div>
+        <h3 data-page-node-id="t00nmUosVMLGmSQJriVZXh">各部门主页</h3>
+        <p data-page-node-id="fpAm1eZau1eR8jnnRE6Znl">支持灵活配置，可依据各部门实际需求搭建专属主页，展示本部门关键事项与常用功能入口。</p>
+        <div class="mod-foot" data-page-node-id="pzDh8zvaxfGCHj5L5Hi82J">建设节奏：<b data-page-node-id="DV5RMBQckKJSH5TaCqbOoA">框架已预留，按实际需求逐步迭代</b></div>
+      </div>
+      <div class="mod" data-page-node-id="QOkcsmgaEUrBTZ3EprrFu0">
+        <div class="mod-top" data-page-node-id="nqin4MqQLFExR83n4qiAuz"><span class="mod-tag" data-page-node-id="zlFDQJrdp87Xatzii61LxM">模块 03</span></div>
+        <h3 data-page-node-id="KUpvP1zh0M5I4ZXJqtt6Rv">重大财务事项汇总</h3>
+        <p data-page-node-id="XssNDHSDo0Yq6lxj0McKhc">建设重大事项台账，实现集中归集与全程留痕，并在授权范围内供相关人员查阅。</p>
+        <div class="mod-foot" data-page-node-id="0kj9aB6jMcLV7ENlH70Eso">建设计划：<b data-page-node-id="YrWFvaguBahOO07RO0hADB">11月16日启动 → 11月27日完成初步搭建</b></div>
+      </div>
+      <div class="mod" data-page-node-id="yUszWBjLRenIO3DgGV9XYD">
+        <div class="mod-top" data-page-node-id="qBypGPq9gWbFygV20VIJxD"><span class="mod-tag" data-page-node-id="iTNjhxL0F9gZEJfB3DOXfr">模块 04</span></div>
+        <h3 data-page-node-id="mHgqTxfqtmFe0CpYAB4QJ5">工作总结中心</h3>
+        <p data-page-node-id="BwD1uf6ttyHadGp43PtYDh">归集各部门季度工作总结，提供统一汇总与多维查询能力，便于纵向对比与横向参考。</p>
+        <div class="mod-foot" data-page-node-id="Xhj4lYTPj7HXdAFb83qGqX">建设计划：<b data-page-node-id="nrk7P2ni6tQEtqKZ7vPh0G">12月7日启动 → 12月11日完成初步搭建</b></div>
+      </div>
+      <div class="mod" data-page-node-id="bT1nDzlU680SsjLHeKa4OV">
+        <div class="mod-top" data-page-node-id="dVu2BYpWigu7fGTLJJLwWm"><span class="mod-tag ai" data-page-node-id="Rtlwjz6ZU5oYpTwOZivAGQ">模块 05 · 依赖 AI</span></div>
+        <h3 data-page-node-id="XOAN80j9qM9uno9xt5CcUG">智能总结</h3>
+        <p data-page-node-id="ZhGLvRrXF18eL8nXxrG9EQ">平台接入 Agent，搭建智能工作总结、工作周报等 SKILL，把重复性的文字整理工作交给机器完成。是平台内唯一依赖 AI 能力的模块，AI 不可用时不影响其余功能运转。</p>
+        <div class="mod-foot" data-page-node-id="a6UcvQ19D5cvQt4JSI2qAf">建设计划：<b data-page-node-id="cGCVcDAE65ryAL2gdPZFcs">12月14日启动 → 12月25日完成初步搭建</b></div>
+      </div>
+      <div class="mod" data-page-node-id="1VEA1321ymfZSYAfcqPZN7">
+        <div class="mod-top" data-page-node-id="4dUoEEHsOsSkw3Tf2cmBxA"><span class="mod-tag" data-page-node-id="KamH1lmuxWuVjK4usQl9at">模块 06</span></div>
+        <h3 data-page-node-id="BcerViEvXhWf4dZHtIHKG2">标杆评优平台</h3>
+        <p data-page-node-id="tuVMM2LlU6qYEglmi8G4NF">全面整合财务中心评优事项，平台收束从投票到公示的完整流程，实现评优全流程线上化、可追溯。</p>
+        <div class="mod-foot" data-page-node-id="3mrJTGvhU3aVu1aF2Im3wZ">建设计划：<b data-page-node-id="9OlF11BTQEBqBkV4KT3Rwk">2027年1月启动建设</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 四、上线计划 -->
+  <section data-page-node-id="ciT1PFM7oJx5dtnr8WC47I">
+    <div class="sec-head" data-page-node-id="OtlVnh8R6w4EkcD49PoRtn"><span class="sec-no" data-page-node-id="0ZxqljTqH0yqP2e6jJigTN">04</span><h2 data-page-node-id="PGJoBhZdJkkWRhJFzh8XyD">上线推进计划</h2><span class="rule" data-page-node-id="DIszEZrBVga2kxWVWsUuc6"></span></div>
+    <div class="tl" data-page-node-id="1KwRRiVgeRF5ZDHC1yIlyW">
+      <div class="tl-track" data-page-node-id="1d0oh0jpJ2uA1vEO4AbMS9">
+        <div class="tl-node" data-page-node-id="hveL74YJbekW78wbAvwIGw">
+          <div class="tl-date" data-page-node-id="0cAFoAGKdod2XRYUQyxV0N">11月16日</div>
+          <div class="tl-txt" data-page-node-id="PfsbXi5ZYIUA05zeKLXJ0n">平台上线试运行<br data-page-node-id="WIfVvEBmlLWPqJnYPw8SYB">首批试点核算部</div>
+        </div>
+        <div class="tl-node" data-page-node-id="hChOYD84IqbYirvxP5DBu7">
+          <div class="tl-date" data-page-node-id="COrlheIcVVCx5c0L3lbpKE">11月23日</div>
+          <div class="tl-txt" data-page-node-id="FnAV1tEoCEo7XiFuvZ1jvc">逐步向其他部门<br data-page-node-id="8FHbhqOjKQ2nwXtIz3wpze">开放使用</div>
+        </div>
+        <div class="tl-node hot" data-page-node-id="NDHE04IZuIBGuQWB2hbFNI">
+          <div class="tl-date" data-page-node-id="jsDT6iZxhx2VZ4XeEqQsW3">11月30日</div>
+          <div class="tl-txt" data-page-node-id="MepDHk90kACKcIiI19Ptca">开放"重大财务<br data-page-node-id="woO8SlWdpJbtqlnchysq4g">事项汇总"模块</div>
+        </div>
+        <div class="tl-node hot" data-page-node-id="0mFf3ChQuOL0VgCeEQOWMD">
+          <div class="tl-date" data-page-node-id="1Nhqc6u5uqDBDYFFt2XGRL">12月14日</div>
+          <div class="tl-txt" data-page-node-id="6BBDW4BH0twzZPkxNYuvuR">开放工作总结中心<br data-page-node-id="Q8NlGstWaIEphk1E2RLsUU">引导提交历史总结</div>
+        </div>
+        <div class="tl-node hot" data-page-node-id="0hm7CDKp60SVBxuD3uIYOn">
+          <div class="tl-date" data-page-node-id="VXA8J5dcdizkfZqfHvcBps">12月28日</div>
+          <div class="tl-txt" data-page-node-id="detzojhmH4enV3XEG7O6C2">开放智能总结<br data-page-node-id="zmKW96RE6i1xVuLKGWKih5">SKILL 测试</div>
+        </div>
+        <div class="tl-node hot" data-page-node-id="3Kd4C8Jgh9wGnEMAhfRibZ">
+          <div class="tl-date" data-page-node-id="QT2UoYzmsnLXVNhT1aXk9B">2027年一季度</div>
+          <div class="tl-txt" data-page-node-id="7cZpkLHMIRt8cUG3cUPT1P" style="">复刻26年四季度评优测试<br data-page-node-id="VKdgppRPlYQVkZvAG1tpR2">27年一季度评优投入使用</div>
+        </div>
+      </div>
+      <div class="tl-note" data-page-node-id="5sdn2Re5jnoGlDJuU0DCoo">
+        <b data-page-node-id="UYWVqqg22K3gGoGWn5xP0Q">推进逻辑：</b>先以核算部试运行验证平台稳定性，再逐步覆盖各部门；模块成熟一个、开放一个，实现"建设与使用并行"。
+      </div>
+    </div>
+  </section>
+
+  <!-- 五、下一步 -->
+  <section data-page-node-id="sfZRaq9bZpLqcJ7tKZNEIP">
+    <div class="sec-head" data-page-node-id="BwOxxiUFyogtJGgxbNWSt0"><span class="sec-no" data-page-node-id="VNDpEkJafFXnUEDmeWWQ5C">05</span><h2 data-page-node-id="U69ZBfqpuy7lpGIsyRn7wb">下一步工作安排</h2><span class="rule" data-page-node-id="5XKLBpP13DshvA2yn2aT2v"></span></div>
+    <ul class="next" data-page-node-id="wGnqTEeMH2r1ybepznRUrr">
+      <li data-page-node-id="4eMDwEYI2mLsoSb0z3ukV7"><b data-page-node-id="SjzPDI9IorcQtYpz5LASSI">按节点推进建设与上线</b><p data-page-node-id="ugHsSGs6hdXYJtY8LyAkfY">严格执行各模块启动与完成节点，确保11月中下旬完成平台首批上线并逐步覆盖各部门，12月完成工作总结中心与智能总结两项交付。</p></li>
+      <li data-page-node-id="nR6qAF2fWf68zsA3XDjJXI"><b data-page-node-id="EpD1th7LwC9WOax3zsOV0s">以试点反馈驱动迭代</b><p data-page-node-id="9vmDkKDd027gDTUd54XqOM">核算部先行试运行，收集使用反馈后优化交互与功能；各部门主页按业务需求分批定制。</p></li>
+      <li data-page-node-id="VjyDsRcBHeNWCv3ijD7rAj"><b data-page-node-id="fMexAmxrbAS8Bg6PpdVv9H">同步开展数据与流程迁移</b><p data-page-node-id="VUFfbBtpoLB0HkKM6J1VnJ">12月14日工作总结中心开放后组织用户提交历史总结，重大事项台账同步完成存量归集。</p></li>
+      <li data-page-node-id="IWZckKcFJyXgLD5iQQgRrQ"><b data-page-node-id="ut0a6s4nGEcSo70KZwF9Tu">配合评优平台建设与试用</b><p data-page-node-id="8XudYJu5HUDBq4LTDAIeYj">2027年1月启动标杆评优平台建设，先复刻2026年四季度评优开展测试，验证通过后于2027年一季度评优正式投入使用。</p></li>
+      <li data-page-node-id="v6jENM5uYI0OGckdAUKOBW"><b data-page-node-id="mfMfBaSwS1A7h1BK1888fn">做好资源衔接准备</b><p data-page-node-id="kIUmB3OosF9LMbDBMihepS">平台功能稳定运行后，同步向信息部申请服务器等资源，完成平滑迁移过渡。</p></li>
+    </ul>
+  </section>
+
+  <footer data-page-node-id="25HGlZZXQ0T93A2klbvNaV">财务综合事务平台 · 建设情况汇报 · 2026年11月</footer>
+</div>
+
+
+</body></html>
