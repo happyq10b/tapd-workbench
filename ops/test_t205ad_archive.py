@@ -88,16 +88,25 @@ def build():
     c.execute("INSERT INTO org_nodes (id,name,node_type,parent_id,wg_id,is_anchor,function,sort,created_at)"
               " VALUES (9101,?,'dept',0,0,'','',0,?)", (PREFIX + 'D1', now))
     c.execute("UPDATE org_nodes SET owner=? WHERE id=9101", (LEAD,))
-    # 看板 B1：owner=member（看板负责人 ≠ 架构负责人）；B2：无负责人
+    # 看板 B1：owner=member（看板负责人 ≠ 架构负责人），归属 D1（→ lead 可封存）；
+    # B2：无负责人、**无归属部门**（→ 仅管理员可封存，fail-closed 用例）
     for bid, name, owner in ((B1, PREFIX + '看板一', MEMBER), (B2, PREFIX + '看板二', '')):
         c.execute("INSERT INTO boards (board_id,board_name,workspace_id,owner,participants,sort,created_at)"
                   " VALUES (?,?,?,?, '',0,?)", (bid, name, '', owner, now))
+    c.execute("INSERT INTO board_config (board_id,dept,dept_node_id,attr,status,created_at)"
+              " VALUES (?,?,?,?, '启用',?)", (B1, PREFIX + 'D1', 9101, '日常', now))
     # 两个测试账号（editor；allowed_boards='*' 不额外收窄）
-    for acct in (LEAD, MEMBER):
+    for acct, role in ((LEAD, 'dept_head'), (MEMBER, 'member')):
         c.execute("INSERT INTO users (username,password_hash,role,allowed_boards,allowed_columns,created_at)"
                   " VALUES (?,?,'editor','*','*',?)", (acct, hash_pw('At159357'), now))
         c.execute("INSERT INTO team_members (name,workgroups,account,created_at) VALUES (?,'',?,?)",
                   (PREFIX + acct, acct, now))
+        # lead 任命 D1 部门长（dept_head 岗位）→ 负责范围含 D1 绑定的看板 B1（可见性层
+        # _org_leader_nodes 只认岗位任命，不认 org_nodes.owner 显式配置 —— 口径分裂
+        # 已登记 HANDOFF §五 T-016）；member 任命普通成员 → 可见性同层，但非架构负责人
+        mid = c.execute("SELECT id FROM team_members WHERE account=?", (acct,)).fetchone()[0]
+        c.execute("INSERT INTO org_appointments (node_id,member_id,role_key,is_primary,created_at)"
+                  " VALUES (9101,?,?,0,?)", (mid, role, now))
     c.commit()
     c.close()
 
@@ -201,18 +210,68 @@ def main():
         st, ids = me_board_ids(tk_member)
         ok(B1 in ids, '②-b 启用后普通成员 /api/me 恢复可见')
 
+        # ⑫ 范围外架构负责人被拦：B1 归属 D1（lead 负责）；再造 D2（owner=lead2，
+        #    负责范围不含 D1）→ lead2 封存 B1 应 403（E_CROSS_SCOPE）
+        c = sqlite3.connect(os.path.join(ROOT, 'src', 'app.db'))
+        c.execute("INSERT INTO org_nodes (id,name,node_type,parent_id,wg_id,is_anchor,function,sort,created_at)"
+                  " VALUES (9104,?,'dept',0,0,'','',0,?)", (PREFIX + 'D2', '2026-11-19 09:00:00'))
+        c.execute("UPDATE org_nodes SET owner=? WHERE id=9104", (PREFIX + 'lead2',))
+        c.execute("INSERT INTO users (username,password_hash,role,allowed_boards,allowed_columns,created_at)"
+                  " VALUES (?,?,'editor','*','*',?)",
+                  (PREFIX + 'lead2', hash_pw('At159357'), '2026-11-19 09:00:00'))
+        c.commit()
+        c.close()
+        tk_lead2 = make_token(PREFIX + 'lead2')
+        st12, d12 = api('/api/boards/%s/archive' % urllib.parse.quote(B1, safe=''), 'POST',
+                        {'archived': True}, token=tk_lead2)
+        ok(st12 == 403 and board_arch(B1) == 0,
+           '⑫ 范围外架构负责人（D2.owner）封存归属 D1 的看板被拦 403：%s'
+           % json.dumps(d12, ensure_ascii=False)[:70])
+
+        # ⑬ 无归属部门的看板：架构负责人被拦（fail-closed），管理员可封存
+        st13, d13 = api('/api/boards/%s/archive' % urllib.parse.quote(B2, safe=''), 'POST',
+                        {'archived': True}, token=tk_lead)
+        ok(st13 == 403 and '归属部门' in json.dumps(d13, ensure_ascii=False),
+           '⑬-a 架构负责人封存无归属看板被拦（fail-closed）：%s'
+           % json.dumps(d13, ensure_ascii=False)[:70])
+        st13b, d13b = api('/api/boards/%s/archive' % urllib.parse.quote(B2, safe=''), 'POST',
+                          {'archived': True}, token=tk_admin)
+        ok(st13b == 200 and board_arch(B2) == 1, '⑬-b 管理员可封存无归属看板')
+        st13c, _ = api('/api/boards/%s/archive' % urllib.parse.quote(B2, safe=''), 'POST',
+                       {'archived': False}, token=tk_admin)
+        ok(st13c == 200 and board_arch(B2) == 0, '⑬-c 管理员启用恢复（清理状态）')
+
+        # ⑥-d/e can_archive 能力位（看板级，前端按钮显隐依据）
+        stc2, dc2 = api('/api/boards?include_archived=1', token=tk_lead)
+        r_b1 = next((b for b in dc2.get('boards', []) if b['board_id'] == B1), {})
+        r_b2 = next((b for b in dc2.get('boards', []) if b['board_id'] == B2), {})
+        ok(r_b1.get('can_archive') is True and r_b2.get('can_archive') is False,
+           '⑥-d can_archive：归属部门负责人 True / 无归属看板 False')
+        stc3, dc3 = api('/api/boards?include_archived=1', token=tk_lead2)
+        r_b1x = next((b for b in dc3.get('boards', []) if b['board_id'] == B1), None)
+        ok(r_b1x is None or r_b1x.get('can_archive') is False,
+           '⑥-e can_archive：范围外架构负责人 False（或该看板不在其管理列表中）')
+
+        # ⑭ 唯一归属（用户追加限制：一个看板只能归属一个部门架构）：
+        #    DB 层 UNIQUE(board_id) + 应用层 409 —— 对 B1 重复登记配置应被拒
+        st14, d14 = api('/api/board-config', 'POST',
+                        {'board_id': B1, 'dept': PREFIX + 'D1', 'dept_node_id': 9101,
+                         'attr': '专项', 'status': '启用'}, token=tk_admin)
+        ok(st14 == 409, '⑭ 唯一归属：对已配置看板重复登记被拒 409（%s）'
+           % json.dumps(d14, ensure_ascii=False)[:60])
+
         # ⑩ 前端接线静态断言
         html = open(os.path.join(ROOT, 'src', 'static', 'index.html'), encoding='utf-8').read()
         ok('async function bcArchive(bid,toArch)' in html
            and 'badge-archived' in html
            and "/api/boards?include_archived=1" in html
-           and "'arch_owner': arch_owner" not in html   # 该串属后端，前端不应出现
-           and 'ME.arch_owner' in html,
-           '⑩ 前端接线：bcArchive/徽标/include_archived=1/arch_owner 显隐齐备')
+           and 'b.can_archive' in html
+           and 'statusPills' not in html,
+           '⑩ 前端接线：bcArchive/徽标/include_archived=1/can_archive 显隐/状态胶囊已移除')
         app_py = open(os.path.join(ROOT, 'src', 'app', 'app.py'), encoding='utf-8').read()
-        ok("'arch_owner': arch_owner" in app_py and 'perm_check_arch_scope(username, OP_UPDATE'
-           in app_py and 'board_archive' in app_py,
-           '⑩-b 后端接线：arch_owner 下发 / 架构负责人校验 / 审计齐备')
+        ok("'arch_owner': arch_owner" in app_py and 'node_id=node_id' in app_py
+           and 'board_archive' in app_py and "'can_archive'" in app_py,
+           '⑩-b 后端接线：arch_owner 下发 / 归属部门收窄校验 / 审计 / can_archive 齐备')
     finally:
         cleanup()
         # 零残留自查（D5）
