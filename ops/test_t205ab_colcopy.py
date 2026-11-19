@@ -53,11 +53,26 @@ def col_row(key):
     return rs[0] if rs else None
 
 def cards_of(colkey):
-    """板块下全部未删卡（含子项）—— 按 column_id 匹配，兼容存量空 column_id 双匹配"""
+    """板块下全部未删卡（含子项）—— column 匹配 + **按 parent_id 逐层捞全后代**。
+    与修复后的后端同口径：存量子事项的 column_id/column_name 可能为空（TAPD 迁移数据），
+    仅按 column 字段会漏掉它们。"""
     cid = (col_row(colkey) or {}).get('column_id', '')
-    return db_rows('SELECT * FROM cards WHERE board_id=? AND deleted=0'
+    rows = db_rows('SELECT * FROM cards WHERE board_id=? AND deleted=0'
                    " AND (column_id=? OR (column_id='' AND column_name=?)) ORDER BY card_id",
                    (BOARD, cid, colkey.split('::', 1)[1]))
+    seen = {r['card_id'] for r in rows}
+    frontier = list(seen)
+    while frontier:
+        marks = ','.join('?' * len(frontier))
+        kids = db_rows('SELECT * FROM cards WHERE deleted=0 AND parent_id IN (%s)' % marks, frontier)
+        nxt = []
+        for k in kids:
+            if k['card_id'] not in seen:
+                seen.add(k['card_id'])
+                rows.append(k)
+                nxt.append(k['card_id'])
+        frontier = nxt
+    return rows
 
 def subs_of(card_ids):
     if not card_ids: return []
@@ -91,9 +106,29 @@ async def main():
         ]:
             stc, dc = api('/api/cards', 'POST', {'board_id': BOARD, 'card_name': name, 'fields': fields})
             if stc in (200, 201): card_ids[name] = dc.get('card_id')
-        # 层级：子一 → 卡乙；孙一 → 子一（三层：主→子→孙）
+        # 层级：子一 → 卡乙；孙一 → 子一（三层：主→子→孙）。
+        # ⚠️ 对抗性创建顺序：**孙一先建、子一后建** → 孙的 card_id 字典序排在子前面，
+        #    旧实现 ORDER BY card_id 插入会把孙先处理、parent 映射落空 → 层级断裂。
         api('/api/cards/' + card_ids['__t205ab_子一'], 'PUT', {'fields': {'parent_id': card_ids['__t205ab_卡乙']}})
         api('/api/cards/' + card_ids['__t205ab_孙一'], 'PUT', {'fields': {'parent_id': card_ids['__t205ab_子一']}})
+        # 模拟存量真实形态（#205ab-bis 根因）：TAPD 迁移数据的子事项 column_id 与
+        # column_name **双双为空**（线上实测 10 条里 8 条如此，界面靠 parent_id 展示）
+        # → 旧实现按 column 字段捞卡整批漏掉子事项。
+        # 精确主键 UPDATE（D2：先 SELECT 核对行数 → 精确 IN 执行 → 回读核对）。
+        _conn = sqlite3.connect(DB)
+        _sel = _conn.execute("SELECT COUNT(*) FROM cards WHERE card_id IN (?,?) AND deleted=0"
+                             " AND parent_id<>''",
+                             (card_ids['__t205ab_子一'], card_ids['__t205ab_孙一'])).fetchone()[0]
+        _conn.execute("UPDATE cards SET column_id='', column_name=''"
+                      " WHERE card_id IN (?,?) AND parent_id<>''",
+                      (card_ids['__t205ab_子一'], card_ids['__t205ab_孙一']))
+        _conn.commit()
+        _left = _conn.execute("SELECT COUNT(*) FROM cards WHERE card_id IN (?,?)"
+                              " AND (column_id<>'' OR column_name<>'')",
+                              (card_ids['__t205ab_子一'], card_ids['__t205ab_孙一'])).fetchone()[0]
+        _conn.close()
+        ok(_sel == 2 and _left == 0,
+           '夹具：子/孙卡 column_id/column_name 置空模拟存量（核对 %d/2 行、置空后残留 %d）' % (_sel, _left))
         # 卡甲置为已完成（completed 显式随附；overdue_days 由后端按截止日结算）
         api('/api/cards/' + card_ids['__t205ab_卡甲'], 'PUT',
             {'fields': {'status': 'done', 'completed': '2026-12-01 10:00:00'}})
@@ -216,6 +251,12 @@ async def main():
                     diff.append('%s.%s: %r≠%r' % (s['card_name'], k, s.get(k), dcard.get(k)))
         ok(len(src_cards) == 4 and len(dst_cards) == 4 and not diff,
            "② 事项全字段保真复制（4 卡逐列一致；差异：%s）" % (diff[:4] or '无'))
+
+        # ②-bis 用户报障场景：column_id/column_name 双空的存量子事项必须随板块复制（旧实现整批漏掉）
+        copied_names = {c['card_name'] for c in dst_cards}
+        ok({'__t205ab_子一', '__t205ab_孙一'} <= copied_names,
+           "②-bis 子事项未同步复制（用户报障）：column 字段全空的子/孙卡随板块复制落库（实际 %s）"
+           % sorted(copied_names))
 
         # ③ 子事项层级保持（子→主、孙→子）
         inv = {c['card_name']: c['card_id'] for c in src_cards}
