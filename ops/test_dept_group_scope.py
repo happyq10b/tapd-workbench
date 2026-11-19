@@ -99,6 +99,12 @@ def build():
                   " VALUES (?,?,'member',0,?)", (node, mid, now))
         c.execute("INSERT INTO users (username,password_hash,role,allowed_boards,allowed_columns,created_at)"
                   " VALUES (?,?,'editor','*','*',?)", (acct, hash_pw('At159357'), now))
+    # T-0191：无任何架构归属的「孤岛账号」夹具（原借用建库期遗留的 zhangsan，已删除）。
+    # ⚠️ allowed_boards 必须是**具体看板 id 白名单**（不可为 '*'——空/缺省同义不收窄），
+    #    白名单指向架构层不授权的 id → 交集为空 → 复刻 zhangsan 的 0 看板语义。
+    c.execute("INSERT INTO users (username,password_hash,role,allowed_boards,allowed_columns,created_at)"
+              " VALUES (?,?,'editor',?,'*',?)",
+              (PREFIX + 'nobody', hash_pw('At159357'), '__dg_narrow_none__', now))
     c.commit()
     c.close()
 
@@ -175,7 +181,7 @@ def main():
     b_wwn, _c = user_allowed('wwn')
     ok(b_wwn and len(b_wwn) == _base_wwn,
        '王伟娜（核算部部长）可见看板数 = 进入时基线 %d：%d 个' % (_base_wwn, len(b_wwn or [])))
-    b_none, _c = user_allowed('zhangsan')
+    b_none, _c = user_allowed(PREFIX + 'nobody')
     ok(not b_none,
        '无任何架构归属的账号 → 0 个看板（fail-closed）：%s' % sorted(b_none or []))
     print('\n结果：%d 通过 / %d 失败' % (PASS, FAIL))

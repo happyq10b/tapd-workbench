@@ -27,7 +27,19 @@ def req(tok, path, method='GET', body=None):
 
 
 admin_tok = make_token('admin')
-zs_tok = make_token('zhangsan')
+# T-0191 清理遗留账号（2026-08-18 建库期的 zhangsan 等空密码测试号已从库中删除）：
+# 本测试改用自带夹具账号做「非管理员 403」用例，atexit 保证清理（夹具纪律 §3.3）。
+import atexit
+FIX_U = '__d103_u'
+_c = sqlite3.connect(r'E:/WB缓存/2026-10-26-15-55-08/src/app.db', timeout=15)
+_c.execute('PRAGMA busy_timeout=15000')
+_c.execute("INSERT OR REPLACE INTO users(username,password_hash,role,active_seq) VALUES(?,?,?,1)",
+           (FIX_U, 'x', 'editor'))
+_c.commit(); _c.close()
+atexit.register(lambda: (lambda _c: (_c.execute("DELETE FROM users WHERE username=?", (FIX_U,)),
+                                     _c.commit(), _c.close()))(
+    sqlite3.connect(r'E:/WB缓存/2026-10-26-15-55-08/src/app.db', timeout=15)))
+zs_tok = make_token(FIX_U)
 
 tree0 = req(admin_tok, '/api/org/tree')['tree']
 center = tree0[0]

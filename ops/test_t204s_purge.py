@@ -73,6 +73,10 @@ def setup():
                     'owner': owner, 'participants': parts})
         assert st == 200, f'{nm} 创建失败 {st} {r}'
         IDS[key] = r.get('col_key') or (IDS['bid'] + '::__t204s' + nm)
+    c4 = sqlite3.connect(DB)
+    print('setup 后板块 owner:', c4.execute('SELECT col_key, owner, participants FROM board_columns WHERE col_key LIKE ? ESCAPE ?', ('%'+chr(92)+'_t204s%', chr(92))).fetchall(), flush=True)
+    print('ME.managed_columns 口径 owner=u1 的板块:', c4.execute("SELECT col_key FROM board_columns WHERE owner='__t204s_u1'").fetchall(), flush=True)
+    c4.close()
 
 
 def cleanup():
@@ -180,7 +184,11 @@ async def main():
 
         # ③ 判定单测（u1：A/C 仅参与人 false；B 负责人 true）
         r3 = await ev("""(function(){
-          return {A:colPurgeAllowed('%s'), B:colPurgeAllowed('%s'), C:colPurgeAllowed('%s')};
+          return {A:colPurgeAllowed('%s'), B:colPurgeAllowed('%s'), C:colPurgeAllowed('%s'),
+                  mc:ME.managed_columns, mb:ME.managed_boards,
+                  cols:Object.keys(CHK_COL_CARDS), cur:curBoard,
+                  boards:(ME.boards||[]).filter(function(b){return b.board_id.indexOf('t204s')>=0})
+                    .map(function(b){return {id:b.board_id,o:b.owner,p:b.participants}})};
         })()""" % (IDS['colKeyA'], IDS['colKeyB'], IDS['colKeyC']))
         ok(r3.get('A') is False and r3.get('B') is True and r3.get('C') is False,
            f'③ 判定单测：参与人 false / 板块负责人 true（{r3}）')

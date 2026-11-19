@@ -26,17 +26,32 @@ def req(tok, path, method='GET', body=None):
     except urllib.error.HTTPError as e:
         return {'__http__': e.code, 'detail': e.read().decode()[:120]}
 
-sup = login()['token']                                        # 内置 admin（超级管理员）
+sup = make_token('admin')                                     # 内置 admin（超级管理员）
+# ⚠️ 不走真实登录：admin 正被用户浏览器使用时 /api/login 会 409（单点在线冲突，
+#    app.py「该账号当前已在线」）。本测试的权限门禁/kick/重登路径都不依赖 admin 的
+#    真实登录态 —— 列表时间/IP 取历史 last_login_at 即可，B 组断言口径不变。
 adm = make_token('dsy')                                       # role=admin 普通管理账号（make_token 缺省取活跃代数）
-usr = make_token('zhangsan')                                  # 普通用户
-def login_as(u):                                              # 真实登录（走 active_seq+1 路径）
-    return login(u, 'At159357')['token']
+# T-0191 清理遗留账号：不再借用建库期遗留的 zhangsan，改用自带夹具账号（atexit 清理）
+import atexit
+FIX_U = '__d111_u'
+from app.app import hash_pw as _hp
+_c = sqlite3.connect(r'E:/WB缓存/2026-10-26-15-55-08/src/app.db', timeout=15)
+_c.execute('PRAGMA busy_timeout=15000')
+_c.execute("INSERT OR REPLACE INTO users(username,password_hash,role,active_seq) VALUES(?,?,?,1)",
+           (FIX_U, _hp('x'), 'editor'))
+_c.commit(); _c.close()
+atexit.register(lambda: (lambda _c: (_c.execute("DELETE FROM users WHERE username=?", (FIX_U,)),
+                                     _c.commit(), _c.close()))(
+    sqlite3.connect(r'E:/WB缓存/2026-10-26-15-55-08/src/app.db', timeout=15)))
+usr = make_token(FIX_U)                                       # 普通用户（自带夹具）
+def login_as(u, pw='At159357'):                               # 真实登录（走 active_seq+1 路径）
+    return login(u, pw)['token']
 
 print('【A】权限门禁：仅超级管理员')
 r = req(sup, '/api/admin/online')
 ok('users' in r, '超管查询成功（%d 条记录）' % len(r.get('users', [])))
 ok(req(adm, '/api/admin/online').get('__http__') == 403, '普通管理账号（dsy）→ 403')
-ok(req(usr, '/api/admin/online').get('__http__') == 403, '普通用户（zhangsan）→ 403')
+ok(req(usr, '/api/admin/online').get('__http__') == 403, '普通用户（%s）→ 403' % FIX_U)
 
 print('【B】列表内容：登录时间/IP/在线状态')
 rows = {u['username']: u for u in req(sup, '/api/admin/online')['users']}
@@ -49,20 +64,20 @@ ok(all('login_at' in u and 'ip' in u and 'online' in u for u in rows.values()),
    '所有行字段完整（%d 个账号）' % len(rows))
 
 print('【C】强制下线：即时生效 + 反馈')
-# 目标：zhangsan 的当前会话（usr token）→ kick → 立即 401
-ok('username' in req(usr, '/api/me'), 'zhangsan 当前 token 有效')
-r = req(sup, '/api/admin/online/kick', 'POST', {'username': 'zhangsan'})
+# 目标：夹具账号的当前会话（usr token）→ kick → 立即 401
+ok('username' in req(usr, '/api/me'), '夹具账号当前 token 有效')
+r = req(sup, '/api/admin/online/kick', 'POST', {'username': FIX_U})
 ok(r.get('ok') is True, 'kick 接口成功（反馈：%s）' % json.dumps(r, ensure_ascii=False)[:80])
 import base64 as _b
 _p = json.loads(_b.urlsafe_b64decode(usr.split('.')[0] + '=='))
 import sqlite3 as _sq
 _c = _sq.connect(r'E:/WB缓存/2026-10-26-15-55-08/src/app.db')
-_dbg = _c.execute("SELECT active_seq FROM users WHERE username='zhangsan'").fetchone()[0]
+_dbg = _c.execute("SELECT active_seq FROM users WHERE username=?", (FIX_U,)).fetchone()[0]
 _c.close()
-print('  [debug] usr payload:', _p, '| DB zhangsan seq:', _dbg)
+print('  [debug] usr payload:', _p, '| DB %s seq:' % FIX_U, _dbg)
 ok(req(usr, '/api/me').get('__http__') == 401, '被踢账号 token 立即 401（下线即时生效）')
 ok(req(usr, '/api/me').get('__http__') == 401, '持续 401（不是瞬时抖动）')
-ok(req(sup, '/api/admin/online/kick', 'POST', {'username': 'zhangsan'}).get('ok') is True,
+ok(req(sup, '/api/admin/online/kick', 'POST', {'username': FIX_U}).get('ok') is True,
    '重复下线幂等成功（离线账号也可踢）')
 
 print('【D】边界：禁踢自己 / 未知账号')
@@ -70,11 +85,11 @@ r = req(sup, '/api/admin/online/kick', 'POST', {'username': 'admin'})
 ok(r.get('__http__') == 400, '踢自己 → 400（%s）' % r.get('detail', '')[:40])
 r = req(sup, '/api/admin/online/kick', 'POST', {'username': '__nouser__'})
 ok(r.get('__http__') == 404, '未知账号 → 404')
-r = req(adm, '/api/admin/online/kick', 'POST', {'username': 'zhangsan'})
+r = req(adm, '/api/admin/online/kick', 'POST', {'username': FIX_U})
 ok(r.get('__http__') == 403, '普通管理账号调用 kick → 403（仅超管可操作）')
 
-print('【E】被踢账号重新登录即恢复（用 admin 验证登录路径）')
-t = login_as('admin')
+print('【E】被踢账号重新登录即恢复（用夹具账号验证登录路径，不占用 admin 的在线会话）')
+t = login_as(FIX_U, 'x')
 _tp = json.loads(_b.urlsafe_b64decode(t.split('.')[0] + '=='))
 _c = _sq.connect(r'E:/WB缓存/2026-10-26-15-55-08/src/app.db')
 _dbg2 = _c.execute("SELECT active_seq FROM users WHERE username='admin'").fetchone()[0]
