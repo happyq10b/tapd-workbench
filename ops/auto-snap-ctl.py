@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-自动快照定时任务控制器（2026-11-10 #143）
+自动快照定时任务控制器（2026-11-10 #143；2026-11-13 #107 修订：仅生产库）
 
-管理服务器 crontab 中的「tapd snap prod/dev」两条定时任务：
+管理服务器 crontab 中的「tapd snap prod」定时任务（**仅生产库**——
+2026-11-13 用户指令：自动任务仅针对生产库，不针对其他库；且为纯服务器侧
+快照，不拉本地、不应用本地）：
   status              查看开关状态与拍摄时间
-  on <HH:MM> [HH:MM]  开启（第1个=生产，第2个=开发；省略则开发=生产+10分钟）
-  off                 关闭（仅移除 tapd snap 两条，不动 crontab 其他条目）
+  on <HH:MM>          开启（生产库每日定时服务器侧快照）
+  off                 关闭（移除 crontab 中的 tapd snap 条目，含历史遗留的 dev 条目）
 
 编码约定：调用方（发布回滚.bat）设置 PYTHONIOENCODING=gbk。
 """
@@ -77,11 +79,12 @@ def cmd_status():
     jobs = parse_jobs(read_crontab())
     if not jobs:
         print("自动快照：已关闭")
-        print("（开启后服务器每天定时自动拍摄生产/开发快照，日志: %s）" % LOG_PATH)
+        print("（开启后服务器每天定时自动拍摄生产库快照，日志: %s）" % LOG_PATH)
     else:
-        print("自动快照：已开启")
+        print("自动快照：已开启（仅生产库）")
         print("  生产快照: 每天 %s" % jobs.get("prod", "(未配置)"))
-        print("  开发快照: 每天 %s" % jobs.get("dev", "(未配置)"))
+        if "dev" in jobs:
+            print("  开发快照: 每天 %s（⚠️ 历史遗留条目，#107 已废弃——off/on 可清除）" % jobs["dev"])
         print("  日志: %s" % LOG_PATH)
     # #150 保留份数（服务器端每环境保留最近 N 份，超出自动删最旧）
     rc, out = ssh_run("/usr/local/bin/tapd retention")
@@ -111,19 +114,13 @@ def parse_time(v, label, default):
     return int(m.group(1)), int(m.group(2))
 
 
-def cmd_on(t_prod, t_dev):
+def cmd_on(t_prod):
+    """仅注册生产库条目（#107：自动任务仅针对生产库；dev 条目随 off/on 清除）。"""
     hh_p, mm_p = parse_time(t_prod, "生产", "02:00")
-    if t_dev:
-        hh_d, mm_d = parse_time(t_dev, "开发", None)
-    else:
-        # 开发默认=生产+10分钟（错峰，避免同时拍两份的 IO 峰值）；跨日回绕
-        total = (hh_p * 60 + mm_p + 10) % (24 * 60)
-        hh_d, mm_d = total // 60, total % 60
     lines = [l for l in read_crontab() if not SNAP_RE.match(l)]
     lines.append("%d %d * * * /usr/local/bin/tapd snap prod >> %s 2>&1" % (mm_p, hh_p, LOG_PATH))
-    lines.append("%d %d * * * /usr/local/bin/tapd snap dev >> %s 2>&1" % (mm_d, hh_d, LOG_PATH))
     write_crontab(lines)
-    print("自动快照已开启：生产 %02d:%02d / 开发 %02d:%02d" % (hh_p, mm_p, hh_d, mm_d))
+    print("自动快照已开启：仅生产库 %02d:%02d（服务器侧快照，不拉本地、不应用）" % (hh_p, mm_p))
     cmd_status()
 
 
@@ -137,13 +134,13 @@ def cmd_off():
 def main():
     args = sys.argv[1:]
     if not args:
-        print("用法: auto-snap-ctl.py <status|on|off> [生产HH:MM] [开发HH:MM]")
+        print("用法: auto-snap-ctl.py <status|on|off> [生产HH:MM]  （#107：仅生产库）")
         return 2
     cmd = args[0]
     if cmd == "status":
         cmd_status()
     elif cmd == "on":
-        cmd_on(args[1] if len(args) > 1 else "", args[2] if len(args) > 2 else "")
+        cmd_on(args[1] if len(args) > 1 else "")
     elif cmd == "off":
         cmd_off()
     elif cmd == "keep":

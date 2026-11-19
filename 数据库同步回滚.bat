@@ -88,7 +88,7 @@ goto :AFTER
 :AUTOSNAP
 echo.
 echo ================================================================
-echo   自动快照设置（服务器 crontab，每日定时拍摄 prod/dev 快照）
+echo   自动快照设置（服务器 crontab，每日定时拍摄生产库快照——仅生产）
 echo ================================================================
 echo.
 "%VENV_PY%" "%~dp0ops\auto-snap-ctl.py" status
@@ -109,9 +109,7 @@ goto :AUTOSNAP
 echo.
 set "TPROD="
 set /p TPROD=   生产快照时间 HH:MM（直接回车 = 02:00）: 
-set "TDEV="
-set /p TDEV=   开发快照时间 HH:MM（直接回车 = 生产时间+10分钟）: 
-"%VENV_PY%" "%~dp0ops\auto-snap-ctl.py" on %TPROD% %TDEV%
+"%VENV_PY%" "%~dp0ops\auto-snap-ctl.py" on %TPROD%
 goto :AFTER
 
 :AUTO_KEEP
