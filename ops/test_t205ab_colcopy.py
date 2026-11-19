@@ -93,7 +93,9 @@ async def main():
         # ── 夹具：源板块（专项/负责人/参与人/已完成）+ 4 卡（三层）+ 4 勾选 ──
         st, d = api('/api/columns', 'POST', {'board_id': BOARD, 'column_name': SRC_NAME,
                                             'nature': '专项', 'year': '2026', 'created_at': '2026-11-18',
-                                            'owner': 'hly', 'participants': 'hqx', 'completion': 'done'})
+                                            'owner': 'hly', 'participants': 'hqx', 'completion': 'done',
+                                            'description': '__t205ab_板块说明（代办）',
+                                            'due_date': '2026-12-25'})
         if st in (200, 201): col_key = d.get('col_key')
         ok(bool(col_key), '夹具源板块创建（专项/负责人 hly/参与人 hqx/已完成）')
         for name, fields in [
@@ -143,6 +145,14 @@ async def main():
         api('/api/cards/%s/subtasks' % card_ids['__t205ab_卡甲'], 'POST',
             {'title': '__t205ab_勾甲一之子', 'parent_id': t1})
         api('/api/cards/%s/subtasks/%s' % (card_ids['__t205ab_卡甲'], t2), 'PUT', {'done': 1})
+        # 板块待办（T-0190，column_todos）：2 条（其一已完成）
+        # ⚠️ POST /api/columns/todos 返回体也只有 {ok:true} 无 id → 同样回读
+        for todo_name in ['__t205ab_板块待办一', '__t205ab_板块待办二']:
+            api('/api/columns/todos', 'POST', {'col_key': col_key, 'name': todo_name})
+        stt, dt = api('/api/columns/todos?col_key=' + urllib.parse.quote(col_key, safe=''))
+        tmap = {t.get('name'): t.get('id') for t in (dt.get('todos') or dt.get('flat') or dt.get('items') or [])}
+        t_done = tmap.get('__t205ab_板块待办二')
+        api('/api/columns/todos/%s' % t_done, 'PUT', {'done': True})
         pre_cards = cards_of(col_key)
         pre_subs = subs_of([c['card_id'] for c in pre_cards])
         pre_col = col_row(col_key)
@@ -223,9 +233,10 @@ async def main():
 
         # ── API 复制（第二次，走接口路径）+ 全量一致性核对 ──
         stc, dcopy = api('/api/columns/copy', 'POST', {'col_key': col_key, 'board_id': BOARD})
-        ok(stc in (200, 201) and dcopy.get('copied_cards') == 4 and dcopy.get('copied_subtasks') == 4,
-           "① API 复制返回计数：事项 4 / 勾选 4（实际 %s / %s）"
-           % (dcopy.get('copied_cards'), dcopy.get('copied_subtasks')))
+        ok(stc in (200, 201) and dcopy.get('copied_cards') == 4 and dcopy.get('copied_subtasks') == 4
+           and dcopy.get('copied_todos') == 2,
+           "① API 复制返回计数：事项 4 / 勾选 4 / 待办 2（实际 %s / %s / %s）"
+           % (dcopy.get('copied_cards'), dcopy.get('copied_subtasks'), dcopy.get('copied_todos')))
         copy_key = dcopy.get('col_key')
 
         # ① 板块配置随附
@@ -236,6 +247,29 @@ async def main():
            and dst_col.get('nature') == '专项' and dst_col.get('year') == '2026'
            and dst_col.get('completion') == 'done',
            "① 板块配置完整随附：负责人/参与人/性质/年份/完成情况（原实现遗漏 owner/participants）")
+        # ①-bis 用户报障场景：板块的「代办（description）」与「截止时间（due_date）」随附
+        ok(dst_col.get('description') == src_col.get('description') == '__t205ab_板块说明（代办）'
+           and dst_col.get('due_date') == src_col.get('due_date') == '2026-12-25'
+           and dst_col.get('overdue_days') == src_col.get('overdue_days'),
+           "①-bis 板块代办说明/截止时间/逾期结算随附（description/due_date/overdue_days 原实现遗漏，"
+           "实际 %r / %r / %s）" % (dst_col.get('description'), dst_col.get('due_date'), dst_col.get('overdue_days')))
+        # ①-ter 板块待办清单（column_todos）整表随附
+        # ⚠️ 源快照必须在 PUT done 之后重新读（dt 是 PUT 前的回读，done 还是 0）
+        stt3, dt3 = api('/api/columns/todos?col_key=' + urllib.parse.quote(col_key, safe=''))
+        stt2, dt2 = api('/api/columns/todos?col_key=' + urllib.parse.quote(copy_key, safe=''))
+        dst_todos = {t.get('name'): t for t in (dt2.get('todos') or [])}
+        src_todos_map = {t.get('name'): t for t in (dt3.get('todos') or [])}
+        td_diff = []
+        for nm, s in src_todos_map.items():
+            d2 = dst_todos.get(nm)
+            if not d2: td_diff.append('缺:%s' % nm); continue
+            for k in ('done', 'sort', 'created_by', 'created_at'):
+                if s.get(k) != d2.get(k):
+                    td_diff.append('%s.%s: %r≠%r' % (nm, k, s.get(k), d2.get(k)))
+        ok(len(src_todos_map) == 2 and len(dst_todos) == 2 and not td_diff,
+           "①-ter 板块待办清单整表随附（2 条逐字段一致，含完成状态；差异：%s）" % (td_diff[:3] or '无'))
+        ok(dst_todos.get('__t205ab_板块待办二', {}).get('done') == 1,
+           "①-ter 已完成待办状态随附（待办二 done=1）")
 
         # ② 事项全字段保真（逐列比对，仅重映射字段豁免）
         src_cards = cards_of(col_key); dst_cards = cards_of(copy_key)
