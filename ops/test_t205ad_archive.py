@@ -118,6 +118,14 @@ def board_arch(bid):
     return (r[0] if r else None)
 
 
+def board_arch_full(bid):
+    c = sqlite3.connect(os.path.join(ROOT, 'src', 'app.db'))
+    c.row_factory = sqlite3.Row
+    r = c.execute('SELECT board_id, archived, archived_at, archived_by FROM boards WHERE board_id=?', (bid,)).fetchone()
+    c.close()
+    return dict(r) if r else None
+
+
 def me_board_ids(token):
     st, d = api('/api/me', token=token)
     return st, {b['board_id'] for b in (d.get('boards') or [])}
@@ -197,6 +205,47 @@ def main():
         ok(sti2 == 200 and row2 and row2.get('archived') == 1,
            '⑥-c 普通成员在看板管理视图可见封存看板（但无操作权）')
 
+        # ⑯ 封存看板的配置编辑一并锁定（用户需求：启用后才可再编辑）
+        _c = sqlite3.connect(os.path.join(ROOT, 'src', 'app.db'))
+        cfgid = _c.execute('SELECT id FROM board_config WHERE board_id=?', (B1,)).fetchone()[0]
+        _c.close()
+        st16, d16 = api('/api/board-config/%d' % cfgid, 'PUT',
+                        {'board_id': B1, 'dept': PREFIX + 'D1', 'dept_node_id': 9101,
+                         'attr': '专项', 'status': '启用', 'remark': '尝试编辑'}, token=tk_admin)
+        ok(st16 == 403 and '已封存' in json.dumps(d16, ensure_ascii=False),
+           '⑯-a 封存看板保存配置被拦 403（管理员同样受限）：%s'
+           % json.dumps(d16, ensure_ascii=False)[:60])
+        st16b, d16b = api('/api/boards/%s/acl' % urllib.parse.quote(B1, safe=''), 'PUT',
+                          {'owner': MEMBER}, token=tk_admin)
+        ok(st16b == 403, '⑯-b 封存看板负责人/参与人变更被拦 403')
+        std2, dd2 = api('/api/boards?include_archived=1', token=tk_admin)
+        r_e = next((b for b in dd2.get('boards', []) if b['board_id'] == B1), {})
+        ok(r_e.get('can_edit') is False and r_e.get('can_assign_owner') is False,
+           '⑯-c 封存看板 can_edit/can_assign_owner 能力位=False')
+        html3 = open(os.path.join(ROOT, 'src', 'static', 'index.html'), encoding='utf-8').read()
+        ok('看板已封存：配置与负责人均不可编辑' in html3
+           and 'bcSelect(bid)' in html3,
+           '⑯-d 前端接线：面板锁定提示 + bcArchive 后重绘面板')
+
+        # ⑰ 封存元数据（#205ad-bis-3）：封存写入时间与操作人、启用清空、接口下发
+        row17 = board_arch_full(B1)
+        ok(row17 and row17['archived'] == 1 and row17['archived_at'] and row17['archived_by'] == LEAD,
+           '⑰-a 封存写入 archived_at（%s）与 archived_by（%s）'
+           % (row17.get('archived_at'), row17.get('archived_by')))
+        st17, d17 = api('/api/boards?include_archived=1', token=tk_lead)
+        r17 = next((b for b in d17.get('boards', []) if b['board_id'] == B1), {})
+        ok(st17 == 200 and r17.get('archived_at') == row17['archived_at']
+           and r17.get('archived_by') == LEAD,
+           '⑰-b /api/boards 下发封存元数据')
+        st17b, _ = api('/api/boards/%s/archive' % urllib.parse.quote(B1, safe=''), 'POST',
+                       {'archived': False}, token=tk_lead)
+        row17b = board_arch_full(B1)
+        ok(st17b == 200 and row17b['archived'] == 0 and not row17b['archived_at']
+           and not row17b['archived_by'],
+           '⑰-c 启用后元数据清空（历史查审计日志）')
+        api('/api/boards/%s/archive' % urllib.parse.quote(B1, safe=''), 'POST',
+            {'archived': True}, token=tk_lead)   # 恢复封存态供后续用例（⑥ 等）
+
         # ⑨ 不存在的看板 404
         st9, _ = api('/api/boards/%s/archive' % urllib.parse.quote(PREFIX + '不存在', safe=''),
                      'POST', {'archived': True}, token=tk_lead)
@@ -259,6 +308,33 @@ def main():
                          'attr': '专项', 'status': '启用'}, token=tk_admin)
         ok(st14 == 409, '⑭ 唯一归属：对已配置看板重复登记被拒 409（%s）'
            % json.dumps(d14, ensure_ascii=False)[:60])
+
+        # ⑮ 新建看板口径（#205ad-cis）：组长（group_leader）无权，部门长（dept_head）有权
+        c = sqlite3.connect(os.path.join(ROOT, 'src', 'app.db'))
+        c.execute("INSERT INTO org_nodes (id,name,node_type,parent_id,wg_id,is_anchor,function,sort,created_at)"
+                  " VALUES (9105,?,'group',9101,0,'','',0,?)", (PREFIX + 'G1', '2026-11-19 09:00:00'))
+        c.execute("UPDATE org_nodes SET owner=? WHERE id=9105", (PREFIX + 'gl',))
+        c.execute("INSERT INTO users (username,password_hash,role,allowed_boards,allowed_columns,created_at)"
+                  " VALUES (?,?,'editor','*','*',?)",
+                  (PREFIX + 'gl', hash_pw('At159357'), '2026-11-19 09:00:00'))
+        c.commit()
+        c.close()
+        tk_gl = make_token(PREFIX + 'gl')
+        meg = api('/api/me', token=tk_gl)[1]
+        # arch_owner 对组长可能仍为 True（岗位/owner 口径），但按钮显隐已全部
+        # 走看板级 can_archive / can_create_board —— 组长无任何操作入口
+        ok(meg.get('can_create_board') is False,
+           '⑮-a 组长 can_create_board=False（成本组林姝言同款口径：无新建看板入口）')
+        st15, d15 = api('/api/boards', 'POST',
+                        {'board_name': PREFIX + '组长建板', 'workspace_id': ''}, token=tk_gl)
+        ok(st15 == 403 and '部门负责人及以上' in json.dumps(d15, ensure_ascii=False),
+           '⑮-b 组长新建看板被拦 403（%s）' % json.dumps(d15, ensure_ascii=False)[:60])
+        mel = api('/api/me', token=tk_lead)[1]
+        ok(mel.get('can_create_board') is True, '⑮-c 部门长（dept_head）can_create_board=True')
+        # 前端接线：两处按钮用 can_create_board
+        html2 = open(os.path.join(ROOT, 'src', 'static', 'index.html'), encoding='utf-8').read()
+        ok('ME.can_create_board' in html2 and html2.count('can_create_board') >= 3,
+           '⑮-d 前端两处「＋ 新建看板」显隐已接 can_create_board')
 
         # ⑩ 前端接线静态断言
         html = open(os.path.join(ROOT, 'src', 'static', 'index.html'), encoding='utf-8').read()
