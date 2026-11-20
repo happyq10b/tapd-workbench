@@ -769,7 +769,13 @@ grep -n '^\.fcols{' src/static/index.html
 | `node ops/test-org.js` | **97/97** ✅ |
 | `node ops/test-org-priority.js` | **107/107** ✅ |
 | `node ops/test-board-perm.js` | **118/118** ✅（记录 #17 新增：部门/看板权限） |
-| `D:/py/python.exe ops/test_overview_perm.py` | **23 断言**（记录 #17 新增：统计带权限隔离）—— **需服务端环境复跑**，本地跑不了 |
+
+> 🔁 **T-208（2026-11-20）测试套件大梳理**：221 个 test/ui_check 脚本 → 保留 78 / 删除 143
+> （一次性 CDP 验收 + 复现探针 + 语义漂移断言，名单见 git 提交与 `.workbuddy/memory/2026-11-20.md`）。
+> 原「全量组」的 `test_overview_perm.py` 已删除（T-205b 统计三级回退口径演进后断言过时，由
+> `test_t205b_stat_fallback.py` CDP 覆盖现行口径）；`test_perm_matrix` 等旧权限语义测试同批删除，
+> 现行权限口径回归以 `test_perm_backend` / `test_t197_visibility` / `test_t204u` / `test_t204v` /
+> `test_t206` / `test_t207` 为准。**API 测试统一从项目根运行**（`sys.path`/DB 相对路径依赖根目录）。
 
 > ⚠️ **本表是「当前有效基线」的数值真源。** 上述数字为 **2026-11-02 实跑结果**
 > （本轮由交接管家逐条复跑校正；此前 `test-filter-ui.js` 停在 **80/80**、`ui_check_filter.py` 停在 **44/44**，

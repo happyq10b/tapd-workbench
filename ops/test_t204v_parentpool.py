@@ -64,7 +64,7 @@ def setup():
     c.close()
     TK_U1 = make_token(U1)
     # 看板（U1 无建板权 → admin 建）→ 看板 ACL：owner=u1 participants=u2（池={u1,u2}）
-    st, r = api('/api/boards', 'POST', {'board_name': '__t204v 测试看板'}, token=TK_ADMIN)
+    st, r = api('/api/boards', 'POST', {'board_name': '__t204v 测试看板', 'dept': '核算部'}, token=TK_ADMIN)
     assert st == 200, f'夹具看板创建失败 {st} {r}'
     IDS['bid'] = r.get('board_id') or (r.get('board') or {}).get('board_id')
     # 看板 ACL 分两步：PUT /acl 只写 owner（participants 字段保留旧值，诊断实证）；

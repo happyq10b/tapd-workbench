@@ -53,7 +53,7 @@ def setup():
               "VALUES ('__t204u乙','','__t204t_a2','管理部')")   # 乙部门=管理部（池外）
     c.commit()
     c.close()
-    st, r = api('/api/boards', 'POST', {'board_name': '__t204u 测试看板'})
+    st, r = api('/api/boards', 'POST', {'board_name': '__t204u 测试看板', 'dept': '核算部'})
     if st != 200:
         print('看板创建失败:', st, r, flush=True)
     assert st == 200

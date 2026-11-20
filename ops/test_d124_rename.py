@@ -45,7 +45,7 @@ def main():
     bid = None
     try:
         # 建夹具看板 + 一张卡
-        st, r = call('POST', '/api/boards', tk, {'board_name': '__rn_改名测试看板'})
+        st, r = call('POST', '/api/boards', tk, {'board_name': '__rn_改名测试看板', 'dept': '核算部'})
         ok(st == 200, '夹具看板创建')
         bid = r['board_id']
         st, r = call('POST', '/api/cards', tk, {'board_id': bid, 'card_name': '__rn_卡片',

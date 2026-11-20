@@ -4,10 +4,10 @@
 覆盖：
   1. 板块层：每个板块绑定**唯一**归属年份（单值必填；未填回落创建年份；非法值 400）
   2. 看板层：不再有归属年份（board_config 无 year 列；接口不返回 year，
-     改为返回该看板下各板块的年份集合 col_years）
+     col_years 字段已于 #207-bis 随「板块年份」展示位一并下线）
   3. **关键约束**：周数与年份**不做**强制校验或联动限制 ——
      归属 2026 年的板块下，允许存在归属 2025 年第 40 周的事项，不报错、不拦截
-  4. 展示：板块列表带 year；看板列表带 col_years
+  4. 展示：板块列表带 year；看板列表不带 year/col_years（#207-bis）
 
 用法：先起服务（默认 127.0.0.1:8100），再
     python ops/test_year_layer.py
@@ -162,9 +162,8 @@ try:
     boards = r.get('boards') or []
     mine = [b for b in boards if b['board_id'] == BOARD]
     ok(mine and 'year' not in mine[0], '看板列表不再返回 year 字段')
-    ok(mine and 'col_years' in mine[0], '看板列表返回「所属板块年份」col_years：%s'
-       % (mine[0].get('col_years') if mine else None))
-    ok(mine and '2026' in (mine[0].get('col_years') or []), 'col_years 汇总该看板下板块的年份')
+    # #207-bis（2026-11-20）：col_years 字段随「板块年份」展示位下线，断言其不再下发
+    ok(mine and 'col_years' not in mine[0], 'col_years 字段已下线（板块年份展示位移除）')
     code, r = http('/api/board-config', token=tok_admin)
     items = r.get('items') or []
     mine_cfg = [i for i in items if i['board_id'] == BOARD]
