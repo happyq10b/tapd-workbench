@@ -145,6 +145,7 @@ try:
     it = next((x for x in allb if x['board_name'] == P + 'B1'), {})
     ok(it.get('creator') == 'admin', 'D1 /api/boards 下发 creator')
     ok('col_years' not in it, 'D2 col_years 字段已移除（板块年份展示位下线）')
+    ok('workspace_id' not in it, 'D4 boards 级 workspace_id 已从 /api/boards 下发移除（#207-bis）')
     legacy = [x for x in allb if x.get('creator')]
     ok(len(legacy) > 0, 'D3 历史看板 creator 迁移回填非空')
 finally:
