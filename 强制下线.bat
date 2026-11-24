@@ -10,7 +10,7 @@ rem  - dev   : server /opt/tapd-dev        (tapd-dev,  8001)
 rem  Mechanism: users.active_seq +1 -> all tokens invalid immediately;
 rem    pages bounce to login on next request; zombie WS closed <=25s
 rem    (server-side heartbeat token check).
-rem  CLI: 强制下线.bat local|prod|dev|all [--yes]
+rem  CLI: kick_admin.bat local|prod|dev|all [--yes]
 rem ================================================================
 
 cd /d "%~dp0"
