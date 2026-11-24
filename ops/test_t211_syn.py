@@ -43,6 +43,7 @@ def req(tok, path, method='GET', body=None):
 _c = sqlite3.connect(DB, timeout=15)
 _c.execute('PRAGMA busy_timeout=15000')
 CLEAN_SQL = [
+    "DELETE FROM board_columns WHERE board_id LIKE ? OR column_name LIKE ?",
     "DELETE FROM syn_board_config WHERE dept_node_id IN (SELECT id FROM org_nodes WHERE name LIKE ?)",
     "DELETE FROM board_config WHERE board_id LIKE ?",
     "DELETE FROM boards WHERE board_id LIKE ?",
@@ -68,12 +69,15 @@ for nid, mid, rk in [(_cid, _mid[P + 'ch'], 'center_head'), (_did, _mid[P + 'dh'
                      (_did, _mid[P + 'u1'], 'member'), (_d2id, _mid[P + 'u2'], 'member')]:
     _c.execute("INSERT INTO org_appointments(node_id,member_id,role_key,is_primary,created_at) "
                "VALUES(?,?,?,1,datetime('now'))", (nid, mid, rk))
-# 夹具看板：B1 挂 D；B2 挂 D2（跨部门对照）
+# 夹具看板：B1 挂 D（含一个板块行，供板块级白名单断言）；B2 挂 D2（跨部门对照）
 for bid, dnid in [(P + 'B1', _did), (P + 'B2', _d2id)]:
     _c.execute("INSERT INTO boards(board_id,board_name,owner,participants,creator,archived,created_at,sort) "
                "VALUES(?,'','', '', 'admin',0,datetime('now'),0)", (bid,))
     _c.execute("INSERT INTO board_config(board_id,dept,dept_node_id,attr,status) "
                "VALUES(?, '测试部门', ?, '日常','启用')", (bid, dnid))
+_c.execute("INSERT INTO board_columns(col_key,column_id,board_id,column_name,created_at,creator,nature,category,year,completion) "
+           "VALUES(?,?,?,?,?,?, '日常','年度重点工作','2026','open')",
+           ((P + 'B1::') + P + 'col1', 'COL_t211', P + 'B1', P + 'col1', '2026-01-01', 'admin'))
 _c.commit(); _c.close()
 
 
@@ -141,22 +145,29 @@ try:
     r = req(tok_dh, '/api/syn-config/%d' % _did, 'PUT', {'columns': '', 'extra_members': P + 'u2'})
     ok(r.get('__http__') == 400, 'C3 跨部门追加 → 400', r)
 
-    print('【D】板块白名单校验')
-    r = req(tok_dh, '/api/syn-config/%d' % _did, 'PUT', {'columns': P + 'B2', 'extra_members': ''})
-    ok(r.get('__http__') == 400, 'D1 白名单含其他部门看板 → 400', r)
+    print('【D】板块白名单校验（T-211-cis 板块级 col_key）')
+    r = req(tok_dh, '/api/syn-config/%d' % _did, 'PUT', {'columns': P + 'B2::x', 'extra_members': ''})
+    ok(r.get('__http__') == 400, 'D1 白名单含其他部门板块 → 400', r)
     r = req(tok_dh, '/api/syn-config/%d' % _did, 'PUT',
-            {'columns': P + 'B1', 'extra_members': P + 'u1'})
-    ok(r.get('ok') is True, 'D2 部门长保存本部门看板白名单 → 200')
+            {'columns': (P + 'B1::') + P + 'col1', 'extra_members': P + 'u1'})
+    ok(r.get('ok') is True, 'D2 部门长保存本部门板块白名单（col_key）→ 200')
+    r = req(tok_dh, '/api/syn-config?dept_node_id=%d' % _did)
+    ok(r.get('columns') == [(P + 'B1::') + P + 'col1'], 'D2b 配置回读为 col_key')
+    ok(len(r.get('all_boards', [])) == 1 and (r['all_boards'][0].get('columns') or [{}])[0].get('col_key', '').startswith(P + 'B1::'),
+       'D2c all_boards 携带板块级清单', r.get('all_boards'))
 
     print('【E】综合数据端点（模式数据 + 不越权）')
     r = req(tok_adm, '/api/syn-boards?dept_node_id=%d' % _did)
-    ok([b['board_id'] for b in r.get('boards', [])] == [P + 'B1'], 'E1 admin 按白名单返回子树看板', r)
+    ok([b['board_id'] for b in r.get('boards', [])] == [P + 'B1'], 'E1 白名单板块 → 派生看板', r)
+    ok(r.get('col_whitelist') == [(P + 'B1::') + P + 'col1'], 'E1b 下发 col_whitelist（板块级）', r)
     r = req(tok_u2, '/api/syn-boards?dept_node_id=%d' % _did)
     ok(r.get('__http__') == 403, 'E2 无权限成员 → 403')
     r = req(tok_u1, '/api/syn-boards?dept_node_id=%d' % _did)
     ok(r.get('boards') == [], 'E3 追加人员可进入但数据不越权（无看板可见 → 空清单）', r)
     r = req(tok_dh, '/api/syn-boards?dept_node_id=%d' % _did)
     ok([b['board_id'] for b in r.get('boards', [])] == [P + 'B1'], 'E4 部门长综合数据正常')
+    r = req(tok_dh, '/api/syn-config?dept_node_id=%d' % _did)
+    ok(len(r.get('candidates', [])) > 0, 'E5 候选人员非空（在职口径 status!=departed）')
 
     print('【F】校验与提交')
     ok(all(x for x, _ in RES), 'F1 全部断言通过')
