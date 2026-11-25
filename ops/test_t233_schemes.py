@@ -96,7 +96,10 @@ def cleanup(members):
     conn2.execute('DELETE FROM syn_config_invite WHERE dept_node_id=?', (NID,))
     conn2.execute('DELETE FROM syn_config_member WHERE dept_node_id=? AND member IN (%s)' % marks,
                   (NID,) + tuple(members))
-    conn2.execute('DELETE FROM messages WHERE receiver IN (%s)' % marks, tuple(members))
+    conn2.execute('DELETE FROM syn_scheme_member WHERE dept_node_id=?', (NID,))
+    conn2.execute("DELETE FROM messages WHERE (receiver LIKE '%t233%')"
+                  " OR (sender IN (SELECT username FROM users WHERE username LIKE '%t233%'))"
+                  " OR (kind='system' AND (content LIKE '%已接受您发出的追加邀请%' OR content LIKE '%已拒绝您发出的追加邀请%'))")
     conn2.execute('DELETE FROM users WHERE username IN (?,?,?)', (OWNER_B, M1, M2))
     conn2.commit(); conn2.close()
 
@@ -154,6 +157,20 @@ def main():
            and scs[1]['extra_members'] == [cm2],
            'A 各方案白名单/追加人员与保存一致')
 
+        # ── A-bis. 全量邀请制（T-235）：首次追加也发邀请，成员确认后生效 ──
+        st, dI = api(tk_cm1, '/api/syn-invites')
+        inv1 = [x for x in (dI.get('invites') or []) if x['owner'] == OWNER_A and x.get('scheme_name') == '月度']
+        ok(len(inv1) >= 1, 'A-bis cm1 收到「月度」追加邀请（T-235）')
+        st, _ = api(tk_cm1, '/api/syn-invites/%d/decide' % inv1[0]['id'], 'POST', {'accept': True})
+        st, dI2 = api(tk_cm2, '/api/syn-invites')
+        inv2 = [x for x in (dI2.get('invites') or []) if x['owner'] == OWNER_A and x.get('scheme_name') == '季度']
+        ok(len(inv2) >= 1, 'A-bis cm2 收到「季度」追加邀请（T-235）')
+        st, _ = api(tk_cm2, '/api/syn-invites/%d/decide' % inv2[0]['id'], 'POST', {'accept': True})
+        # 反馈通知：发起人 admin 收到 cm1/cm2 的接受反馈
+        st, dM = api(tk_a, '/api/messages')
+        msgs = json.dumps(dM, ensure_ascii=False)
+        ok('已接受您发出的追加邀请' in msgs, 'A-bis 发起人收到接受反馈通知（T-235）')
+
         # ── B. 外部显示方案生效（配置人综合视图适用方案 = 显示方案）──
         ok(d2.get('columns') == [] , 'B 旧版 columns 字段 = 显示方案（季度=空白名单）')
         st, d3 = api(tk_a, '/api/syn-config/%d' % NID, 'PUT', {'schemes': [
@@ -198,13 +215,16 @@ def main():
         st, d11 = api(tk_cm1, '/api/syn-invites/%d/decide' % invs[0]['id'], 'POST', {'accept': True})
         ok(st == 200, 'E 成员确认邀请')
         st, d12 = api(tk_cm1, '/api/syn-config?dept_node_id=%d' % NID)
-        ok(st == 200 and d12.get('columns') == ([ck] if ck else []) and d12.get('updated_by') == OWNER_B,
-           'E 确认后 cm1 归属 o2、适配「B方案」白名单')
+        ok(st == 200 and d12.get('columns') == ([ck] if ck else []),
+           'E 确认后 cm1 适配「B方案」白名单（与 admin 方案并集一致）')
         st, d13 = api(tk_a, '/api/syn-config?dept_node_id=%d' % NID)
         scs13 = d13.get('schemes') or []
-        ok(all(cm1 not in (s.get('extra_members') or []) for s in scs13)
-           and cm1 not in (d13.get('extra_members') or []),
-           'E 原归属 admin 的全部方案已同步移除 cm1（T-228 语义）')
+        ok(any(cm1 in (s.get('extra_members') or []) for s in scs13),
+           'E 多方案接收：cm1 确认 o2 邀请后**保留** admin 方案（T-235 不驱逐）')
+        # 反馈通知：o2 收到 cm1 的接受反馈
+        st, dM2 = api(tk_b, '/api/messages')
+        ok('已接受您发出的追加邀请' in json.dumps(dM2, ensure_ascii=False),
+           'E 发起人 o2 收到接受反馈通知（T-235）')
 
         # ── F. 旧版单配置兼容（编辑显示方案「月度」，季度方案不动）──
         st, d14 = api(tk_a, '/api/syn-config/%d' % NID, 'PUT',

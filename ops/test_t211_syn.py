@@ -125,7 +125,14 @@ try:
     ok(r.get('__http__') == 403, 'B4 未追加普通成员读取 → 403')
     r = req(tok_adm, '/api/syn-config/%d' % _did, 'PUT',
             {'columns': P + 'B1', 'extra_members': P + 'u1'})
-    ok(r.get('ok') is True, 'B5 超管保存配置（白名单+追加）')
+    ok(r.get('ok') is True, 'B5 超管保存配置（白名单+追加；T-235 首次追加→发邀请）')
+    # T-235 全量邀请制：首次追加也发邀请，u1 确认后才生效
+    r = req(tok_u1, '/api/syn-invites')
+    invs = r.get('invites') or []
+    ok(len(invs) >= 1 and invs[0]['owner'] == 'admin',
+       'B5b u1 收到 admin 的追加邀请（T-235 全量邀请制）')
+    r = req(tok_u1, '/api/syn-invites/%d/decide' % invs[0]['id'], 'POST', {'accept': True})
+    ok(r.get('ok') is True, 'B5c u1 确认邀请 → 方案接收登记生效（T-235）')
     r = req(tok_adm, '/api/syn-config?dept_node_id=%d' % _did)
     ok(r.get('columns') == [P + 'B1'] and r.get('extra_members') == [P + 'u1'],
        'B6 配置回读（持久化）', r)
@@ -137,13 +144,14 @@ try:
     r = req(tok_u2, '/api/syn-config?dept_node_id=%d' % _did)
     ok(r.get('__http__') == 403, 'B10 其他部门成员读取 → 403')
 
-    print('【C】追加候选范围（跨部门约束）')
+    print('【C】追加候选范围（T-235：除 admin 外全部用户）')
     r = req(tok_dh, '/api/syn-config?dept_node_id=%d' % _did)
     cands = {c['account'] for c in r.get('candidates', [])}
     ok(P + 'u1' in cands, 'C1 候选含本架构子树成员 u1')
-    ok(P + 'u2' not in cands, 'C2 候选不含跨部门成员 u2')
-    r = req(tok_dh, '/api/syn-config/%d' % _did, 'PUT', {'columns': '', 'extra_members': P + 'u2'})
-    ok(r.get('__http__') == 400, 'C3 跨部门追加 → 400', r)
+    ok(P + 'u2' in cands, 'C2 候选含跨部门成员 u2（T-235 全量候选）')
+    r = req(tok_dh, '/api/syn-config/%d' % _did, 'PUT',
+            {'columns': (P + 'B1::') + P + 'col1', 'extra_members': P + 'u2'})
+    ok(r.get('ok') is True, 'C3 跨部门追加 → 允许（T-235 全量候选；u2 收邀请未确认不影响视图）', r)
 
     print('【D】板块白名单校验（T-211-cis 板块级 col_key）')
     r = req(tok_dh, '/api/syn-config/%d' % _did, 'PUT', {'columns': P + 'B2::x', 'extra_members': ''})
