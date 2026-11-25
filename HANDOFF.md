@@ -1263,6 +1263,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #114 | 2026-11-13 | **主设计师** | 后端（删除/导出权限） | **T-198 删除与导出权限分口径实现**（用户需求）：①**删除**（单个 DELETE /api/cards/{id} + 批量 POST /api/cards/batch-delete 共用 _delete_card_core）：身份门槛走 perm 内核（OP_DELETE ≥ LV_CARD_OWNER=2：事项负责人 2 / 上级板块负责人 3 / 上级看板负责人 4 / 架构负责人 5；参与人 1 → 403）——原有；**新增可见性约束** `check_card_access`（仅能删除自己可见的事项，事项身份不豁免板块层过滤，隐藏板块下的卡片即使负责人也 403）；②**导出勾选**：可见即可导出（无身份门槛）——原实现已合规（/api/export/xlsx 仅 require_auth，_filter_cards_for_user 过滤 + card_ids 与可见集合取交集，不可见 id 静默剔除），本轮加测试固化；③**批量部分无权限**：服务端逐卡校验 deleted/failed 分列（原有机制），失败原因含 perm 内核文案（「无权执行 delete：需要事项负责人及以上，当前身份为参与人」）；④⚠️ **修复锁泄漏缺陷**（T-198 测试暴露）：_delete_card_core 原先**先认编辑锁再做校验**，任何 403/404 路径都不释放锁 → 泄漏至超时，阻塞包括管理员在内的后续删除（409）——重构为「存在性 → 身份 → 可见性 → 认锁」，且删改段 try/except 失败释放 | `src/app/app.py`（_delete_card_core 重构）、`ops/test_t198_del_export_perm.py`（新增 16 断言） | `.workbuddy/memory/2026-11-13.md` |
 | #115 | 2026-11-13 | **主设计师** | 前端 | **T-201 勾选功能三项调整**（用户需求）：①**勾选模式默认关闭**：loadItemChecked 不再从 sessionStorage 恢复 CHK_MODE（chkModeStoreKey/saveChkMode 删除）——每次进入页面都是「启用勾选」初始态，勾选记录（itemChk_<user>）仍按用户隔离保留；②【负责事项】【参与事项】**复刻【全选当前】样式**：btn-cat-owner/btn-cat-cc 绿/橙配色删除，三钮统一 btn-cat-all（1.5px 品牌蓝描边 #002D74 + 同款 hover），视觉完全一致；③**按钮顺序**调整为：全选当前 → 负责事项 → 参与事项 → 启用勾选 → 到期筛选 → 清空筛选 | `src/static/index.html`（HTML 顺序/类名 + CSS 删两套配色 + loadItemChecked/toggleChkMode）、`ops/ui_check_t196_chkcat.py`（断言口径更新：默认关闭 + 三钮同款，14 断言） | `.workbuddy/memory/2026-11-13.md` |
 | #116 | 2026-11-13 | **主设计师** | 前端 + 后端 | **T-202 板块编辑锁实时标识**（用户需求）：被他人编辑锁定的板块，标题后方展示「🔒 <姓名> 已锁定」，样式复用事项行 .lock-tag（截图同款）；①后端：visible_columns 下发 `locked_by`/`locked_by_name`（lock_mgr，key=`column:<col_key>`，板块编辑弹窗既有认领链路）；②前端渲染：renderBoard 板块标题后插 `col-lock-tag`（仅他人持锁时显示）；③**实时同步**：WS `edit_lock` 广播新增 `column:` 前缀分支（原仅 org:）→ 现查 /api/locks/holder 取姓名 → `syncColLockTag` 原位增删标识（不整页刷新，不打断用户操作）；与事项锁的 'lock' 类型广播隔离（避免误触整页 reload，沿 T-0184 先例） | `src/app/app.py`（visible_columns）、`src/static/index.html`（renderBoard + syncColLockTag + WS 分支）、`ops/ui_check_t202_collock.py`（新增 12 断言：认锁→实时出现/文案/样式/位置、释放→实时消失、meta 下发/清空） | `.workbuddy/memory/2026-11-13.md` |
+| #117 | 2026-11-25 | **精卫** | 前端 + 后端 | **T-211~T-230 综合看板与交互批次**（用户逐项需求）：综合模式防误关（T-211）→ 完成时间到日+逾期按完成时间结算（T-222/228 存量重算 789 行）→ 板块三界面排版对齐事项弹窗（T-220）→ 每周进展独立编辑锁（T-221，week_progress: 前缀）→ 性质改下拉（T-223）→ 配置按配置人员固化隔离（T-224，PK(dept,owner)+syn_config_member 归属映射）→ 管理角色可被追加修复+多发起人邀请确认（T-225，syn_config_invite+站内通知+拒绝保持为空）→ 综合模式 tabs 按聚合架构渲染+详情看板名回退链（T-229b）→ 多架构累加（T-226，syn_depts 并集+free_boards）→ 配置弹窗架构切换下拉直列全部可编辑架构（T-227/c）→ 归属切换同步取消原配置人清单（T-228）→ **追加成员同步邀请人配置内看板可见权（T-229 大改：syn_depts 参数+中间件授予+user_allowed 应用，可见即可评论保持）** → API 错误文案友好化+创建人显示人名（T-230）。全部提交已推送 GitHub（src 最新 91a64a8）；回归 T-211 30/30、T-213 17/17、T-215 14/14、verify 7/7 | `src/app/app.py`、`src/app/init_db.py`、`src/static/index.html`、`ops/test_t211_syn.py`（E1b/E1c/E3 按新语义修订） | `.workbuddy/memory/2026-11-24.md`、`.workbuddy/memory/2026-11-25.md` |
 | #117 | 2026-11-13 | **主设计师** | 前端（截断修复） | **T-203 锁标识长标题截断修复**（用户报告：标题触发省略号时锁定标识被截断）：①**根因**：事项行 lockHtml 插在 `.item-title`（overflow:hidden + ellipsis 省略号容器）**内部** → 长标题省略号把标识一并吞掉；②修复：标识移出为标题的**兄弟节点**（`.item-title` 后），flex-shrink:0（.lock-tag 自带）保证省略号之后始终完整显示——实测 1280/1440/1920 三宽度 tagW=138 全程 clipped:false、标题 ellipsis 正常；③**子事项行补齐**（排查发现子行根本没渲染锁标识，数据接口 /api/cards/{id}/children 本已下发 locked_by/locked_by_name）：subNodeHtml 同款兄弟节点形态补标识；④**板块头实测无截断**（col-lock-tag 本就是兄弟节点 + flex-shrink:0，三宽度验证 clipped:false），无需改动；⑤验证方式：CDP 长标题夹具（90+ 字板块名/事项名）+ Emulation.setDeviceMetricsOverride 三档宽度实测几何（tagW/tagRight/rowRight/clipped/titleEll） | `src/static/index.html`（cardItem lockHtml 出容器 + subNodeHtml 补标识） | `.workbuddy/memory/2026-11-13.md` |
 | #112 | 2026-11-13 | **主设计师** | 前端 | **T-196 勾选分类快速勾选按钮**（用户需求）：①新增【负责事项】（绿描边 #52c41a/#389e0d）【参与事项】（橙描边 #faad14/#d46b08）两钮，【全选当前】改蓝描边（btn-cat-all）——三钮 1.5px 彩色描边区分，选择器 `.toolbar-title-btns .btn-clear.btn-cat-*` 特异性压过 A1 降噪灰描边；②显隐与「全选当前」一致（仅勾选模式启用后出现，syncChkModeBtn 三钮统一显隐）；③匹配按**数据归属**（owner/cc 含我，`;` 分隔比对 display_name/username）——**不复用 isCardOwnerOf**（管理员恒真会让「负责事项」=全选，语义失真），meta 注册两处补 `cc` 字段；④双态切换（已全勾该类→再点取消该类）；⑤板块联动：勾=板块内全部事项可见且全被勾+板块权限；取消=板块可见事项全部无勾才解除（部分勾保留板块态）；⑥勾选仍受 #163 权限约束（无权事项跳过并在 toast 说明数量） | `src/static/index.html`（CSS + 2 钮 + selectCategoryCards/CAT_META/cardMetaHit + syncChkModeBtn）、`ops/ui_check_t196_chkcat.py`（新增 12 断言） | `.workbuddy/memory/2026-11-13.md` |
 | #110 | 2026-11-13 | **主设计师** | 缺陷修复 | **T-195b 两个 bat 打不开（CRLF 丢失）**：用户报告 数据库同步回滚.bat/图片快照管理.bat 双击即退——根因 = #107/#109 的 GBK 文本补丁用 `open(...,newline='')` 写回，而 text 模式读取时 universal newline 已把 CRLF 转成 LF → **写回后整文件变 LF-only**（cmd 对 LF-only 批处理的标签/流程解析出错，双击闪退）；发布回滚.bat 因补丁用了显式 `
@@ -2724,6 +2725,59 @@ meta 行不再因宽度不足把「编辑 ›」挤到**下一行右对齐**（�
   `ops/ui_check_perm_render.py`、`ops/test_new_features.py`、`src/`）**不是管家的活，一概未碰**。
 
 ---
+
+### #117 · 2026-11-25 · 精卫 · 综合看板体系扩展与交互批次（T-211 ~ T-230）
+
+**类型**：功能逻辑（后端 + 前端）+ 数据修正
+
+**做了什么**（按需求时间序，全部已实测并推送 GitHub）：
+
+1. **T-222 完成时间到日 + 逾期结算修正**：编辑弹窗 datetime-local→date；自动填充存 `YYYY-MM-DD`；
+   `_settle_days(due, ref)` 加参照日参数 —— 事项已有 completed → 逾期=完成日−截止日（提前完成=负数）；
+   改完成时间也触发重算。**存量重算 789 行**（备份 `ops/backup_db_20261125_逾期重算.db`，回读零不一致）。
+2. **T-223 板块性质（日常/专项）radio → select 下拉**，外观与类别下拉一致；三处 JS 读写同步。
+3. **T-224 综合看板配置按配置人员固化隔离**：`syn_board_config` 改 PK(dept_node_id, owner) +
+   新表 `syn_config_member`（UNIQUE(dept,member)→owner，追加归属先到先得）；旧库迁移（每份旧配置拆为
+   (dept, updated_by) 配置行 + 成员归属映射）；读取/保存/能力位全链路按配置人隔离。
+4. **T-225 追加人员两改**：①候选池补管理角色（部门长/总经理/中心负责人任命可能在本部门子树外 + 管理员/超管账号）——
+   修复"管理角色无法被选为追加人员"；②多发起人邀请确认：新表 `syn_config_invite`（UNIQUE(dept,member,owner)，
+   status pending/confirmed/rejected）+ 站内通知 + 成员邀请弹窗（登录自动弹出）——确认→归属切换生效；
+   拒绝→从该发起人清单移除（结果保持为空）且不可再次追加。
+5. **T-226 多架构累加**：syn-boards 支持 `dept_node_ids` 多节点，各架构按适用配置各自过滤后**并集**聚合；
+   前端多选架构累加进入（enterSynMode 数组化）；修复多选残留导致的"已选架构仍提示选架构"误拦截。
+6. **T-227/c 配置弹窗架构切换**：多架构模式下【综合编辑】→ 配置弹窗标题处**架构切换下拉**
+   （默认直列本人全部可编辑架构，无确认步骤；单架构模式切换同步锚定 SYN_MODE）。
+7. **T-228 归属切换同步取消**：确认邀请切换归属时，原归属配置人的 extra_members 同步移除该成员 +
+   其邀请标记 rejected（面板"已拒绝（不可选）"）。
+8. **T-229 追加成员同步邀请人配置内看板可见权（大改）**：前端综合模式下 api() 自动附带
+   `syn_depts=nodeIds`；后端 http 中间件计算授予集（`_syn_grant`：配置人可见 ∩ 白名单）存 contextvar；
+   `user_allowed` 返回前应用授予 → 卡片/详情/评论/子事项全部读路径生效（**可见即可评论保持**）。
+   作用域严格限定：仅带参请求生效，普通请求数据权限不变；admin 无感。syn-boards 看板清单改按配置人可见口径。
+9. **T-229b 综合模式 UI**：tabs 按 SYN_MODE.boards（含归属架构）分组渲染（追加成员此前只看到自己的看板）；
+   详情看板名回退链（ME.boards → 卡片行 board_name → SYN 清单 → bid）。
+10. **T-230 交互**：API 错误提示友好化（403='没有执行此操作的权限' 等状态码文案映射，服务端中文 detail 优先）；
+    事项/板块预览创建人显示人名（bcMemberName 映射）。
+
+**注意事项与约束**
+
+- 🔴 **综合可见权的作用域**：T-229 的授予只在带 `syn_depts` 参数的请求生效——前端由 api() 包装在
+  SYN_MODE 激活时自动附带；**新增后端读路径如需对追加成员放开，无需额外改代码**（user_allowed 已覆盖），
+  但**写路径仍走原权限**，不要随意放宽。
+- 🔴 **syn_config_invite 的 rejected 是终态**：被拒的 (dept,member,owner) 不再发新邀请（结果保持为空）。
+- ⚠️ `syn_board_config` 结构已变（PK 加 owner 列）——旧库靠 init_db 幂等迁移（备份改名 bak_t224→迁移→DROP）；
+  **服务器库迁移在用户执行同步后首次重启时自动进行**，属用户动作。
+- ⚠️ T-211 回归断言已按新语义修订三处（E1b/E1c 配置隔离、E3 追加人员可见邀请人配置内看板）——
+  旧断言编码的是共享配置时代的行为，勿回滚。
+- 💡 测试夹具纪律沿用 §3.3：本轮全部夹具 `__t2NN_` 前缀 + try/finally 清理 + 看板挪绑还原，零残留自查通过。
+
+**遗留 / 待确认**
+
+- 用户实测确认项（已交付待反馈）：综合模式可见权同步的实际体验、邀请确认弹窗流程、多架构累加展示。
+- **建议交接管家更新**：摘要 **B 当前基线**（实测日期 2026-11-25、基线 src@91a64a8）与 §3.1 相关测试条数
+  （T-211 30 条、T-213 17 条、T-215 14 条）——按 A-15 属管家职责，本轮仅登记建议。
+
+---
+
 
 ## 附录 A · 给其他 Agent 的使用说明（可直接转发）　`🟡 转发时读`
 > 你正在接手本项目 `E:/WB缓存/2026-10-26-15-55-08`（TAPD 财务综合事务平台 FISP）。
