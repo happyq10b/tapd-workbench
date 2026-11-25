@@ -80,8 +80,8 @@ async def main():
           o.rd('');
           const drop=o.drop;
           const open0=drop.style.display==='block';
-          // ① 勾选形态：下拉项 = label + checkbox
-          const labels=[].slice.call(drop.querySelectorAll('label.pp-opt'));
+          // ① 勾选形态：下拉项 = 行 + checkbox（#T-231 起 div+span 直调，label 移除）
+          const labels=[].slice.call(drop.querySelectorAll('.pp-opt:not(.pp-all)'));
           const hasCb=labels.length>0&&labels.every(function(l){return !!l.querySelector('input[type=checkbox]');});
           const checked0=drop.querySelectorAll('input:checked').length;
           // ② 连续勾选 3 个（模拟点击 checkbox）→ 面板应保持打开、arr 同步、tags 更新
@@ -93,14 +93,15 @@ async def main():
           // ③ 取消一个勾选 → arr 同步移除
           labels.slice(0,3)[0].querySelector('input[type=checkbox]').click();
           const arrAfterUn=o.arr.length;
-          // ④ 全选条 → 全部勾选
+          // ④ 全选条 → 全部勾选（真实路径：点击全选 checkbox → onchange → ppToggleAll）
           const allBar=drop.querySelector('.pp-all');
-          allBar.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));
+          allBar.querySelector('input[type=checkbox]').click();
           const arrAll=o.arr.length, allIn=o.ALL.every(n=>o.arr.includes(n));
           const allLabel=allBar.textContent.trim();
-          // ⑤ 再点全选 → 取消
-          allBar.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));
-          const arrUn=o.arr.length, unLabel=allBar.textContent.trim();
+          // ⑤ 再点全选 → 取消（rd 重绘后 allBar 是新节点，须重查——真实用户每次点的都是新 DOM）
+          const allBar2=drop.querySelector('.pp-all');
+          allBar2.querySelector('input[type=checkbox]').click();
+          const arrUn=o.arr.length, unLabel=allBar2.textContent.trim();
           // ⑥ 数据层与表单提交同源：arr 即 PP 容器数组（saveEdit 读同一数组）
           return {open0:open0, labelsN:labels.length, hasCb:hasCb, checked0:checked0,
                   open1:open1, arrN:arrN, tagsN:tagsN, cbChecked:cbChecked,

@@ -81,9 +81,9 @@ async def main():
           o.inp.value='测试';
           ppToggle('__pp_test__', o.ALL[0]);           // 从下拉点选（IME 候选上屏后点选的等价路径）
           const clearedAfterToggle=(o.inp.value==='');
-          ppToggleAll('__pp_test__');                  // 全选
+          ppToggleAll('__pp_test__', {checked:true});  // #205h 签名：cb 决定全选/清空
           const nAfterAll=o.arr.length, allIn=o.ALL.every(n=>o.arr.includes(n));
-          ppToggleAll('__pp_test__');                  // 再点 → 取消全选
+          ppToggleAll('__pp_test__', {checked:false}); // 再点 → 取消全选
           const nAfterUn=o.arr.length;
           return {clearedAfterToggle:clearedAfterToggle, nAfterAll:nAfterAll,
                   allIn:allIn, nAfterUn:nAfterUn, poolN:o.ALL.length,
