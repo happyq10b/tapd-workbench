@@ -159,7 +159,10 @@ try:
     print('【E】综合数据端点（模式数据 + 不越权）')
     r = req(tok_adm, '/api/syn-boards?dept_node_id=%d' % _did)
     ok([b['board_id'] for b in r.get('boards', [])] == [P + 'B1'], 'E1 白名单板块 → 派生看板', r)
-    ok(r.get('col_whitelist') == [(P + 'B1::') + P + 'col1'], 'E1b 下发 col_whitelist（板块级）', r)
+    # T-224 配置按配置人员隔离：admin 看到自己保存的（看板级）配置；部门长的板块级配置独立存放
+    ok(r.get('col_whitelist') == [P + 'B1'], 'E1b admin 下发自己配置的 col_whitelist（隔离）', r)
+    r = req(tok_dh, '/api/syn-boards?dept_node_id=%d' % _did)
+    ok(r.get('col_whitelist') == [(P + 'B1::') + P + 'col1'], 'E1c 部门长下发自己的板块级 col_whitelist', r)
     r = req(tok_u2, '/api/syn-boards?dept_node_id=%d' % _did)
     ok(r.get('__http__') == 403, 'E2 无权限成员 → 403')
     r = req(tok_u1, '/api/syn-boards?dept_node_id=%d' % _did)
