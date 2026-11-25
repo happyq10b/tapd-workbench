@@ -166,7 +166,10 @@ try:
     r = req(tok_u2, '/api/syn-boards?dept_node_id=%d' % _did)
     ok(r.get('__http__') == 403, 'E2 无权限成员 → 403')
     r = req(tok_u1, '/api/syn-boards?dept_node_id=%d' % _did)
-    ok(r.get('boards') == [], 'E3 追加人员可进入但数据不越权（无看板可见 → 空清单）', r)
+    # T-229 语义修订：追加人员同步**邀请人配置内看板**的可见权 —— 配置人（超管）
+    # 配置的看板对追加人员可见（此前按本人 user_allowed 过滤为空清单）
+    ok([b['board_id'] for b in r.get('boards', [])] == [P + 'B1'],
+       'E3 追加人员可见邀请人配置内的看板（T-229 可见权同步）', r)
     r = req(tok_dh, '/api/syn-boards?dept_node_id=%d' % _did)
     ok([b['board_id'] for b in r.get('boards', [])] == [P + 'B1'], 'E4 部门长综合数据正常')
     r = req(tok_dh, '/api/syn-config?dept_node_id=%d' % _did)
