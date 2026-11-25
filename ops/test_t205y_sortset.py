@@ -222,7 +222,7 @@ async def main():
                "② 板块默认全降序")
             rowC = await ss_row('card', 'created')
             rowB = await ss_row('card', 'begin')
-            ok(rowC and rowC.get('checked') and rowC.get('badge') == '第3优先' and rowC.get('dirOn') == [True, False],
+            ok(rowC and rowC.get('checked') and rowC.get('badge') == '第3优先' and rowC.get('dirOn') == [True, False, False],
                "② 事项「创建时间」默认：第3优先 + 升序")
             ok(rowB and rowB.get('checked') and rowB.get('badge') == '第1优先',
                "② 事项「开始时间」默认：第1优先")
