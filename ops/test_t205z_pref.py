@@ -174,7 +174,8 @@ async def main():
             conn = sqlite3.connect(DB)
             cur = conn.execute("DELETE FROM user_prefs WHERE username=?", (A,)); conn.commit()
             n_del = cur.rowcount; conn.close()
-            ok(n_del == 1, "⑥ 预置：精确删除 a 的 user_prefs 行（rowcount=%d）" % n_del)
+            # T-236 起 sortSetApply 同时固化 sort_schemes 行 → a 名下可能有 2 行（sort_cfg+sort_schemes）
+            ok(n_del >= 1, "⑥ 预置：清除 a 的 user_prefs 行（rowcount=%d，含 T-236 sort_schemes 行）" % n_del)
             await asyncio.sleep(1.2)   # 等飞行中的防抖 PUT（若有）落库
             left6 = db_del_sort_cfg([A])[A]
             ok(left6 == 0, "⑥-bis 二次删除防复活（残留 %d）" % left6)
