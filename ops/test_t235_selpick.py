@@ -53,6 +53,8 @@ def snap():
         'bcfg': [dict(r) for r in conn.execute('SELECT * FROM syn_board_config WHERE dept_node_id=?', (NID,))],
         'member': [dict(r) for r in conn.execute('SELECT * FROM syn_config_member WHERE dept_node_id=?', (NID,))],
         'smem': [dict(r) for r in conn.execute('SELECT * FROM syn_scheme_member WHERE dept_node_id=?', (NID,))],
+        # T-238：邀请行也纳入忠实快照（测试保存流会删除成员的 pending 邀请，恢复必须带回）
+        'invite': [dict(r) for r in conn.execute('SELECT * FROM syn_config_invite WHERE dept_node_id=?', (NID,))],
     }
     conn.close()
     return s
@@ -74,6 +76,12 @@ def restore(s):
         conn.execute('INSERT INTO syn_scheme_member (dept_node_id,username,scheme_id,status,updated_at) '
                      'VALUES (?,?,?,?,?)', (r['dept_node_id'], r['username'], r['scheme_id'],
                                             r['status'], r['updated_at']))
+    conn.execute('DELETE FROM syn_config_invite WHERE dept_node_id=?', (NID,))
+    for r in s['invite']:
+        conn.execute('INSERT INTO syn_config_invite (id,dept_node_id,member,owner,status,created_at,decided_at,scheme_id) '
+                     'VALUES (?,?,?,?,?,?,?,?)',
+                     (r['id'], r['dept_node_id'], r['member'], r['owner'], r['status'],
+                      r['created_at'], r['decided_at'], r.get('scheme_id')))
     conn.commit(); conn.close()
 
 def cleanup():

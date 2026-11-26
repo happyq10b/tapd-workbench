@@ -54,27 +54,45 @@ conn = sqlite3.connect(DB)
 conn.row_factory = sqlite3.Row
 
 def _snap():
-    """快照 nid=4 的真实状态（方案以 syn_board_config 为真源重建描述；映射行原样）。"""
-    cfg = [dict(r) for r in conn.execute(
-        'SELECT dept_node_id, owner, columns, extra_members, updated_at FROM syn_board_config WHERE dept_node_id=?', (NID,))]
-    mem = [dict(r) for r in conn.execute(
-        'SELECT member, owner FROM syn_config_member WHERE dept_node_id=? ORDER BY id', (NID,))]
-    return cfg, mem
+    """快照 nid=4 的真实状态（T-238 修复：**忠实行级快照**，不再从 syn_board_config
+    旧存档重建 —— 旧做法曾把用户 2026-11-26 08:43 保存的真实配置覆盖掉）。
+    覆盖：方案行 / 成员归属行 / 邀请行 / 用户方案接收行（选择态）。"""
+    def _rows(q):
+        return [dict(r) for r in conn.execute(q, (NID,))]
+    return {
+        'scheme': _rows('SELECT id, dept_node_id, owner, name, columns, extra_members, is_display, updated_at FROM syn_scheme WHERE dept_node_id=?'),
+        'member': _rows('SELECT id, dept_node_id, member, owner FROM syn_config_member WHERE dept_node_id=?'),
+        'invite': _rows('SELECT id, dept_node_id, member, owner, status, created_at, decided_at, scheme_id FROM syn_config_invite WHERE dept_node_id=?'),
+        'smem': _rows('SELECT dept_node_id, username, scheme_id, status, updated_at FROM syn_scheme_member WHERE dept_node_id=?'),
+    }
 
-SNAP_CFG, SNAP_MEM = _snap()
+SNAP = _snap()
+SNAP_MEM = SNAP['member']
 
 def restore_snapshot():
-    """按真源恢复：方案表从 syn_board_config 重建（默认方案/外部显示）、映射行原样回插。"""
+    """忠实恢复：四张表按快照行原样回插（先清后插，幂等）。"""
     conn2 = sqlite3.connect(DB)
-    conn2.execute('DELETE FROM syn_scheme WHERE dept_node_id=?', (NID,))
-    for r in SNAP_CFG:
-        conn2.execute('INSERT INTO syn_scheme (dept_node_id, owner, name, columns, extra_members, is_display, updated_at) '
-                      'VALUES (?,?,?,?,?,1,?)', (r['dept_node_id'], r['owner'], '默认方案',
-                                                 r['columns'], r['extra_members'], r['updated_at']))
+    conn2.execute('DELETE FROM syn_scheme_member WHERE dept_node_id=?', (NID,))
+    conn2.execute('DELETE FROM syn_config_invite WHERE dept_node_id=?', (NID,))
     conn2.execute('DELETE FROM syn_config_member WHERE dept_node_id=?', (NID,))
-    for r in SNAP_MEM:
-        conn2.execute('INSERT INTO syn_config_member (dept_node_id, member, owner) VALUES (?,?,?)',
-                      (NID, r['member'], r['owner']))
+    conn2.execute('DELETE FROM syn_scheme WHERE dept_node_id=?', (NID,))
+    for r in SNAP['scheme']:
+        conn2.execute('INSERT INTO syn_scheme (id,dept_node_id,owner,name,columns,extra_members,is_display,updated_at) '
+                      'VALUES (?,?,?,?,?,?,?,?)',
+                      (r['id'], r['dept_node_id'], r['owner'], r['name'], r['columns'],
+                       r['extra_members'], r['is_display'], r['updated_at']))
+    for r in SNAP['member']:
+        conn2.execute('INSERT INTO syn_config_member (id,dept_node_id,member,owner) VALUES (?,?,?,?)',
+                      (r['id'], r['dept_node_id'], r['member'], r['owner']))
+    for r in SNAP['invite']:
+        conn2.execute('INSERT INTO syn_config_invite (id,dept_node_id,member,owner,status,created_at,decided_at,scheme_id) '
+                      'VALUES (?,?,?,?,?,?,?,?)',
+                      (r['id'], r['dept_node_id'], r['member'], r['owner'], r['status'],
+                       r['created_at'], r['decided_at'], r['scheme_id']))
+    for r in SNAP['smem']:
+        conn2.execute('INSERT INTO syn_scheme_member (dept_node_id,username,scheme_id,status,updated_at) '
+                      'VALUES (?,?,?,?,?)',
+                      (r['dept_node_id'], r['username'], r['scheme_id'], r['status'], r['updated_at']))
     conn2.commit(); conn2.close()
 
 def pre_clean():
@@ -88,15 +106,18 @@ def pre_clean():
     conn2.commit(); conn2.close()
 
 def cleanup(members):
-    """夹具清理（参数化成员列表——真实成员的归属行/邀请消息一并回收）。"""
+    """夹具清理（参数化成员列表——真实成员的归属行/邀请消息一并回收）。
+    ⚠️ T-238：删除范围严格限定夹具成员/夹具配置人名下 —— 不得全表清 nid。"""
     conn2 = sqlite3.connect(DB)
     marks = ','.join('?' * len(members))
     # 夹具方案（两位配置人名下全部）+ 邀请 + 归属 + 消息 + 用户
     conn2.execute('DELETE FROM syn_scheme WHERE dept_node_id=? AND owner IN (?,?)', (NID, OWNER_A, OWNER_B))
-    conn2.execute('DELETE FROM syn_config_invite WHERE dept_node_id=?', (NID,))
+    conn2.execute("DELETE FROM syn_config_invite WHERE dept_node_id=? AND (member IN (%s) OR owner IN (?,?))" % marks,
+                  (NID,) + tuple(members) + (OWNER_A, OWNER_B))
     conn2.execute('DELETE FROM syn_config_member WHERE dept_node_id=? AND member IN (%s)' % marks,
                   (NID,) + tuple(members))
-    conn2.execute('DELETE FROM syn_scheme_member WHERE dept_node_id=?', (NID,))
+    conn2.execute('DELETE FROM syn_scheme_member WHERE dept_node_id=? AND username IN (%s)' % marks,
+                  (NID,) + tuple(members))
     conn2.execute("DELETE FROM messages WHERE (receiver LIKE '%t233%')"
                   " OR (sender IN (SELECT username FROM users WHERE username LIKE '%t233%'))"
                   " OR (kind='system' AND (content LIKE '%已接受您发出的追加邀请%' OR content LIKE '%已拒绝您发出的追加邀请%'))")
@@ -248,11 +269,13 @@ def main():
     inv_t233 = conn2.execute("SELECT COUNT(*) FROM syn_config_invite WHERE dept_node_id=? AND owner LIKE '%t233%'", (NID,)).fetchone()[0]
     usr = conn2.execute("SELECT COUNT(*) FROM users WHERE username LIKE '%t233%'").fetchone()[0]
     conn2.close()
-    exp_scs = sorted([{'dept_node_id': r['dept_node_id'], 'owner': r['owner'], 'name': '默认方案',
-                       'columns': r['columns'], 'extra_members': r['extra_members'], 'is_display': 1}
-                      for r in SNAP_CFG], key=lambda x: (x['owner'], x['name']))
-    ok(scs_now == exp_scs, 'G 方案表按真源 syn_board_config 恢复一致（%d 行）' % len(exp_scs))
-    ok(mem_now == SNAP_MEM, 'G 成员归属映射恢复一致（%d 行）' % len(SNAP_MEM))
+    # T-238：与**忠实快照**逐行比对（不再按旧存档重建描述）
+    exp_scs = sorted([{'dept_node_id': r['dept_node_id'], 'owner': r['owner'], 'name': r['name'],
+                       'columns': r['columns'], 'extra_members': r['extra_members'], 'is_display': r['is_display']}
+                      for r in SNAP['scheme']], key=lambda x: (x['owner'], x['name']))
+    ok(scs_now == exp_scs, 'G 方案表按快照忠实恢复一致（%d 行）' % len(exp_scs))
+    ok(mem_now == [{'member': r['member'], 'owner': r['owner']} for r in sorted(SNAP['member'], key=lambda x: x['id'])],
+       'G 成员归属映射恢复一致（%d 行）' % len(SNAP['member']))
     ok(inv_t233 == 0 and usr == 0, 'G 夹具零残留（t233邀请=%d t233用户=%d）' % (inv_t233, usr))
     print('结果: %d PASS / %d FAIL' % (ok_n, fail_n))
     sys.exit(1 if fail_n else 0)
