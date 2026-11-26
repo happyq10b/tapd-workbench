@@ -263,16 +263,16 @@ def main():
     conn2 = sqlite3.connect(DB)
     conn2.row_factory = sqlite3.Row
     scs_now = [dict(r) for r in conn2.execute(
-        'SELECT dept_node_id, owner, name, columns, extra_members, is_display FROM syn_scheme WHERE dept_node_id=? ORDER BY owner, id', (NID,))]
+        'SELECT id, dept_node_id, owner, name, columns, extra_members, is_display FROM syn_scheme WHERE dept_node_id=? ORDER BY owner, id', (NID,))]
     mem_now = [dict(r) for r in conn2.execute(
         'SELECT member, owner FROM syn_config_member WHERE dept_node_id=? ORDER BY id', (NID,))]
     inv_t233 = conn2.execute("SELECT COUNT(*) FROM syn_config_invite WHERE dept_node_id=? AND owner LIKE '%t233%'", (NID,)).fetchone()[0]
     usr = conn2.execute("SELECT COUNT(*) FROM users WHERE username LIKE '%t233%'").fetchone()[0]
     conn2.close()
-    # T-238：与**忠实快照**逐行比对（不再按旧存档重建描述）
-    exp_scs = sorted([{'dept_node_id': r['dept_node_id'], 'owner': r['owner'], 'name': r['name'],
+    # T-238：与**忠实快照**逐行比对（排序键一致：owner,id —— 中文按 name 排会与 id 序错位）
+    exp_scs = sorted([{'id': r['id'], 'dept_node_id': r['dept_node_id'], 'owner': r['owner'], 'name': r['name'],
                        'columns': r['columns'], 'extra_members': r['extra_members'], 'is_display': r['is_display']}
-                      for r in SNAP['scheme']], key=lambda x: (x['owner'], x['name']))
+                      for r in SNAP['scheme']], key=lambda x: (x['owner'], x['id']))
     ok(scs_now == exp_scs, 'G 方案表按快照忠实恢复一致（%d 行）' % len(exp_scs))
     ok(mem_now == [{'member': r['member'], 'owner': r['owner']} for r in sorted(SNAP['member'], key=lambda x: x['id'])],
        'G 成员归属映射恢复一致（%d 行）' % len(SNAP['member']))
