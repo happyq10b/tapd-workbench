@@ -1275,6 +1275,7 @@ ops/.localvenv/Scripts/python.exe ops/check_residue.py
 | #126 | 2026-11-26 | **主设计师** | 后端 | **追加人员接受后同步权限——仅查看+评论（用户需求）**：新增 `_syn_write_denied(username, card_id, board_id, column_id)` 护栏：综合模式（_SYN_CTX 存在）下，对该资源**无任何原生身份**（事项/板块/看板负责人、参与人、架构任命——has_role ≥ LV_PARTICIPANT 判定）的追加者禁止一切数据变更；**拥有任何原生身份者返回 False**（保持原有权限，由权限内核按身份档位判定，综合授予不改变内核档位）；管理员/超管放行；非综合模式放行（相关看板本就不可见）；PERM_ENABLED=False 时以原生可见性 fail-safe（原生不可见禁止变更）。接线 11 个数据变更端点：create_card/update_card/delete_card（单删+_delete_card_core 批删共用）/copy_card/copy_column/move_card/set_card_participants/subtasks×3/**week-progress（唯一只查可见性的真实缺口）**；护栏置于**编辑锁认领之前**（防 403 泄漏锁 → 409 连锁）；评论端点明确不设护栏（允许评论）。边界处理：原生身份者不降级（实测 U2 板块负责人在综合模式下修改/周进展/评论全部 200）；纯追加者十类写操作全部 403（提示「仅可查看与评论，如需编辑请联系负责人或管理员」）；非综合模式无感知。验证：test_t239_writeguard **15/15**（可见/评论放行/十类写 403/原生身份三操作不降级/非综合不可见/零残留）；回归 t211 32/32、t232 7/7、t233 23/23（G 比较排序键修复：id 序 vs name 序中文错位）、t235 30/30、t237 13/13、verify 7/7；lsy 实测：邀请确认后接收行 active、syn_depts=[4] 按钮显示、写护栏生效 | `src/app/app.py`、`ops/test_t239_writeguard.py`、`ops/test_t233_schemes.py` | `.workbuddy/memory/2026-11-26.md` |
 | #127 | 2026-11-26 | **主设计师** | 后端 + 前端 | **消息清空 + 双带固定高度（用户需求①②，附截图）**：①**消息中心「清空消息」**——后端 POST /api/messages/clear-all（receiver=账号∪绑定成员姓名，与 GET 同范围，物理删除、审计留痕、返回 cleared 计数）；面板头部【全部已读】旁新增【清空消息】按钮——confirm 二次确认（提示共 N 条、不可恢复），清空后列表空状态展示、铃铛未读徽标归零，无消息时按钮禁用；用户隔离实测（他人消息不受影响）。②**架构带+看板带高度固定两行**——syncBoardBandHeight 扩展双栅格（tbDepts+tbBoards），改设 inline **height**（非 max-height：只有 1 行内容也撑出第二行空位）+ maxHeight:none，高度=首行高+rowGap+次行高+6px 余量（JS 动态实测，防卡片样式变更裁切——#122 教训延续）；CSS 两带统一 overflow-y:auto + 滚动条样式 + 102px 兜底值；超出部分各自区域内滚动。验证：test_t240_msg_band **12/12**（清空计数/隔离/再清 cleared=0/CDP 两带几何（h/twoRowOK/overflowY）/面板清空流 confirm+空态+徽标归零/admin 消息数与运行前一致）；回归 t234 12/12（⑦ 断言随 T-237b 弹窗精简口径更新：说明文字已删）、t237 13/13、verify 7/7 | `src/app/app.py`、`src/static/index.html`、`ops/test_t240_msg_band.py`、`ops/test_t234_ui.py` | `.workbuddy/memory/2026-11-26.md` |
 | #129 | 2026-11-26 | **主设计师** | 前端 | **方案选择弹窗退出按钮恒显（用户截图反馈：非自建方案行无退出按钮）**：synPaintMy 渲染条件 on→!s.self —— 追加（接收）的方案无论勾选与否恒显【退出】（未勾选=已 exited，点击幂等重存）；自建方案（self）不显退出（自己的方案走配置弹窗管理）；「适用中」徽标仍只在 active 态显示。验证：t235 30/30、t237 13/13、verify 7/7 | `src/static/index.html` | 回归 t235/t237 | `.workbuddy/memory/2026-11-26.md` |
+| #129b | 2026-11-26 | **主设计师** | 后端 + 测试 | **接受方案≠默认适用（用户反馈：接受后弹窗不应默认选中）**：syn_scheme_member 引入第三态 accepted（已接受未勾选）——邀请确认与配置保存恢复已确认成员两处登记从 active 改 accepted；按钮显隐口径 active∪accepted（防接受后按钮消失进不了弹窗）；主动退出仍 exited；综合视图/白名单仍只取 active（弹窗勾选并确定后才适用）。前端零改动（GET 直下发 accepted、pick 按 active 初始化天然不勾选）。测试随语义修订：t235 30→33（+默认不勾选/确定落库/退出语义）、t233 23→24（+未勾选适用为空）、t211 32、t237 13、t239 15 全绿。**基线变更：t235 33 / t233 24（建议管家更新 §3.1）** | src/app/app.py、ops/test_t233/235/239/211 | 回归五套 | .workbuddy/memory/2026-11-26.md |
 | #117 | 2026-11-13 | **主设计师** | 前端（截断修复） | **T-203 锁标识长标题截断修复**（用户报告：标题触发省略号时锁定标识被截断）：①**根因**：事项行 lockHtml 插在 `.item-title`（overflow:hidden + ellipsis 省略号容器）**内部** → 长标题省略号把标识一并吞掉；②修复：标识移出为标题的**兄弟节点**（`.item-title` 后），flex-shrink:0（.lock-tag 自带）保证省略号之后始终完整显示——实测 1280/1440/1920 三宽度 tagW=138 全程 clipped:false、标题 ellipsis 正常；③**子事项行补齐**（排查发现子行根本没渲染锁标识，数据接口 /api/cards/{id}/children 本已下发 locked_by/locked_by_name）：subNodeHtml 同款兄弟节点形态补标识；④**板块头实测无截断**（col-lock-tag 本就是兄弟节点 + flex-shrink:0，三宽度验证 clipped:false），无需改动；⑤验证方式：CDP 长标题夹具（90+ 字板块名/事项名）+ Emulation.setDeviceMetricsOverride 三档宽度实测几何（tagW/tagRight/rowRight/clipped/titleEll） | `src/static/index.html`（cardItem lockHtml 出容器 + subNodeHtml 补标识） | `.workbuddy/memory/2026-11-13.md` |
 | #112 | 2026-11-13 | **主设计师** | 前端 | **T-196 勾选分类快速勾选按钮**（用户需求）：①新增【负责事项】（绿描边 #52c41a/#389e0d）【参与事项】（橙描边 #faad14/#d46b08）两钮，【全选当前】改蓝描边（btn-cat-all）——三钮 1.5px 彩色描边区分，选择器 `.toolbar-title-btns .btn-clear.btn-cat-*` 特异性压过 A1 降噪灰描边；②显隐与「全选当前」一致（仅勾选模式启用后出现，syncChkModeBtn 三钮统一显隐）；③匹配按**数据归属**（owner/cc 含我，`;` 分隔比对 display_name/username）——**不复用 isCardOwnerOf**（管理员恒真会让「负责事项」=全选，语义失真），meta 注册两处补 `cc` 字段；④双态切换（已全勾该类→再点取消该类）；⑤板块联动：勾=板块内全部事项可见且全被勾+板块权限；取消=板块可见事项全部无勾才解除（部分勾保留板块态）；⑥勾选仍受 #163 权限约束（无权事项跳过并在 toast 说明数量） | `src/static/index.html`（CSS + 2 钮 + selectCategoryCards/CAT_META/cardMetaHit + syncChkModeBtn）、`ops/ui_check_t196_chkcat.py`（新增 12 断言） | `.workbuddy/memory/2026-11-13.md` |
 | #110 | 2026-11-13 | **主设计师** | 缺陷修复 | **T-195b 两个 bat 打不开（CRLF 丢失）**：用户报告 数据库同步回滚.bat/图片快照管理.bat 双击即退——根因 = #107/#109 的 GBK 文本补丁用 `open(...,newline='')` 写回，而 text 模式读取时 universal newline 已把 CRLF 转成 LF → **写回后整文件变 LF-only**（cmd 对 LF-only 批处理的标签/流程解析出错，双击闪退）；发布回滚.bat 因补丁用了显式 `
@@ -2807,6 +2808,29 @@ meta 行不再因宽度不足把「编辑 ›」挤到**下一行右对齐**（�
 **坑**：无（改动一处三元条件；synMyExit 本就按架构保存全量勾选 ids，幂等天然成立）。
 
 **遗留**：无。
+
+### #129b · 2026-11-26 · 主设计师 · 接受方案≠默认适用（accepted 第三态）
+
+**类型**：后端语义（+ 测试修订）
+
+**做了什么**：用户反馈「接受方案后不能直接在选择弹窗中默认选中」——此前邀请确认即 status=active（默认适用）。新口径：**接受≠适用**，勾选并确定才生效。
+
+**实现**（syn_scheme_member 三态）：
+- **accepted**（新）：已接受未勾选——邀请确认（decide accept）与「已确认成员恢复生效」（配置保存）两处登记改用之；不进综合视图、弹窗不勾选、无「适用中」徽标
+- **active**：仅由选择弹窗「确定」（POST syn-my-schemes）产生——适用中
+- **exited**：主动退出（语义不变）
+- **按钮显隐防死路**：/api/me 的 syn_depts 口径 active∪accepted——否则接受后（非 active）按钮消失、用户进不了弹窗勾选（t237 ③ 实测抓到的真缺陷）
+- 前端零改动：GET 直下发 accepted，pick 按 status==='active' 初始化天然不勾选
+
+**测试随语义修订**：t235 30→33（①②③⑤-3 状态断言 active→accepted；④ 补勾选确定步骤；⑦ CDP 重写=清残留→验默认不勾选→勾选→确定→进入→重开保持勾选→退出全 exited）；t233 23→24（C 拆两断言=未勾选适用为空 + 勾选后适配方案白名单；E 补勾选）；t239 接受后补勾选确定（恢复"已适用"前提，护栏断言不变）；t211 E3 前补勾选。
+
+**验证**：t211 32/32、t233 24/24、t235 33/33、t237 13/13、t239 15/15、verify 7/7。
+
+**坑**：①t235 CDP 循环 span.click() 点退出触发 label→checkbox 转发竞态（synMyExit 重绘替换 DOM 与 change 交叉）——**synPaintMy 整表重绘会替换 checkbox 元素，页面内连点不可靠**；改 API 预置状态（POST [] 后重开弹窗）规避。排障链：pick 运行时 false vs 数据源 active → 手动重执行初始化得 true → 包装 synMyToggle/synPaintMy 抓 log → 定位为测试自身点击副作用（产品零缺陷）。②python -c 内嵌 \n 经 bash 转义成真换行写入 py → SyntaxError，用 heredoc/Edit 修复；t233 的 api(tk, path) 签名与 t235 的 api(path, tk=) 相反——跨测试复制调用时先看签名。
+
+**遗留**：无。
+
+**基线变更**：t235 33 / t233 24 —— **建议管家更新 §3.1**。
 
 ## 附录 A · 给其他 Agent 的使用说明（可直接转发）　`🟡 转发时读`
 > 你正在接手本项目 `E:/WB缓存/2026-10-26-15-55-08`（TAPD 财务综合事务平台 FISP）。

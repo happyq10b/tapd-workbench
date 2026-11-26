@@ -132,6 +132,10 @@ try:
     ok(len(invs) >= 1 and invs[0]['owner'] == 'admin',
        'B5b u1 收到 admin 的追加邀请（T-235 全量邀请制）')
     r = req(tok_u1, '/api/syn-invites/%d/decide' % invs[0]['id'], 'POST', {'accept': True})
+    # #129b 接受≠适用：勾选全部方案并确定（模拟弹窗操作）→ 恢复"已适用"前提
+    dmy211 = req(tok_u1, '/api/syn-my-schemes?dept_node_id=%d' % _did)
+    req(tok_u1, '/api/syn-my-schemes/%d' % _did, 'POST',
+        {'scheme_ids': [s['id'] for s in (dmy211.get('schemes') or [])]})
     ok(r.get('ok') is True, 'B5c u1 确认邀请 → 方案接收登记生效（T-235）')
     r = req(tok_adm, '/api/syn-config?dept_node_id=%d' % _did)
     ok(r.get('columns') == [P + 'B1'] and r.get('extra_members') == [P + 'u1'],

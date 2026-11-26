@@ -204,8 +204,15 @@ def main():
 
         # ── C. 追加人适配：m1 看到包含它的「月度」，而非显示方案 ──
         st, d5 = api(tk_cm1, '/api/syn-config?dept_node_id=%d' % NID)
+        ok(st == 200 and not (d5.get('columns') or '') and d5.get('can_edit') is False,
+           'C 追加人 cm1 已接收但未勾选 → 适用配置为空（#129b 接受≠适用）')
+        # 勾选适配方案并确定 → 适用「月度」白名单
+        _, dmyc = api(tk_cm1, '/api/syn-my-schemes?dept_node_id=%d' % NID)
+        api(tk_cm1, '/api/syn-my-schemes/%d' % NID, 'POST',
+            {'scheme_ids': [s['id'] for s in (dmyc.get('schemes') or [])]})
+        st, d5 = api(tk_cm1, '/api/syn-config?dept_node_id=%d' % NID)
         ok(st == 200 and d5.get('columns') == ([ck] if ck else []) and d5.get('can_edit') is False,
-           'C 追加人 cm1 适用配置 = 其适配方案「月度」的白名单（非显示方案）')
+           'C-2 勾选确定后 cm1 适用配置 = 其适配方案「月度」的白名单（非显示方案）')
         st, d5b = api(tk_cm2, '/api/syn-config?dept_node_id=%d' % NID)
         ok(st == 200 and d5b.get('columns') == [] and d5b.get('can_edit') is False,
            'C 追加人 cm2 适用配置 = 其适配方案「季度」（空白名单）')
@@ -235,9 +242,13 @@ def main():
            'E 邀请清单含目标方案名「B方案」与发起人')
         st, d11 = api(tk_cm1, '/api/syn-invites/%d/decide' % invs[0]['id'], 'POST', {'accept': True})
         ok(st == 200, 'E 成员确认邀请')
+        _, dmye = api(tk_cm1, '/api/syn-my-schemes?dept_node_id=%d' % NID)
+        api(tk_cm1, '/api/syn-my-schemes/%d' % NID, 'POST',
+            {'scheme_ids': [s['id'] for s in (dmye.get('schemes') or [])
+                            if s.get('owner') == OWNER_B]})
         st, d12 = api(tk_cm1, '/api/syn-config?dept_node_id=%d' % NID)
         ok(st == 200 and d12.get('columns') == ([ck] if ck else []),
-           'E 确认后 cm1 适配「B方案」白名单（与 admin 方案并集一致）')
+           'E 确认并勾选后 cm1 适配「B方案」白名单（与 admin 方案并集一致）')
         st, d13 = api(tk_a, '/api/syn-config?dept_node_id=%d' % NID)
         scs13 = d13.get('schemes') or []
         ok(any(cm1 in (s.get('extra_members') or []) for s in scs13),

@@ -137,6 +137,10 @@ def main():
             invs = [x for x in (dinv.get('invites') or []) if x['owner'] == 'admin']
             assert invs, who + ' 未收到邀请'
             api('/api/syn-invites/%d/decide' % invs[0]['id'], 'POST', {'accept': True}, tk=tkx)
+            # #129b 接受≠适用：勾选全部方案并确定（模拟弹窗操作），恢复"已适用"前提
+            _, dmy = api('/api/syn-my-schemes?dept_node_id=%d' % NID, tk=tkx)
+            ids = [s['id'] for s in (dmy.get('schemes') or [])]
+            api('/api/syn-my-schemes/%d' % NID, 'POST', {'scheme_ids': ids}, tk=tkx)
 
         SYN = 'syn_depts=%d' % NID
         # ── U 视角（纯追加，无原生身份）──

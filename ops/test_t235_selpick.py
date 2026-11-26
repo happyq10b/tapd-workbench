@@ -160,7 +160,7 @@ async def cdp_checks():
         })()""")
         ok(isinstance(r6, list) and r6 == ['甲', '乙', '丙'],
            '⑥ 综合模式不再按类别强排序（同创建时间按名称兜底：甲/乙在前、%s）' % r6)
-        # ⑦ 按钮 → 弹窗 → 确定 → 进入综合模式
+        # ⑦ 按钮 → 弹窗 → 默认不勾选 → 勾选确定 → 进入 → 状态链（API 预置状态，避开页面点击竞态）
         await ev("if(!DEPT_OPEN['核算部'])toggleDept('核算部')")
         await asyncio.sleep(1)
         r7 = await ev("toggleSynMode()")   # 探针验证：直接调用（真实点击受 WS 重绘时序干扰）
@@ -176,25 +176,44 @@ async def cdp_checks():
         r_names = await ev("[].slice.call(document.querySelectorAll('#synMyList b')).map(function(x){return x.textContent;})")
         ok(r_names and ('默认方案' in (r_names or [])) and ('S2方案' in (r_names or [])),
            '⑦ 弹窗列出接收方案「默认方案」+「S2方案」（%s）' % r_names)
-        # 确定（保持勾选）→ 进入综合模式
+        # 先清掉 API 段的 active 残留 → 重开弹窗验证默认态（#129b：接受≠适用）
+        await ev("synMyCancel()")
+        await asyncio.sleep(1.0)
+        api('/api/syn-my-schemes/%d' % NID, 'POST', {'scheme_ids': []}, tk=TOK_U)
+        await ev("toggleSynMode()")
+        await asyncio.sleep(1.5)
+        st_chk = await ev("({any:[].slice.call(document.querySelectorAll('#synMyList input[type=checkbox]')).some(function(c){return c.checked;}),"
+                          " badge:[].slice.call(document.querySelectorAll('#synMyList span')).some(function(s){return s.textContent==='适用中';})})")
+        ok(st_chk and st_chk.get('any') is False and st_chk.get('badge') is False,
+           '⑦ 弹窗默认不勾选、无「适用中」（接受≠适用：%s）' % st_chk)
+        # 勾选第一个方案 → 确定 → 进入综合模式
+        await ev("(function(){var c=document.querySelector('#synMyList input[type=checkbox]');if(c)c.click();return 1;})()")
+        await asyncio.sleep(0.8)
         await ev("synMyApply()")
         await asyncio.sleep(2.5)
-        ok(await ev("!!SYN_MODE") is True, '⑦ 确定后进入综合看板模式')
-        # 退出综合模式 → 再开 → 退出方案（立即生效）
+        ok(await ev("!!SYN_MODE") is True, '⑦ 勾选并确定后进入综合看板模式')
+        rows = db_rows("SELECT status FROM syn_scheme_member WHERE username=? AND dept_node_id=?", (U, NID))
+        ok(sorted(r['status'] for r in rows) == ['active', 'exited'],
+           '⑦ 确定落库：1 active + 1 exited（%s）' % [r['status'] for r in rows])
+        # 退出综合模式 → 重开弹窗 → 已适用方案保持勾选
         await ev("exitSynMode()")
         await asyncio.sleep(1.5)
         await ev("toggleSynMode()")
-        await asyncio.sleep(1.5)
-        await ev("(function(){const x=[].slice.call(document.querySelectorAll('#synMyList span')).find(function(s){return s.textContent==='退出'&&s.offsetParent!==null;});if(x)x.click();return 1;})()")
         await asyncio.sleep(1.5)
         st2 = await ev("({open:getComputedStyle(document.getElementById('synMyModal')).display!=='none',"
                        " anyChecked:[].slice.call(document.querySelectorAll('#synMyList input[type=checkbox]')).some(function(c){return c.checked;}),"
                        " badge:[].slice.call(document.querySelectorAll('#synMyList span')).some(function(s){return s.textContent==='适用中';})})")
         ok(st2 and st2.get('open') and st2.get('anyChecked') is True,
-           '⑦ 点【退出】→ 该方案取消勾选，另一方案保持勾选（单方案退出语义）')
+           '⑦ 再开弹窗：已适用方案保持勾选（apply 落库 active）')
+        # 点【退出】→ 取消勾选 → 落库全 exited（主动退出；#129 恒显退出按钮）
+        await ev("(function(){const x=[].slice.call(document.querySelectorAll('#synMyList span')).find(function(s){return s.textContent==='退出'&&s.offsetParent!==null;});if(x)x.click();return 1;})()")
+        await asyncio.sleep(1.5)
+        st3 = await ev("({any:[].slice.call(document.querySelectorAll('#synMyList input[type=checkbox]')).some(function(c){return c.checked;})})")
+        ok(st3 and st3.get('any') is False,
+           '⑦ 点【退出】→ 该方案取消勾选')
         rows = db_rows("SELECT status FROM syn_scheme_member WHERE username=? AND dept_node_id=?", (U, NID))
-        ok(sorted(r['status'] for r in rows) == ['active', 'exited'],
-           '⑦ 退出落库：1 exited + 1 active（%s）' % [r['status'] for r in rows])
+        ok(all(r['status'] == 'exited' for r in rows),
+           '⑦ 退出落库：全部 exited（%s）' % [r['status'] for r in rows])
         # 收尾：取消弹窗（不进入）
         await ev("synMyCancel()")
     finally:
@@ -237,7 +256,7 @@ def main():
         ok(len(invs) == 1, '① U 收到 admin 邀请')
         st, _ = api('/api/syn-invites/%d/decide' % invs[0]['id'], 'POST', {'accept': True}, tk=tk_u)
         rows = db_rows("SELECT scheme_id,status FROM syn_scheme_member WHERE username=? AND dept_node_id=?", (U, NID))
-        ok(len(rows) == 1 and rows[0]['status'] == 'active', '① 确认后接收登记 active（%s）' % rows)
+        ok(len(rows) == 1 and rows[0]['status'] == 'accepted', '① 确认后接收登记 accepted（接受≠适用，不默认勾选：%s）' % rows)
 
         # ── ② 多方案接收：第二发起人 O2 → U 再收一个方案 ──
         st, d2 = api('/api/syn-config/%d' % NID, 'PUT',
@@ -249,8 +268,8 @@ def main():
         ok(len(inv2) == 1 and inv2[0]['scheme_name'] == 'S2方案', '② U 收到 O2 的「S2方案」邀请')
         st, _ = api('/api/syn-invites/%d/decide' % inv2[0]['id'], 'POST', {'accept': True}, tk=tk_u)
         rows = db_rows("SELECT status FROM syn_scheme_member WHERE username=? AND dept_node_id=?", (U, NID))
-        ok(len(rows) == 2 and all(r['status'] == 'active' for r in rows),
-           '② U 同时接收 2 个方案（多方案并存，%d 行 active）' % len(rows))
+        ok(len(rows) == 2 and all(r['status'] == 'accepted' for r in rows),
+           '② U 同时接收 2 个方案（多方案并存，%d 行 accepted）' % len(rows))
         st, dA = api('/api/syn-config?dept_node_id=%d' % NID)
         ok(any(U in (s.get('extra_members') or []) for s in (dA.get('schemes') or [])),
            '② admin 方案仍包含 U（确认不驱逐原发起人）')
@@ -258,13 +277,14 @@ def main():
         # ── ③ 选择弹窗数据源 ──
         st, dmy = api('/api/syn-my-schemes?dept_node_id=%d' % NID, tk=tk_u)
         schs = dmy.get('schemes') or []
-        ok(st == 200 and len(schs) == 2 and all(s['status'] == 'active' for s in schs),
-           '③ 选择弹窗数据：2 个已接收方案均 active（%s）' % [s['name'] for s in schs])
+        ok(st == 200 and len(schs) == 2 and all(s['status'] == 'accepted' for s in schs),
+           '③ 选择弹窗数据：2 个已接收方案均 accepted（弹窗不默认勾选：%s）' % [s['name'] for s in schs])
 
         # ── ④ 选择/退出即时生效（视图白名单）──
+        st, _ = api('/api/syn-my-schemes/%d' % NID, 'POST', {'scheme_ids': [s['id'] for s in schs]}, tk=tk_u)
         st, dv = api('/api/syn-boards?dept_node_ids=%d&syn_depts=%d' % (NID, NID), tk=tk_u)
         ok(st == 200 and ck in (dv.get('col_whitelist') or []),
-           '④ 双方案 active → 综合视图白名单含 ck（并集口径）')
+           '④ 勾选确定双方案 → 综合视图白名单含 ck（并集口径）')
         keep = [s['id'] for s in schs if s['owner'] == 'admin']
         st, _ = api('/api/syn-my-schemes/%d' % NID, 'POST', {'scheme_ids': keep}, tk=tk_u)
         st, dv2 = api('/api/syn-boards?dept_node_ids=%d&syn_depts=%d' % (NID, NID), tk=tk_u)
@@ -316,7 +336,7 @@ def main():
         ok(st == 200 and d4.get('invited') == 0, '⑤-3 U 已确认过 O2 → 再次追加直接生效（invited=0）')
         rows = db_rows("SELECT status FROM syn_scheme_member WHERE username=? AND dept_node_id=? AND scheme_id IN "
                        "(SELECT id FROM syn_scheme WHERE dept_node_id=? AND owner=?)", (U, NID, NID, O2))
-        ok(rows and rows[0]['status'] == 'active', '⑤-3 直接生效：U 的接收登记含 O2 方案（active）')
+        ok(rows and rows[0]['status'] == 'accepted', '⑤-3 直接生效：U 的接收登记含 O2 方案（accepted，不默认勾选）')
 
         # ── CDP：⑥ 类别排序取消 ⑦ 弹窗流程 ──
         asyncio.run(cdp_checks())
