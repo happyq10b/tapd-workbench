@@ -191,13 +191,12 @@ async def main():
         ok(r6 and r6.get('added') and r6.get('removed') and r6.get('cbUnchecked') and r6.get('offBtnOn'),
            '⑥ 升/降序自动加入排序；【不排序】退出且勾选框同步取消')
 
-        # ── ⑦ 说明一句话 ──
+        # ── ⑦ 说明文字已整体删除（T-237b 用户需求3：弹窗精简）──
         r7 = await ev("""(function(){
           const b=document.querySelector('#sortSetModal .due-info-banner');
-          return {txt:b?b.textContent.trim():'', len:b?b.textContent.trim().length:999};
+          return {gone:!b};
         })()""")
-        ok(r7 and r7.get('len', 999)<=60 and '置顶' in r7.get('txt',''),
-           '⑦ 说明精简为一句话（%d 字：%s）' % ((r7 or {}).get('len'), (r7 or {}).get('txt','')))
+        ok(r7 and r7.get('gone') is True, '⑦ 说明文字已删除（弹窗精简，T-237b 口径）')
 
         # 收尾恢复快照
         await ev("localStorage.setItem('tapd.sortCfg_'+ME.username,%s);"
